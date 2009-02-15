@@ -260,19 +260,18 @@ class htmlParser(sgmlParser):
         Handler for select end tag
         """
         sgmlParser._handle_select_endtag(self)
-        self._optionAttrs.append( ('name', self._selectTagName) )
         if not self._forms:
             self._saved_inputs.append( ('input', self._optionAttrs) )
         else:
             f = self._forms[-1]
-            f.addInput( self._optionAttrs )
+            f.addSelect(self._selectTagName, self._optionAttrs )
 
     def _handle_option_tag_inside_form(self, tag, attrs):
         """
         Handler for option tag inside a form
         """
         if self._insideSelect:
-            self._optionAttrs = attrs
+            self._optionAttrs.append(attrs)
 
     def _handle_option_tag_outside_form(self, tag, attrs):
         """
