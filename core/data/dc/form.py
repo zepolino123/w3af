@@ -23,11 +23,12 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 from core.data.dc.dataContainer import dataContainer
 import copy
 import urllib
+import core.controllers.outputManager as om
 
 class form(dataContainer):
     '''
     This class represents a HTML form.
-    
+
     @author: Andres Riancho ( andres.riancho@gmail.com )
     '''
     def __init__(self, init_val=(), strict=False):
@@ -36,29 +37,30 @@ class form(dataContainer):
         self._action = None
         self._types = {}
         self._files = []
+        self._selects = {}
         self._submitMap = {}
-        
+
     def getAction(self):
         '''
         @return: The form action.
         '''
         return self._action
-        
+
     def setAction(self, action):
         self._action = action
-        
+
     def getMethod(self):
         '''
         @return: The form method.
         '''
         return self._method
-    
+
     def setMethod(self, method):
         self._method = method.upper()
-    
+
     def getFileVariables( self ):
         return self._files
-        
+
     def addFileInput( self, attrs ):
         '''
         Adds a file input to the form
@@ -71,7 +73,7 @@ class form(dataContainer):
 
         self._files.append( name )
         self[name] = ''
-    
+
     def __str__( self ):
         '''
         This method returns a string representation of the form Object.
@@ -81,26 +83,26 @@ class form(dataContainer):
         for i in self._submitMap:
             tmp[i] = self._submitMap[i]
         return urllib.urlencode( tmp )
-    
+
     def copy(self):
         '''
         This method returns a copy of the form Object.
-        
+
         @return: A copy of myself.
         '''
         return copy.deepcopy( self )
-        
+
     def addSubmit( self, name, value ):
         '''
         This is something I havent thought about !
         <input type="submit" name="b0f" value="Submit Request">
         '''
         self._submitMap[name] = value
-        
+
     def addInput(self, attrs):
         '''
         Adds a input to the form
-        
+
         @parameter attrs: attrs=[("class", "screen")]
         '''
 
@@ -108,9 +110,9 @@ class form(dataContainer):
         <INPUT type="text" name="email"><BR>
         <INPUT type="radio" name="sex" value="Male"> Male<BR>
         '''
-        
+
         type = name = value = ''
-            
+
         for attr in attrs:
             if attr[0] == 'name' or attr[0] == 'id':
                 name = attr[1]
@@ -129,8 +131,50 @@ class form(dataContainer):
             if type == 'submit':
                 self.addSubmit( name, value )
             else:
-                self._types[name] = type 
+                self._types[name] = type
                 self[name] = value
-        
+
     def getType( self, name ):
         return self._types[name]
+
+    def addSelect(self, name, options):
+        self._selects[name] = []
+        value = ""
+        for option in options:
+            for attr in option:
+                if attr[0].lower() == "value":
+                    value = attr[1]
+                    self._selects[name].append(value)
+        self[name] = value
+
+    def addSelectValue(self, name, value, selected=False):
+        pass
+
+    def getVariantsCount(self):
+        pass
+
+    def getVariants(self):
+        result = []
+
+        for i in self._selects:
+            tmp_result = copy.deepcopy(result)
+            result = []
+            for j in self._selects[i]:
+                if len(tmp_result) == 0:
+                    tmp = []
+                    tmp.append((i,j))
+                    result.append(tmp)
+                    continue
+                for prev in tmp_result:
+                    tmp = []
+                    for prev_i in prev:
+                        tmp.append(prev_i)
+                    tmp.append((i,j))
+                    result.append(tmp)
+        variants = []
+        for variant in result:
+            tmp = copy.deepcopy(self)
+            for select_variant in variant:
+                tmp[select_variant[0]] = select_variant[1]
+            variants.append(tmp)
+        return variants
