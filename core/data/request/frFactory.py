@@ -107,8 +107,9 @@ def createFuzzableRequests( httpResponse, addSelf=True ):
         
     else:
         # create one httpPostDataRequest for each form
+        mode = cf.cf.getData('fuzzFormComboValues')
         for form in form_list:
-            variants = form.getVariants()
+            variants = form.getVariants(mode)
             for variant in variants:
                 if form.getMethod().upper() == 'GET':
                     r = httpQsRequest.httpQsRequest()
