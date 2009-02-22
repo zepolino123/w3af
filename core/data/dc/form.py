@@ -23,7 +23,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 from core.data.dc.dataContainer import dataContainer
 import copy
 import urllib
-import core.controllers.outputManager as om
 
 class form(dataContainer):
     '''
@@ -41,18 +40,12 @@ class form(dataContainer):
         self._submitMap = {}
 
     def getAction(self):
-        '''
-        @return: The form action.
-        '''
         return self._action
 
     def setAction(self, action):
         self._action = action
 
     def getMethod(self):
-        '''
-        @return: The form method.
-        '''
         return self._method
 
     def setMethod(self, method):
@@ -135,9 +128,16 @@ class form(dataContainer):
                 self[name] = value
 
     def getType( self, name ):
+        """
+        Returns type for field "name"
+        """
         return self._types[name]
 
     def addSelect(self, name, options):
+        """
+        Adds one more select field with options
+        Options is list of options attrs (tuples)
+        """
         self._selects[name] = []
         value = ""
         for option in options:
@@ -147,23 +147,63 @@ class form(dataContainer):
                     self._selects[name].append(value)
         self[name] = value
 
-    def addSelectValue(self, name, value, selected=False):
-        pass
+    def getVariantsCount(self, mode="all"):
+        """
+        Return count of all variants of currenf form
+        P.S. Combinatorics rulez!
+        """
+        result = 1
+        for i in self._selects:
+            tmp = len(self._selects[i])
+            if "tb" == mode:
+                if tmp > 1:
+                    tmp = 2
+            if "tmb" == mode:
+                if tmp > 2:
+                    tmp = 3
+            result *= tmp
+        return result
 
-    def getVariantsCount(self):
-        pass
+    def _needToAdd(self, mode, opt_index, opt_count):
+        """
+        Checks if option with opt_index is needed to be added
+        """
+        if opt_count <= 2:
+            return True
+        if "tb" == mode or "tmb" == mode:
+            if opt_index == 0 or opt_index == (opt_count - 1):
+                return True
+        if "tmb" == mode:
+            if opt_index == (opt_count / 2):
+                return True
+        if "all" == mode:
+            return True
+        return False
 
-    def getVariants(self):
+    def getVariants(self, mode="all"):
+        """
+        Returns all variants of form by mode:
+          "all"
+          "tb"
+          "tmb"
+        """
         result = []
+        variants = []
 
         for i in self._selects:
             tmp_result = copy.deepcopy(result)
             result = []
+            opt_count = len(self._selects[i])
+            opt_index = 0
             for j in self._selects[i]:
+                if not self._needToAdd(mode, opt_index, opt_count):
+                    opt_index += 1
+                    continue
                 if len(tmp_result) == 0:
                     tmp = []
                     tmp.append((i,j))
                     result.append(tmp)
+                    opt_index += 1
                     continue
                 for prev in tmp_result:
                     tmp = []
@@ -171,10 +211,11 @@ class form(dataContainer):
                         tmp.append(prev_i)
                     tmp.append((i,j))
                     result.append(tmp)
-        variants = []
+                opt_index += 1
         for variant in result:
             tmp = copy.deepcopy(self)
             for select_variant in variant:
                 tmp[select_variant[0]] = select_variant[1]
             variants.append(tmp)
+
         return variants
