@@ -77,8 +77,8 @@ class miscSettings(configurable):
         d5 = 'A list with all fuzzable header names'
         o5 = option('fuzzableHeaders', cf.cf.getData('fuzzableHeaders'), d5, 'list', tabid='Fuzzer parameters')
 
-        d15 = 'Indicates what HTML form combo values w3af plugins will use: all, tb, tmb'
-        h15 = 'Indicates what HTML form combo values, e.g. select options values,  w3af plugins will use: all (All values), tb (only top and bottom values), tmb (top, middle and bottom values)'
+        d15 = 'Indicates what HTML form combo values w3af plugins will use: all, tb, tmb, t, b'
+        h15 = 'Indicates what HTML form combo values, e.g. select options values,  w3af plugins will use: all (All values), tb (only top and bottom values), tmb (top, middle and bottom values), t (top values), b (bottom values)'
         o15 = option('fuzzFormComboValues', cf.cf.getData('fuzzFormComboValues'), d15, 'string', help=h15, tabid='Fuzzer parameters')
 
         ######## Core parameters ########
