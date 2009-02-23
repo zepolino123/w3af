@@ -157,12 +157,10 @@ class form(dataContainer):
             return result
         for i in self._selects:
             tmp = len(self._selects[i])
-            if "tb" == mode:
-                if tmp > 1:
-                    tmp = 2
-            if "tmb" == mode:
-                if tmp > 2:
-                    tmp = 3
+            if "tb" == mode and tmp > 1:
+                tmp = 2
+            if "tmb" == mode and tmp > 2:
+                tmp = 3
             result *= tmp
         return result
 
