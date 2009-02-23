@@ -149,10 +149,12 @@ class form(dataContainer):
 
     def getVariantsCount(self, mode="all"):
         """
-        Return count of all variants of currenf form
+        Return count of variants of current form
         P.S. Combinatorics rulez!
         """
         result = 1
+        if mode in ["t", "b"]:
+            return result
         for i in self._selects:
             tmp = len(self._selects[i])
             if "tb" == mode:
@@ -168,24 +170,24 @@ class form(dataContainer):
         """
         Checks if option with opt_index is needed to be added
         """
-        if opt_count <= 2:
+        if opt_count <= 1 or mode == "all":
             return True
-        if "tb" == mode or "tmb" == mode:
-            if opt_index == 0 or opt_index == (opt_count - 1):
-                return True
-        if "tmb" == mode:
-            if opt_index == (opt_count / 2):
-                return True
-        if "all" == mode:
+        if mode in ["t", "tb", "tmb"] and opt_index == 0:
+            return True
+        if mode in ["tb", "tmb", "b"] and opt_index == (opt_count - 1):
+            return True
+        if "tmb" == mode and opt_index == (opt_count / 2):
             return True
         return False
 
     def getVariants(self, mode="all"):
         """
         Returns all variants of form by mode:
-          "all"
-          "tb"
-          "tmb"
+          "all" - all values
+          "tb" - only top and bottom values
+          "tmb" - top, middle and bottom values
+          "t" - top values
+          "b" - bottom values
         """
         result = []
         variants = []
