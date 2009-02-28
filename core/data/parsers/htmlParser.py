@@ -177,7 +177,9 @@ class htmlParser(sgmlParser):
                 f.hasFileInput = True
                 f.addFileInput( attrs )
                 return
-        
+            if attr[0].lower() == 'type' and attr[1].lower() == 'radio':
+                f.addRadio( attrs )
+                return
         # Simply add all the other input types
         f.addInput( attrs )
 
