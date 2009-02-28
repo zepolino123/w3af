@@ -109,29 +109,48 @@ class form(dataContainer):
         for attr in attrs:
             if attr[0] == 'name' or attr[0] == 'id':
                 name = attr[1]
+            if attr[0] == 'type':
+                type = attr[1]
+            if attr[0] == 'value':
+                value = attr[1]
 
-        if name != '':
-            # Find the type
-            for attr in attrs:
-                if attr[0] == 'type':
-                    type = attr[1]
+        if name == '':
+           return
 
-            # Find the default value
-            for attr in attrs:
-                if attr[0] == 'value':
-                    value = attr[1]
-
-            if type == 'submit':
-                self.addSubmit( name, value )
-            else:
-                self._types[name] = type
-                self[name] = value
+        if type == 'submit':
+            self.addSubmit( name, value )
+        else:
+            self._types[name] = type
+            self[name] = value
 
     def getType( self, name ):
         """
         Returns type for field "name"
         """
         return self._types[name]
+
+    def addRadio(self, attrs):
+        """
+        Adds radio field
+        """
+        name = value = ''
+
+        for attr in attrs:
+            if attr[0] == 'name' or attr[0] == 'id':
+                name = attr[1]
+            if attr[0] == 'value':
+                value = attr[1]
+
+        if name == '':
+            return
+
+        if name not in self._selects:
+            self._selects[name] = []
+
+        self._types[name] = "radio"
+        if value not in self._selects[name]:
+            self._selects[name].append(value)
+        self[name] = value
 
     def addSelect(self, name, options):
         """
