@@ -26,11 +26,17 @@ import thread
 import os
 from random import choice
 import string
+
 try:
    import cPickle as pickle
 except:
    import pickle
-from core.controllers.misc.temp_dir import get_temp_dir
+
+try:
+    from core.controllers.misc.temp_dir import get_temp_dir
+except:
+    def get_temp_dir():
+        return '/tmp/'
 
 
 class temp_shelve(object):
@@ -115,6 +121,10 @@ class disk_list(object):
         self._temp_shelve = temp_shelve()
 
     def append(self, value):
+        
+        if isinstance(value, unicode):
+            value = value.encode()
+            
         self._temp_shelve[value] = 1
         return None
         
@@ -122,6 +132,9 @@ class disk_list(object):
         return repr(self._temp_shelve.keys())
         
     def __contains__(self, value):
+        if isinstance(value, unicode):
+            value = value.encode()
+        
         return value in self._temp_shelve
         
     def __len__(self):
@@ -158,4 +171,8 @@ if __name__ == '__main__':
     assert len(dlist) == 1000
     assert '5' in dlist
     assert not '5555' in dlist
+    try:
+        unicode('a') in dlist
+    except:
+        print 'Exception raised (ok).'
     print 'Done!'
