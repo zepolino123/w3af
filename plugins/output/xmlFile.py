@@ -201,34 +201,34 @@ class xmlFile(baseOutputPlugin):
         if not self._initialized:
             self._init()
         
-        # Add the vulnerability results
-        vulns = kb.kb.getAllVulns()
-        for i in vulns:
-          messageNode = self._xmldoc.createElement("vulnerability")
-          messageNode.setAttribute("severity", str(i.getSeverity()))
-          messageNode.setAttribute("method", str(i.getMethod()))
-          messageNode.setAttribute("url", str(i.getURL()))
-          messageNode.setAttribute("var", str(i.getVar()))
-          description = self._xmldoc.createTextNode(i.getDesc())
-          messageNode.appendChild(description)
-          self._topElement.appendChild(messageNode)
+            # Add the vulnerability results
+            vulns = kb.kb.getAllVulns()
+            for i in vulns:
+                messageNode = self._xmldoc.createElement("vulnerability")
+                messageNode.setAttribute("severity", str(i.getSeverity()))
+                messageNode.setAttribute("method", str(i.getMethod()))
+                messageNode.setAttribute("url", str(i.getURL()))
+                messageNode.setAttribute("var", str(i.getVar()))
+                description = self._xmldoc.createTextNode(i.getDesc())
+                messageNode.appendChild(description)
+                self._topElement.appendChild(messageNode)
         
-        # Add the information results
-        infos = kb.kb.getAllInfos()
-        for i in infos:
-          messageNode = self._xmldoc.createElement("information")
-          messageNode.setAttribute("url", str(i.getURL()))
-          description = self._xmldoc.createTextNode(i.getDesc())
-          messageNode.appendChild(description)
-          self._topElement.appendChild(messageNode)
+            # Add the information results
+            infos = kb.kb.getAllInfos()
+            for i in infos:
+                messageNode = self._xmldoc.createElement("information")
+                messageNode.setAttribute("url", str(i.getURL()))
+                description = self._xmldoc.createTextNode(i.getDesc())
+                messageNode.appendChild(description)
+                self._topElement.appendChild(messageNode)
         
-        # Add additional information results
-        for node in self._errorXML:
-            self._topElement.appendChild(node)
+            # Add additional information results
+            for node in self._errorXML:
+                self._topElement.appendChild(node)
         
-        # Write xml report
-        self._xmldoc.appendChild(self._topElement)
-        self._xmldoc.writexml(self._file, "", "", "\n", "UTF-8")
+            # Write xml report
+            self._xmldoc.appendChild(self._topElement)
+            self._xmldoc.writexml(self._file, "", "", "\n", "UTF-8")
               
     def getLongDesc( self ):
         '''
