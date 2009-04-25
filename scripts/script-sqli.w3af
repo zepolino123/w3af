@@ -14,7 +14,7 @@ audit sqli
 back
 
 target
-set target http://localhost/w3af/audit/sql_injection/select/sql_injection_string.php?name=andres
+set target http://localhost/sqli
 back
 
 start
@@ -23,5 +23,4 @@ assert len(kb.kb.getData('sqli','sqli')) == 1
 
 back
 exit
-
 
