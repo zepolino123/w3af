@@ -32,6 +32,8 @@ import core.data.kb.knowledgeBase as kb
 import core.data.kb.info as info
 import core.data.kb.vuln as vuln
 
+from core.data.db.temp_persist import disk_list
+
 from core.controllers.w3afException import w3afException
 import core.data.parsers.dpCache as dpCache
 import core.data.parsers.urlParser as urlParser
@@ -48,6 +50,9 @@ class strangeParameters(baseGrepPlugin):
 
     def __init__(self):
         baseGrepPlugin.__init__(self)
+
+        # Internal variables
+        self._already_reported = disk_list()
         
     def grep(self, request, response):
         '''
@@ -71,7 +76,8 @@ class strangeParameters(baseGrepPlugin):
             for ref in parsed_references:
                 qs = urlParser.getQueryString( ref )
                 for param in qs:
-                    if self._is_strange( request, param, qs[param] ):
+                    if self._is_strange( request, param, qs[param] )\
+                    and ref not in self._already_reported:
                         i = info.info()
                         i.setName('Strange parameter')
                         i.setURI( ref )
@@ -83,7 +89,8 @@ class strangeParameters(baseGrepPlugin):
                         i['parameterValue'] = qs[param]
                         kb.kb.append( self , 'strangeParameters' , i )
 
-                    if self._is_SQL( request, param, qs[param] ): 
+                    if self._is_SQL( request, param, qs[param] )\
+                    and ref not in self._already_reported:
                         # To find this kind of vulns
                         # http://thedailywtf.com/Articles/Oklahoma-
                         # Leaks-Tens-of-Thousands-of-Social-Security-Numbers,-Other-
