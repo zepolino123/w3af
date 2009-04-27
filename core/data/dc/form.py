@@ -81,6 +81,7 @@ class form(dataContainer):
         if name:
             self._files.append( name )
             self[name] = ''
+            self._types[name] = 'file'
     
     def __str__( self ):
         '''
@@ -144,8 +145,10 @@ class form(dataContainer):
             if type == 'submit':
                 self.addSubmit( name, value )
             else:
-                self._types[name] = type 
                 self[name] = value
+
+            # Save the type
+            self._types[name] = type
         
     def getType( self, name ):
         return self._types[name]
