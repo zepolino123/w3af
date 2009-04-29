@@ -25,6 +25,8 @@ import ConfigParser
 from core.controllers.misc.factory import *
 import os
 import shutil
+from core.controllers.misc.homeDir import create_home_dir, get_home_dir, home_dir_is_writable
+
 
 class profile:
     '''
@@ -57,10 +59,13 @@ class profile:
                 # The file isn't there, let's try with a .pw3af ...
                 if not profile_file_name.endswith('.pw3af'):
                     profile_file_name += '.pw3af'
-                if not os.path.exists(profile_file_name):
                 
-                    # Search in the default path...        
-                    profile_file_name = 'profiles' + os.path.sep + profile_file_name
+                if not os.path.exists(profile_file_name):
+                    
+                    # Search in the default path...
+                    profile_home = get_home_dir() + os.path.sep + 'profiles' + os.path.sep
+                    profile_file_name = profile_home + profile_file_name
+                    
                     if not os.path.exists(profile_file_name):
                         raise w3afException('The profile "' + profile_file_name + '" wasn\'t found.')
            
@@ -70,7 +75,7 @@ class profile:
                 raise w3afException('Unknown format in profile: ' + profile_file_name )
             else:
                 # Save the profile_file_name variable
-                self._profile_file_name = profile_file_name            
+                self._profile_file_name = profile_file_name
     
     def get_profile_file(self):
         '''
@@ -110,9 +115,9 @@ class profile:
             raise w3afException('An exception ocurred while copying the profile. Exception: ' + str(e))
         else:
             # Now I have to change the data inside the copied profile, to reflect the changes.
-            pNew = profile(newProfilePathAndName)
+            pNew = profile( newProfilePathAndName )
             pNew.setName( copyProfileName )
-            pNew.save(newProfilePathAndName)
+            pNew.save( newProfilePathAndName )
             
             return True
     
@@ -347,24 +352,26 @@ class profile:
         # Something went wrong
         return None
     
-    def save( self, fileName = '' ):
+    def save( self, file_name = '' ):
         '''
-        Saves the profile to fileName
+        Saves the profile to file_name.
+        
         @return: None
         '''
-        if fileName == '' and self._profile_file_name == None:
-            raise w3afException('Error while saving profile, you didn\'t specified the filename.')
-        elif fileName != '' and self._profile_file_name == None:
-            # The user is specifiyng a filename!
-            if not fileName.endswith('.pw3af'):
-                fileName += '.pw3af'
-            if os.path.sep not in fileName:
-                fileName = 'profiles' + os.path.sep + fileName
-            self._profile_file_name = fileName
+        if file_name == '' and self._profile_file_name == None:
+            raise w3afException('Error while saving profile, you didn\'t specified the file name.')
+        elif file_name != '' and self._profile_file_name == None:
+            # The user is specifiyng a file_name!
+            if not file_name.endswith('.pw3af'):
+                file_name += '.pw3af'
+                
+            if os.path.sep not in file_name:
+                file_name = os.path.join(get_home_dir(), 'profiles', file_name )
+            self._profile_file_name = file_name
             
         try:
-            f = open( self._profile_file_name, 'w')
+            file_handler = open( self._profile_file_name, 'w')
         except:
             raise w3afException('Failed to open profile file: ' + self._profile_file_name)
         else:
-            self._config.write( f )
+            self._config.write( file_handler )

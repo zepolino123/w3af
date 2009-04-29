@@ -46,7 +46,9 @@ class pathDisclosure(baseGrepPlugin):
 
     def __init__(self):
         baseGrepPlugin.__init__(self)
-        self._url_list = []
+        
+        # Internal variables
+        self._already_added = []
         
         # Compile all regular expressions now
         self._path_disc_regex_list = []
@@ -57,7 +59,7 @@ class pathDisclosure(baseGrepPlugin):
         @return: None, the result is saved in self._path_disc_regex_list
         '''
         for path_disclosure_string in self._get_path_disclosure_strings():
-            regex_string = '('+path_disclosure_string + '.*?)[:|\'|"|<|\n|\r|\t]'
+            regex_string = '('+path_disclosure_string + '.*?)[^A-Za-z0-9\._\-\\/\+~]'
             regex = re.compile( regex_string,  re.IGNORECASE)
             self._path_disc_regex_list.append(regex)
 
@@ -76,23 +78,31 @@ class pathDisclosure(baseGrepPlugin):
                 match_list = path_disc_regex.findall( html_string  )
                 
                 for match in match_list:
-                   
+                    
                     # This if is to avoid false positives
                     if not self._wasSent( request, match ) and not \
                     self._attr_value( match, html_string ):
                         
-                        v = vuln.vuln()
-                        v.setURL( realurl )
-                        v.setId( response.id )
-                        msg = 'The URL: "' + v.getURL() + '" has a path disclosure '
-                        msg += 'vulnerability which discloses: "' + match  + '".'
-                        v.setDesc( msg )
-                        v.setSeverity(severity.LOW)
-                        v.setName( 'Path disclosure vulnerability' )
-                        v['path'] = match
-                        kb.kb.append( self, 'pathDisclosure', v )
+                        # Check for dups
+                        if (realurl, match) in self._already_added:
+                            continue
+                        else:
+                            # It's a new one, report!
+                            self._already_added.append( (realurl, match) )
+                            
+                            v = vuln.vuln()
+                            v.setURL( realurl )
+                            v.setId( response.id )
+                            msg = 'The URL: "' + v.getURL() + '" has a path disclosure '
+                            msg += 'vulnerability which discloses: "' + match  + '".'
+                            v.setDesc( msg )
+                            v.setSeverity(severity.LOW)
+                            v.setName( 'Path disclosure vulnerability' )
+                            v['path'] = match
+                            v.addToHighlight( match )
+                            kb.kb.append( self, 'pathDisclosure', v )
         
-        self._update_KB_path_list( response.getURL() )
+        self._update_KB_path_list()
     
     def _attr_value(self, path_disclosure_string, response_body ):
         '''
@@ -113,18 +123,14 @@ class pathDisclosure(baseGrepPlugin):
         in_attr = path_disclosure_string in regex_res
         return in_attr
     
-    def _update_KB_path_list( self, url ):
+    def _update_KB_path_list( self ):
         '''
         If a path disclosure was found, I can create a list of full paths to all URLs ever visited.
         This method updates that list.
-        
-        @parameter url: The URL where the path disclosure was found.
         '''
-        self._url_list.append( url )
-        
         path_disc_vulns = kb.kb.getData( 'pathDisclosure', 'pathDisclosure' ) 
         if len( path_disc_vulns ) == 0:
-            # I cant calculate the list !
+            # I can't calculate the list !
             pass
         else:
             # Init the kb variables
@@ -155,22 +161,32 @@ class pathDisclosure(baseGrepPlugin):
             if longest_match:
                 
                 # Get the webroot
-                webroot = longest_path_disc_vuln['path'].replace( path_and_file, '' )
+                webroot = longest_path_disc_vuln['path'].replace( longest_match, '' )
                 
-                # Check what path separator we should use
-                if webroot[0] == '/':
-                    path_sep = '/'
-                else:
-                    # windows
-                    path_sep = '\\'
-                
-                # Create the remote locations
-                remote_locations = []
-                for url in url_list:
-                    remote_path = urlParser.getPath( url ).replace('/', path_sep)
-                    remote_locations.append( webroot + remote_path )
-                remote_locations = list( set( remote_locations ) )
-                kb.kb.save( self, 'listFiles', remote_locations )
+                #
+                #   This if fixes a strange case reported by Olle
+                #           if webroot[0] == '/':
+                #           IndexError: string index out of range
+                #   That seems to be because the webroot == ''
+                #
+                if webroot:
+                    kb.kb.save( self, 'webroot', webroot )
+                    
+                    # Check what path separator we should use (linux / windows)
+                    if webroot[0] == '/':
+                        path_sep = '/'
+                    else:
+                        # windows
+                        path_sep = '\\'
+                    
+                    # Create the remote locations
+                    remote_locations = []
+                    for url in url_list:
+                        remote_path = urlParser.getPath( url ).replace('/', path_sep)
+                        remote_locations.append( webroot + remote_path )
+                    remote_locations = list( set( remote_locations ) )
+                    
+                    kb.kb.save( self, 'listFiles', remote_locations )
         
     def setOptions( self, OptionList ):
         pass
@@ -186,9 +202,7 @@ class pathDisclosure(baseGrepPlugin):
         '''
         This method is called when the plugin wont be used anymore.
         '''
-        inform = []
-        for v in kb.kb.getData( 'pathDisclosure', 'pathDisclosure' ):
-            inform.append( v )
+        inform = kb.kb.getData( 'pathDisclosure', 'pathDisclosure' )
         
         tmp = {}
         ids = {}
@@ -210,9 +224,14 @@ class pathDisclosure(baseGrepPlugin):
         for url in tmp.keys():
             om.out.information( 'The URL: ' + url + ' has the following path disclosure problems:' )
             for path in tmp[ url ]:
-                toPrint = '- ' + path + ' . Found in request id\'s: '
-                toPrint += str( list( set( ids[ path ] ) ) )
-                om.out.information( toPrint )
+                to_print = '- ' + path + ' . Found in request id\'s: '
+                
+                list_of_id_list = ids[ path ]
+                complete_list = []
+                for list_of_id in list_of_id_list:
+                    complete_list.extend(list_of_id)
+                to_print += str( list( set( complete_list ) ) )
+                om.out.information( to_print )
 
     def _get_path_disclosure_strings(self):
         '''

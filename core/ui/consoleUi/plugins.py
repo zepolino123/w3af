@@ -137,7 +137,7 @@ class pluginsTypeMenu(menu):
         if command in self.getCommands():
             return menu.suggestParams(self, command, params, part)
         
-        alreadySel =[lambda s: s.lstrip('!') for s in [command] + params]
+        alreadySel =[s.lstrip('!') for s in [command] + params]
         
         plugins = self._plugins.keys()
         return suggest(plugins, part.lstrip('!'), alreadySel)
@@ -182,10 +182,22 @@ class pluginsTypeMenu(menu):
             elif plugin not in enabled:
                 enabled.append(plugin)
         
-        if self._name == 'output' and 'console' not in enabled:
-            om.out.console("Warning: it's not allowed to disable \
-                console output plugin in the console UI")
-            enabled.append('console')
+        # Note: Disabling this check after talking with olle. Only advanced users are going to
+        # remove the console output plugin, and if someone else does, he will realize that he
+        # fucked up ;)
+        #
+        #if self._name == 'output' and 'console' not in enabled:
+        #    om.out.console("Warning: You can't disable the console output plugin in the console UI")
+        #    enabled.append('console')
+        #
+        # What I'm going to do, is to let the user know that he's going into blind mode:
+        #
+        if self._name == 'output' and 'console' not in enabled and len(enabled) == 0:
+            msg = "Warning: You disabled the console output plugin. If you start a new scan, the"
+            msg += ' discovered vulnerabilities won\'t be printed to the console, we advise you'
+            msg += ' to enable at least one output plugin in order to be able to actually see'
+            msg += ' the scan output.'
+            om.out.console( msg )
             
         self._w3af.setPlugins(enabled, self._name)
 

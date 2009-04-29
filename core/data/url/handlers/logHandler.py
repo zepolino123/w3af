@@ -28,6 +28,9 @@ import core.controllers.outputManager as om
 import core.data.request.fuzzableRequest as fuzzableRequest
 import core.data.url.httpResponse as httpResponse
 import core.data.kb.knowledgeBase as kb
+import core.data.parsers.urlParser as urlParser
+from core.controllers.misc.number_generator import consecutive_number_generator
+
 
 class logHandler(urllib2.BaseHandler, urllib2.HTTPDefaultErrorHandler, urllib2.HTTPRedirectHandler):
     """
@@ -37,24 +40,19 @@ class logHandler(urllib2.BaseHandler, urllib2.HTTPDefaultErrorHandler, urllib2.H
     handler_order = urllib2.HTTPErrorProcessor.handler_order -1
     
     def __init__(self):
-        self._lock = thread.allocate_lock()
+        pass
     
-    def _getCounter( self ):
+    def inc_counter( self, step=1 ):
         '''
-        @return: The next number to assign as the id for responses.
+        @return: The next number to use in the request/response ID.
         '''
-        
-        # Use a lock to make sure that we don't have problems with different
-        # threads that are requesting things to the xUrllib 
-        with self._lock:
-            c = kb.kb.getData('idHandler', 'counter')
-            if c == []:
-                kb.kb.save('idHandler', 'counter', 0 )
-                c = 0
-
-            c += 1
-            kb.kb.save('idHandler', 'counter', c)
-            return c
+        return consecutive_number_generator.inc()
+            
+    def _get_counter( self ):
+        '''
+        @return: The current counter number to assign as the id for responses.
+        '''
+        return consecutive_number_generator.get()
 
     def http_error_default(self, req, fp, code, msg, hdrs):
         err = urllib2.HTTPError(req.get_full_url(), code, msg, hdrs, fp)
@@ -87,13 +85,16 @@ class logHandler(urllib2.BaseHandler, urllib2.HTTPDefaultErrorHandler, urllib2.H
             newurl = newurl.replace(' ', '%20')
             if 'Content-length' in req.headers:
                 req.headers.pop('Content-length')
-            return urllib2.Request(newurl,
+            
+            new_request = urllib2.Request(newurl,
             headers=req.headers,
             origin_req_host=req.get_origin_req_host(),
             unverifiable=True)
+            
+            return new_request
         else:
             err = urllib2.HTTPError(req.get_full_url(), code, msg, headers, fp)
-            err.id = self._getCounter()
+            err.id = self.inc_counter()
             raise err
     
     old_http_error_302 = urllib2.HTTPRedirectHandler.http_error_302
@@ -102,12 +103,13 @@ class logHandler(urllib2.BaseHandler, urllib2.HTTPDefaultErrorHandler, urllib2.H
         '''
         This is a http_error_302 wrapper to add an id attr to loop errors.
         '''
+        id_for_error = self._get_counter()
         try:
             return self.old_http_error_302(req, fp, code, msg, headers)
         except urllib2.HTTPError, e:
             #om.out.debug('The remote web application generated a redirect loop when requesting: ' + \
             #e.geturl() )
-            e.id = self._getCounter()
+            e.id = id_for_error
             raise e
         
     http_error_301 = http_error_303 = http_error_307 = http_error_302 = mod_http_error_302
@@ -116,6 +118,9 @@ class logHandler(urllib2.BaseHandler, urllib2.HTTPDefaultErrorHandler, urllib2.H
         '''
         perform some ugly hacking of request headers and go on...
         '''
+        #
+        # FIXME: What if the user doesn't want to add these headers?
+        #
         if not request.has_header('Host'):
             request.add_unredirected_header('Host', request.host )
             
@@ -153,7 +158,7 @@ class logHandler(urllib2.BaseHandler, urllib2.HTTPDefaultErrorHandler, urllib2.H
         om.out.logHttp( fr, res )
     
     def http_response(self, request, response):
-        response.id = self._getCounter()
+        response.id = self.inc_counter()
         self._log_request_response( request, response )
         request.id = response.id
         return response

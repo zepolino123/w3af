@@ -33,6 +33,7 @@ import core.controllers.miscSettings as miscSettings
 import os, sys
 
 from core.controllers.misc.homeDir import create_home_dir, get_home_dir, home_dir_is_writable
+from core.controllers.misc.temp_dir import create_temp_dir, remove_temp_dir, get_temp_dir
 from core.controllers.misc.factory import factory
 
 from core.data.url.xUrllib import xUrllib
@@ -75,7 +76,11 @@ class w3afCore:
         Init some variables and files.
         Create the URI opener.
         '''
+        # Create some directories
         self._home_directory()
+        self._tmp_directory()
+        
+        # Init some internal variables
         self._initializeInternalVariables()
         self._zeroSelectedPlugins()
         
@@ -101,6 +106,19 @@ class w3afCore:
             msg += 'Please set the correct permissions and ownership.'
             print msg
             sys.exit(-3)
+            
+    def _tmp_directory(self):
+        '''
+        Handle the creation of the tmp directory, where a lot of stuff is stored.
+        Usually it's something like /tmp/w3af/<pid>/
+        '''
+        try:
+            create_temp_dir()
+        except:
+            msg = 'The w3af tmp directory "' + get_temp_dir() + '" is not writable. '
+            msg += 'Please set the correct permissions and ownership.'
+            print msg
+            sys.exit(-3)            
 
     def _zeroSelectedPlugins(self):
         '''
@@ -386,7 +404,8 @@ class w3afCore:
             om.out.error('')
             om.out.error( 'Unhandled error, traceback: ' + str( traceback.format_exc() ) )
             om.out.error('')
-            raise e
+            self.progress.stop()
+            raise
         else:
             om.out.information('Finished scanning process.')
             
@@ -440,7 +459,7 @@ class w3afCore:
                 # Export all fuzzableRequests as CSV
                 # if this option is set in the miscSettings
                 if cf.cf.getData('exportFuzzableRequests') != '':
-                  self.export.exportFuzzableRequestList(self._fuzzableRequestList)
+                    self.export.exportFuzzableRequestList(self._fuzzableRequestList)
                     
                 if len( self._fuzzableRequestList ) == 0:
                     om.out.information('No URLs found by discovery.')
@@ -452,30 +471,36 @@ class w3afCore:
                     for plugin in self._plugins['bruteforce']:
                         del(plugin)
                     
+                    # Sort URLs
+                    tmp_url_list = []
+                    for u in kb.kb.getData( 'urls', 'urlList'):
+                        tmp_url_list.append( u )
+                    tmp_url_list = list(set(tmp_url_list))
+                    tmp_url_list.sort()
+        
+                    # Save the list of uniques to the kb; this will avoid some extra loops
+                    # in some plugins that use this knowledge
+                    kb.kb.save('urls', 'urlList', tmp_url_list )
+                    
                     # Filter out the fuzzable requests that aren't important (and will be ignored
                     # by audit plugins anyway...)
-                    msg = 'Found ' + str(len( kb.kb.getData( 'urls', 'urlList') )) + ' URLs and '
+                    msg = 'Found ' + str(len( tmp_url_list )) + ' URLs and '
                     msg += str(len( self._fuzzableRequestList)) + ' different points of injection.'
                     om.out.information( msg )
                     
-                    # Sort URLs and print them
-                    tmp_list = []
-                    for u in kb.kb.getData( 'urls', 'urlList'):
-                        tmp_list.append( '- ' + u )
-                    tmp_list.sort()
-                    
+                    # print the URLs
                     om.out.information('The list of URLs is:')
-                    for i in tmp_list:
-                        om.out.information( i )
+                    for i in tmp_url_list:
+                        om.out.information( '- ' + i )
                     
                     # Sort fuzzable requests and print them
-                    tmp_list = []
+                    tmp_fr_list = []
                     for fuzzRequest in self._fuzzableRequestList:
-                        tmp_list.append( '- ' + str(fuzzRequest) )
-                    tmp_list.sort()
+                        tmp_fr_list.append( '- ' + str(fuzzRequest) )
+                    tmp_fr_list.sort()
 
                     om.out.information('The list of fuzzable requests is:')
-                    for i in tmp_list:
+                    for i in tmp_fr_list:
                         om.out.information( i )
                 
                     self._audit()
@@ -527,13 +552,24 @@ class w3afCore:
         @return: None. The stop method can take some seconds to return.
         '''
         om.out.debug('The user stopped the core.')
+        # Stop sending HTTP requests
+        self.uriOpener.stop()
+        
+        # End the grep plugins
+        self._end()
     
     def quit( self ):
         '''
         The user is in a hurry, he wants to exit w3af ASAP.
         '''
+        # Stop sending HTTP requests
         self.uriOpener.stop()
-        self._end()
+        
+        # End the grep plugins
+        #self._end()
+        
+        # Now it's safe to remove the temp_dir
+        remove_temp_dir()
         
     def _end( self, exceptionInstance=None ):
         '''
@@ -720,7 +756,9 @@ class w3afCore:
             return 'Not running.'
         else:
             if self.getPhase() != '' and self.getRunningPlugin() != '':
-                return 'Running ' + self.getPhase() + '.' + self.getRunningPlugin() + ' on ' + str(self.getCurrentFuzzableRequest()) + '.'
+                running = 'Running ' + self.getPhase() + '.' + self.getRunningPlugin()
+                running += ' on ' + str(self.getCurrentFuzzableRequest()).replace('\x00', '') + '.'
+                return running
             else:
                 return 'Starting scan.'
     
@@ -915,8 +953,6 @@ class w3afCore:
         
         func = setMap[ pluginType ]
         func( pluginNames )
-        
-        #om.out.logEnabledPlugins( self._strPlugins,  self._pluginsOptions )
     
     def reloadModifiedPlugin(self,  pluginType,  pluginName):
         '''
@@ -1045,13 +1081,14 @@ class w3afCore:
             - One that contains the instances of the valid profiles that were loaded
             - One with the file names of the profiles that are invalid
         '''
-        str_profile_list = self._getListOfFiles( 'profiles' + os.path.sep, extension='.pw3af' )
+        profile_home = get_home_dir() + os.path.sep + 'profiles' + os.path.sep
+        str_profile_list = self._getListOfFiles( profile_home, extension='.pw3af' )
         
         instance_list = []
         invalid_profiles = []
         
         for profile_name in str_profile_list:
-            profile_filename = 'profiles' + os.path.sep + profile_name + '.pw3af'
+            profile_filename = profile_home + profile_name + '.pw3af'
             try:
                 profile_instance = profile( profile_filename )
             except:
@@ -1085,11 +1122,11 @@ class w3afCore:
             self.initPlugins()
         return pluginInst
     
-    def saveCurrentToNewProfile( self, profileName, profileDesc='' ):
+    def saveCurrentToNewProfile( self, profile_name, profileDesc='' ):
         '''
         Saves current config to a newly created profile.
         
-        @parameter profileName: The profile to cloneProfile
+        @parameter profile_name: The profile to clone
         @parameter profileDesc: The description of the new profile
         
         @return: The new profile instance if the profile was successfully saved. Else, raise a w3afException.
@@ -1097,73 +1134,73 @@ class w3afCore:
         # Create the new profile.
         profileInstance = profile()
         profileInstance.setDesc( profileDesc )
-        profileInstance.setName( profileName )
-        profileInstance.save( profileName )
+        profileInstance.setName( profile_name )
+        profileInstance.save( profile_name )
         
         # Save current to profile
-        return self.saveCurrentToProfile( profileName, profileDesc )
+        return self.saveCurrentToProfile( profile_name, profileDesc )
 
-    def saveCurrentToProfile( self, profileName, profileDesc='' ):
+    def saveCurrentToProfile( self, profile_name, profileDesc='' ):
         '''
-        Save the current configuration of the core to the profile called profileName.
+        Save the current configuration of the core to the profile called profile_name.
         
         @return: The new profile instance if the profile was successfully saved. Else, raise a w3afException.
         '''
         # Open the already existing profile
-        newProfile = profile(profileName)
+        new_profile = profile(profile_name)
         
         # Config the enabled plugins
         for pType in self.getPluginTypes():
             enabledPlugins = []
             for pName in self.getEnabledPlugins(pType):
                 enabledPlugins.append( pName )
-            newProfile.setEnabledPlugins( pType, enabledPlugins )
+            new_profile.setEnabledPlugins( pType, enabledPlugins )
         
         # Config the profile options
         for pType in self.getPluginTypes():
             for pName in self.getEnabledPlugins(pType):
                 pOptions = self.getPluginOptions( pType, pName )
                 if pOptions:
-                    newProfile.setPluginOptions( pType, pName, pOptions )
+                    new_profile.setPluginOptions( pType, pName, pOptions )
                 
         # Config the profile target
         if cf.cf.getData('targets'):
-            newProfile.setTarget( ' , '.join(cf.cf.getData('targets')) )
+            new_profile.setTarget( ' , '.join(cf.cf.getData('targets')) )
         
         # Config the misc and http settings
         misc_settings = miscSettings.miscSettings()
-        newProfile.setMiscSettings(misc_settings.getOptions())
-        newProfile.setHttpSettings(self.uriOpener.settings.getOptions())
+        new_profile.setMiscSettings(misc_settings.getOptions())
+        new_profile.setHttpSettings(self.uriOpener.settings.getOptions())
         
         # Config the profile name and description
-        newProfile.setDesc( profileDesc )
-        newProfile.setName( profileName )
+        new_profile.setDesc( profileDesc )
+        new_profile.setName( profile_name )
         
         # Save the profile to the file
-        newProfile.save( profileName )
+        new_profile.save( profile_name )
         
-        return newProfile
+        return new_profile
         
-    def removeProfile( self, profileName ):
+    def removeProfile( self, profile_name ):
         '''
         @return: True if the profile was successfully removed. Else, raise a w3afException.
         '''
-        profileInstance = profile( profileName )
+        profileInstance = profile( profile_name )
         profileInstance.remove()
         return True
         
-    def useProfile( self, profileName ):
+    def useProfile( self, profile_name ):
         '''
         Gets all the information from the profile, and runs it.
         Raise a w3afException if the profile to load has some type of problem.
         '''
-        # Clear all enabled plugins if profileName is None
-        if profileName == None:
+        # Clear all enabled plugins if profile_name is None
+        if profile_name == None:
             self._zeroSelectedPlugins()
             return
         
         try:            
-            profileInstance = profile( profileName ) 
+            profileInstance = profile( profile_name ) 
         except w3afException, w3:
             # The profile doesn't exist!
             raise w3

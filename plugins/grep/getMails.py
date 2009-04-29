@@ -96,7 +96,7 @@ class getMails(baseGrepPlugin):
                 # Create a new info object, and report it
                 i = info.info()
                 i.setURL( response.getURL() )
-                i.setId( None )
+                i.setId( response.id )
                 i.setName( m )
                 desc = 'The mail account: "'+ m + '" was found in: '
                 desc += '\n- ' + response.getURL() 
@@ -105,7 +105,9 @@ class getMails(baseGrepPlugin):
                 i['mail'] = m
                 i['url_list'] = [ response.getURL(), ]
                 i['user'] = m.split('@')[0]
+                i.addToHighlight( m )
              
+                
                 kb.kb.append( 'mails', kb_key, i )
                 kb.kb.append( self, 'mails', i )
                 continue
@@ -117,7 +119,9 @@ class getMails(baseGrepPlugin):
                 # This email was already found in some other URL
                 # I'm just going to modify the url_list and the description message
                 # of the information object.
-                i.setId(None)
+                id_list_of_info = i.getId()
+                id_list_of_info.append( response.id )
+                i.setId( id_list_of_info )
                 i.setURL('')
                 desc = i.getDesc()
                 desc += '\n- ' + response.getURL() 

@@ -50,7 +50,9 @@ class findComments(baseGrepPlugin):
         self._comments = {}
         self._interestingWords = ['user', 'pass', 'xxx', 'fix', 'bug', 'broken', 'oops', 'hack', 
         'caution', 'todo', 'note', 'warning', '!!!', '???', 'shit','stupid', 'tonto', 'porqueria',
-        'ciudado', 'usuario', 'contrase', 'puta']
+        'ciudado', 'usuario', 'contrase', 'puta',
+        'secret','@', 'email','security','captcha'
+        ]
         self._already_reported_interesting = []
         self.is404 = None
 
@@ -75,13 +77,16 @@ class findComments(baseGrepPlugin):
                     return
 
                 commentList = dp.getComments()
-                
+
                 for comment in commentList:
                     # This next two lines fix this issue:
                     # audit.ssi + grep.findComments + web app with XSS = false positive
                     if self._wasSent( request, '<!--'+comment+'>' ):
                         continue
-                        
+                    
+                    # show nice comments ;)
+                    comment = comment.strip()
+                    
                     if comment not in self._comments.keys():
                         self._comments[ comment ] = [ (response.getURL(), response.id), ]
                     else:
@@ -99,6 +104,7 @@ class findComments(baseGrepPlugin):
                             i.setId( response.id )
                             i.setDc( request.getDc )
                             i.setURI( response.getURI() )
+                            i.addToHighlight( word )
                             kb.kb.append( self, 'interestingComments', i )
                             om.out.information( i.getDesc() )
                             self._already_reported_interesting.append( ( word, response.getURL() ) )
@@ -160,6 +166,6 @@ class findComments(baseGrepPlugin):
         @return: A DETAILED description of the plugin functions and features.
         '''
         return '''
-        This plugin greps every page for comments, special comments like the ones containing the words
-        "password" or "user" are specially reported.
+        This plugin greps every page for HTML comments, special comments like the ones containing
+        the words "password" or "user" are specially reported.
         '''

@@ -34,6 +34,7 @@ import plugins.discovery.oHmap.hmap as originalHmap
 import core.data.parsers.urlParser as urlParser
 from core.controllers.w3afException import w3afRunOnce,  w3afException
 
+
 class hmap(baseDiscoveryPlugin):
     '''
     Fingerprint the server type, i.e apache, iis, tomcat, etc.
@@ -97,21 +98,27 @@ class hmap(baseDiscoveryPlugin):
                     msg = 'An unhandled exception ocurred while running hmap: "' + str(e) + '"'
                     om.out.error( msg )
                 else:
-                    server = results[0]
+                    #
+                    #   Found any results?
+                    # 
+                    if len(results):
+                        server = results[0]
                     
-                    i = info.info()
-                    i.setName('Webserver Fingerprint')
-                    desc = 'The most accurate fingerprint for this HTTP server is: "'
-                    desc += str(server) + '".'
-                    i.setDesc( desc )
-                    i['server'] = server
-                    om.out.information( i.getDesc() )
+                        i = info.info()
+                        i.setName('Webserver Fingerprint')
+                        desc = 'The most accurate fingerprint for this HTTP server is: "'
+                        desc += str(server) + '".'
+                        i.setDesc( desc )
+                        i['server'] = server
+                        om.out.information( i.getDesc() )
+                        
+                        # Save the results in the KB so that other plugins can use this information
+                        kb.kb.append( self, 'server', i )
+                        kb.kb.save( self, 'serverString', server )
                     
-                    # Save the results in the KB so that other plugins can use this information
-                    kb.kb.append( self, 'server', i )
-                    kb.kb.save( self, 'serverString', server )
-                    
-                    # Fingerprint file generated
+                    #
+                    # Fingerprint file generated (this is independent from the results)
+                    #
                     if self._genFpF:
                         msg = 'Hmap fingerprint file generated, please send a mail to w3af-develop'
                         msg += '@lists.sourceforge.net including the fingerprint file, your name'

@@ -58,20 +58,24 @@ class MultipartPostHandler(urllib2.BaseHandler):
 
     def http_request(self, request):
         data = request.get_data()
+        
         if data is not None and type(data) != str:
             v_files = []
             v_vars = []
+            
             try:
-                for(key, value) in data.items():
-                    if type(value) == file:
-                        if not value.closed:
-                            v_files.append((key, value))
+                for parameter_name in data:
+                    # Added to support repeated parameter names
+                    for element_index, element in enumerate(data[parameter_name]):
+                        if type(element) == file:
+                            if not element.closed:
+                                v_files.append((parameter_name, element))
+                            else:
+                                v_vars.append((parameter_name, ''))
+                        elif hasattr( element, 'isFile'):
+                            v_files.append((parameter_name, element))
                         else:
-                            v_vars.append((key, ''))
-                    elif hasattr( value, 'isFile'):
-                        v_files.append((key, value))
-                    else:
-                        v_vars.append((key, value))
+                            v_vars.append((parameter_name, element))
             except TypeError:
                 systype, value, traceback = sys.exc_info()
                 raise TypeError, "not a valid non-string sequence or mapping object", traceback
@@ -87,7 +91,10 @@ class MultipartPostHandler(urllib2.BaseHandler):
 
             request.add_data(data)
         return request
-
+    
+    # I also want this to work with HTTPS!
+    https_request = http_request
+    
     def multipart_encode(vars, files, boundary = None, buffer = None):
         if boundary is None:
             # Before :

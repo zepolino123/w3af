@@ -48,7 +48,7 @@ class question_target_2(question):
         @return: A list of options for this question.
         '''
 
-        d1 = 'Is your web application reachable from the Internet?'
+        d1 = 'Is the target web application reachable from the Internet?'
         o1 = option('internet',True, d1, 'boolean')
 
         ol = optionList()

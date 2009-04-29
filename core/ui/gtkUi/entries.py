@@ -22,6 +22,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 import gtk, gobject
 import threading
 from . import history, helpers
+import re
+
 
 class ValidatedEntry(gtk.Entry):
     '''Class to perform some validations in gtk.Entry.
@@ -281,6 +283,29 @@ class ListOption(ValidatedEntry, ModifiedMixIn):
         '''
         return True
 
+class RegexOption(ValidatedEntry, ModifiedMixIn):
+    '''Class that implements the config option regex.
+
+    @author: Andres Riancho
+    '''
+    def __init__(self, alert, opt):
+        ValidatedEntry.__init__(self, opt.getValueStr())
+        ModifiedMixIn.__init__(self, alert, "changed", "get_text", "set_text")
+        self.default_value = ""
+
+    def validate(self, text):
+        '''Redefinition of ValidatedEntry's method.
+
+        @param text: the text to validate
+        @return: True if the regex compiles.
+        '''
+        try:
+            re.compile(text)
+        except:
+            return False
+        else:
+            return True
+        
 class BooleanOption(gtk.CheckButton, ModifiedMixIn):
     '''Class that implements the config option Boolean.
 
@@ -551,7 +576,7 @@ class EntryDialog(gtk.Dialog):
 class TextDialog(gtk.Dialog):
     '''A dialog with a textview, fillable from outside
 
-    @param title: The title of thw window
+    @param title: The title of the window
 
     @author: Facundo Batista <facundobatista =at= taniquetil.com.ar>
     '''
@@ -572,17 +597,22 @@ class TextDialog(gtk.Dialog):
 
         # the ok button
         self.butt_ok = self.action_area.get_children()[0]
-        self.butt_ok.connect("clicked", lambda x: self.destroy())
+        self.butt_ok.connect("clicked", self._handle_click )
         self.butt_ok.set_sensitive(False)
+        
+        self.wait = True
 
         self.resize(450,300)
         self.show_all()
-        self.flush()
 
-    def flush(self):
-        '''Flushes the GUI operations.'''
-        while gtk.events_pending(): 
-            gtk.main_iteration()
+    def run(self):
+        raise Exception('Please use dialog_run().')
+
+    def _handle_click(self, widg):
+        '''
+        Handle the Ok button click.
+        '''
+        self.wait = False
 
     def addMessage(self, text):
         '''Adds a message to the textview.
@@ -590,14 +620,27 @@ class TextDialog(gtk.Dialog):
         @param text: the message to add.
         '''
         iterl = self.textbuffer.get_end_iter()
-        self.textbuffer.insert(iterl, text+"\n")
+        self.textbuffer.insert(iterl, text)
         self.textview.scroll_to_mark(self.textbuffer.get_insert(), 0)
-        self.flush()
         
     def done(self):
         '''Actives the OK button, waits for user, and close self.'''
         self.butt_ok.set_sensitive(True)
-        self.run()
+    
+    def dialog_response_cb(self, widget, response_id):
+        '''
+        http://faq.pygtk.org/index.py?req=show&file=faq10.017.htp
+        '''
+        self.destroy()
+
+    def dialog_run(self):
+        '''
+        http://faq.pygtk.org/index.py?req=show&file=faq10.017.htp
+        '''
+        if not self.modal:
+            self.set_modal(True)
+        self.connect('response', self.dialog_response_cb)
+        self.show()
 
 
 class Searchable(object):
@@ -1039,6 +1082,7 @@ wrapperWidgets = {
     "float": FloatOption,
     "list": ListOption,
     "combo": ComboBoxOption, 
+    "regex": RegexOption, 
 }
 
 

@@ -28,6 +28,7 @@ from core.ui.consoleUi.kbMenu import *
 import core.controllers.miscSettings as ms
 #from core.ui.consoleUi.session import *
 from core.ui.consoleUi.util import *
+import core.ui.consoleUi.io.console as term
 
 from core.controllers.w3afException import *
 from core.controllers.misc.get_w3af_version import get_w3af_version
@@ -37,6 +38,8 @@ from core.ui.consoleUi.progress_bar import progress_bar
 import threading
 import sys
 import time
+
+# This is to perform the "print scan status" in show_progress_on_request()
 import select
 
 
@@ -65,6 +68,15 @@ class rootMenu(menu):
         Start the core in a different thread, monitor keystrokes in the main thread.
         @return: None
         '''
+        # Check if the console output plugin is enabled or not, and warn.
+        output_plugins = self._w3af.getEnabledPlugins('output')
+        if 'console' not in output_plugins:
+            msg = "Warning: You disabled the console output plugin. The scan information, such as"
+            msg += ' discovered vulnerabilities won\'t be printed to the console, we advise you'
+            msg += ' to enable this output plugin in order to be able to actually see'
+            msg += ' the scan output in the console.'
+            print msg
+        
         threading.Thread(target=self._real_start).start()
         try:
             # let the core start
@@ -72,9 +84,10 @@ class rootMenu(menu):
             if self._w3af.getCoreStatus() != 'Not running.':
                 self.show_progress_on_request()
         except KeyboardInterrupt, k:
-            self._w3af.stop()
             om.out.console('User hitted Ctrl+C, stopping scan.')
             time.sleep(1)
+            self._w3af.stop()
+            self._w3af.quit()
  
     def _real_start(self):
         '''
@@ -90,6 +103,7 @@ class rootMenu(menu):
         except w3afMustStopException, w3:
             om.out.error(str(w3))
         except Exception, e:
+            self._w3af.quit()
             raise e
      
     def show_progress_on_request(self):
@@ -97,13 +111,36 @@ class rootMenu(menu):
         When the user hits enter, show the progress
         '''
         while self._w3af.isRunning():
+            
+            # Define some variables...
+            rfds = []
+            wfds = []
+            efds = []
+            hitted_enter = False
+
+            # TODO: This if is terrible! I need to remove it!
             # read from sys.stdin with a 0.5 second timeout
-            rfds, wfds, efds = select.select( [sys.stdin], [], [], 0.5)
+            if sys.platform != 'win32':
+                # linux
+                rfds, wfds, efds = select.select( [sys.stdin], [], [], 0.5)
+                if rfds:
+                    if len(sys.stdin.readline()):
+                        hitted_enter = True
+            else:
+                # windows
+                import msvcrt
+                time.sleep(0.3)
+                if msvcrt.kbhit():
+                    if term.read(1) in ['\n', '\r', '\r\n', '\n\r']:
+                        hitted_enter = True
             
             # If something was written to sys.stdin, read it
-            if rfds:
+            if hitted_enter:
+                
+                # change back to the previous state
+                hitted_enter = False
+                
                 # Get the information
-                rfds[0].readline()
                 progress = self._w3af.progress.get_progress()
                 eta = self._w3af.progress.get_eta()
                 

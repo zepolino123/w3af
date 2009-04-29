@@ -32,7 +32,7 @@ import core.data.kb.config as cf
 import string
 
 '''
-This module parses Url's.
+This module parses URLs.
 
 @author: Andres Riancho ( andres.riancho@gmail.com )
 '''
@@ -66,10 +66,23 @@ def getQueryString( url, ignoreExceptions=True ):
             parsedQs = cgi.parse_qs( qs ,keep_blank_values=True,strict_parsing=True)
         except Exception, e:
             if not ignoreExceptions:
-                raise w3afException('Strange things found when parsing query string: ' + qs)
+                raise w3afException('Strange things found when parsing query string: "' + qs + '"')
         else:
+            #
+            #   Before we had something like this:
+            #
+            #for i in parsedQs.keys():
+            #    result[ i ] = parsedQs[ i ][0]
+            #
+            #   But with that, we fail to handle web applications that use "duplicated parameter
+            #   names". For example: http://host.tld/abc?sp=1&sp=2&sp=3
+            #
+            #   (please note the lack of [0]) , and that if the value isn't a list... I create an artificial list
             for i in parsedQs.keys():
-                result[ i ] = parsedQs[ i ][0]
+                if isinstance( parsedQs[ i ], list ):
+                    result[ i ] = parsedQs[ i ]
+                else:
+                    result[ i ] = [parsedQs[ i ], ]
 
     return result
 
@@ -152,9 +165,10 @@ def urlJoin( baseurl , relative ):
     urljoin('http://www.cwi.nl/%7Eguido/Python.html', 'FAQ.html')
     yields the string
     'http://www.cwi.nl/%7Eguido/FAQ.html'
+    For more information read RFC 1808 espeally section 5
     @param baseurl: The base url to join
     @param relative: The relative url to add to the base url
-    '''        
+    '''
     if relative.find('//') == 0:
         # This special case had to be generated cause of some pykto tests
         scheme, domain, path, params, qs, fragment = _uparse.urlparse( baseurl )
@@ -162,13 +176,17 @@ def urlJoin( baseurl , relative ):
         if lastSlash != 0:
             # I have more than one /
             path = path[: lastSlash]
-        
+
         relative = relative[1:]
-# TODO add params?!
+        # TODO add params?!
+        response =  scheme + '://' + domain + path + relative
+    elif relative[0] == '?':
+        scheme, domain, path, params, qs, fragment = _uparse.urlparse( baseurl )
+        # TODO add params?!
         response =  scheme + '://' + domain + path + relative
     else:
         response = _uparse.urljoin( baseurl, relative )
-    
+
     response = normalizeURL(response)
     return response
 

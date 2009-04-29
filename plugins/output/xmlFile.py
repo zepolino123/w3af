@@ -61,7 +61,6 @@ class xmlFile(baseOutputPlugin):
 
         # List with additional xml elements
         self._errorXML = []
-        self._printUniq = {}
         
         # xml
         self._xmldoc = xml.dom.minidom.Document()
@@ -69,7 +68,6 @@ class xmlFile(baseOutputPlugin):
         self._topElement.setAttribute("start", self._timestampString)
         self._topElement.setAttribute("startstr", self._longTimestampString)
         self._topElement.setAttribute("xmloutputversion", "1.00")
-        
         self._scanInfo = self._xmldoc.createElement("scaninfo")
                                               
     def _init( self ):
@@ -198,42 +196,43 @@ class xmlFile(baseOutputPlugin):
         '''
         This method is called when the scan has finished.
         '''
-        
         if not self._initialized:
-            self._init()
+          self._init()
+          
+          # Add the vulnerability results
+          vulns = kb.kb.getAllVulns()
+          for i in vulns:
+            messageNode = self._xmldoc.createElement("vulnerability")
+            messageNode.setAttribute("severity", str(i.getSeverity()))
+            messageNode.setAttribute("method", str(i.getMethod()))
+            messageNode.setAttribute("url", str(i.getURL()))
+            messageNode.setAttribute("var", str(i.getVar()))
+            if i.getId():
+                messageNode.setAttribute("id", str(i.getId()))
+            messageNode.setAttribute("name", str(i.getName()))
+            description = self._xmldoc.createTextNode(i.getDesc())
+            messageNode.appendChild(description)
+            self._topElement.appendChild(messageNode)
         
-        # Add the vulnerability results
-        vulns = kb.kb.getAllVulns()
-        for i in vulns:
-            if not self._printUniq.has_key(hash(i.getDesc())):
-                self._printUniq[hash(i.getDesc())] = ''
-                messageNode = self._xmldoc.createElement("vulnerability")
-                messageNode.setAttribute("severity", str(i.getSeverity()))
-                messageNode.setAttribute("method", str(i.getMethod()))
-                messageNode.setAttribute("url", str(i.getURL()))
-                messageNode.setAttribute("var", str(i.getVar()))
-                description = self._xmldoc.createTextNode(i.getDesc())
-                messageNode.appendChild(description)
-                self._topElement.appendChild(messageNode)
+          # Add the information results
+          infos = kb.kb.getAllInfos()
+          for i in infos:
+            messageNode = self._xmldoc.createElement("information")
+            messageNode.setAttribute("url", str(i.getURL()))
+            if i.getId():
+                messageNode.setAttribute("id", str(i.getId()))
+            messageNode.setAttribute("name", str(i.getName()))
+            description = self._xmldoc.createTextNode(i.getDesc())
+            messageNode.appendChild(description)
+            self._topElement.appendChild(messageNode)
         
-        # Add the information results
-        infos = kb.kb.getAllInfos()
-        for i in infos:
-            if not self._printUniq.has_key(hash(i.getDesc())):
-                self._printUniq[hash(i.getDesc())] = ''
-                messageNode = self._xmldoc.createElement("information")
-                messageNode.setAttribute("url", str(i.getURL()))
-                description = self._xmldoc.createTextNode(i.getDesc())
-                messageNode.appendChild(description)
-                self._topElement.appendChild(messageNode)
-        
-        # Add additional information results
-        for node in self._errorXML:
+          # Add additional information results
+          for node in self._errorXML:
             self._topElement.appendChild(node)
         
-        # Write xml report
-        self._xmldoc.appendChild(self._topElement)
-        self._xmldoc.writexml(self._file, "", "", "\n", "UTF-8")
+          # Write xml report
+          self._xmldoc.appendChild(self._topElement)
+          self._xmldoc.writexml(self._file, "", "", "\n", "UTF-8")
               
     def getLongDesc( self ):
         '''

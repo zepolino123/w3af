@@ -24,6 +24,7 @@ import gtk, os, cgi
 from . import entries, confpanel, helpers
 from core.controllers.w3afException import w3afException
 
+
 class Quest(object):
     def __init__(self, quest):
         self.quest = quest
@@ -49,7 +50,19 @@ class QuestOptions(gtk.VBox):
         '''Saves the changed options.'''
         options = self.widg.options
         invalid = []
+        
         for opt in options:
+            #       Trying to reproduce bug 
+            #       https://sourceforge.net/tracker2/?func=detail&aid=2652434&group_id=170274&atid=853652
+            #
+            #       To get more info:
+            try:
+                opt.widg
+            except Exception, e:
+                raise Exception(str(e) + ' || ' + opt.getName())
+            # end of debugging code
+                
+            
             if hasattr(opt.widg, "isValid"):
                 if not opt.widg.isValid():
                     invalid.append(opt.getName())
@@ -129,6 +142,7 @@ class Wizard(entries.RememberingWindow):
         # fill it
         self.nextbtn = gtk.Button("  Next  ")
         quest = self.wizard.next()
+        
         self._firstQuestion = quest
         self._buildWindow(quest)
 
@@ -295,7 +309,14 @@ class WizardChooser(entries.RememberingWindow):
 
     def _goWizard(self, widget):
         '''Runs the selected wizard.'''
+        # First, clean all the enabled plugins that the user may have selected:
+        for ptype in self.w3af.getPluginTypes():
+            self.w3af.setPlugins([], ptype)
+        
+        # Destroy myself
         self.destroy()
+        
+        # Run the selected wizard
         Wizard(self.w3af, self.rbuts.active)
 
     def _getWizards(self):
@@ -306,5 +327,6 @@ class WizardChooser(entries.RememberingWindow):
                 base = arch[:-3]
                 modbase = __import__("core.controllers.wizard.wizards."+base, fromlist=[None])
                 cls = getattr(modbase, base)
-                wizs.append(cls())
+                wizard_instance = cls( self.w3af )
+                wizs.append(wizard_instance)
         return wizs

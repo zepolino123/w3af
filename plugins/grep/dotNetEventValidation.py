@@ -29,7 +29,10 @@ from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
 import core.data.kb.knowledgeBase as kb
 import core.data.kb.info as info
 
+from core.data.db.temp_persist import disk_list
+
 import re
+
 
 class dotNetEventValidation(baseGrepPlugin):
     '''
@@ -52,7 +55,7 @@ class dotNetEventValidation(baseGrepPlugin):
         encryptedVsRegex += 'id="__VIEWSTATEENCRYPTED" value=".*?" />'
         self._encryptedVs = re.compile( encryptedVsRegex, re.IGNORECASE|re.DOTALL)
 
-        self._alreadyReported = []
+        self._already_reported = disk_list()
 
     def grep(self, request, response):
         '''
@@ -61,13 +64,13 @@ class dotNetEventValidation(baseGrepPlugin):
         if response.is_text_or_html():
 
             # First verify if we havent greped this yet
-            ### FIXME: Memory usage!!!
-            if request.getURI() in self._alreadyReported:
+            if request.getURI() in self._already_reported:
                 return
             else:
-                self._alreadyReported.append(request.getURI())
+                self._already_reported.append(request.getURI())
 
-            if self._viewstate.search(response.getBody()):
+            res = self._viewstate.search(response.getBody())
+            if res:
                 # I have __viewstate!, verify if event validation is enabled
                 if not self._eventvalidation.search(response.getBody()):
                     # Nice! We found a possible bug =)
@@ -75,6 +78,7 @@ class dotNetEventValidation(baseGrepPlugin):
                     i.setName('.NET Event Validation is disabled')
                     i.setURL( response.getURL() )
                     i.setId( response.id )
+                    i.addToHighlight(res)
                     msg = 'The URL: "' + i.getURL() + '" has .NET Event Validation disabled. '
                     msg += 'This programming/configuration error should be manually verified.'
                     i.setDesc( msg )

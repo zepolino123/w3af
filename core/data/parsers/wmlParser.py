@@ -89,7 +89,8 @@ class wmlParser(sgmlParser):
             foundAction = False
             for attr in attrs:
                 if attr[0] == 'href':
-                    action = urlParser.urlJoin( self._baseUrl ,attr[1] )
+                    decoded_action = self._decode_URL(attr[1], self._encoding)
+                    action = urlParser.urlJoin( self._baseUrl , decoded_action)
                     foundAction = True
                     
             if not foundAction:
@@ -111,10 +112,22 @@ class wmlParser(sgmlParser):
                     
             elif tag == 'select':
                 self._insideSelect = True
-                try:
-                    self._selectTagName = [ v[1] for v in attrs if v[0] in ['name','id'] ][0]
-                except:
+                name = ''
+                
+                # Get the name
+                self._selectTagName = ''
+                for attr in attrs:
+                    if attr[0].lower() == 'name':
+                        self._selectTagName = attr[1]
+                
+                if not self._selectTagName:
+                    for attr in attrs:
+                        if attr[0].lower() == 'id':
+                            self._selectTagName = attr[1]
+                    
+                if not self._selectTagName:
                     om.out.debug('wmlParser found a select tag without a name attr !')
+                    self._insideSelect = False
             
             if self._insideSelect:
                 if tag == 'option':
@@ -123,4 +136,3 @@ class wmlParser(sgmlParser):
                     attrs.append( ('name',self._selectTagName) ) 
                     f.addInput( attrs )
 
-    

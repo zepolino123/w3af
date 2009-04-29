@@ -63,7 +63,7 @@ class webSpider(baseDiscoveryPlugin):
         self._follow_regex = '.*'
         self._only_forward = False
         self._compileRE()
-        self._url_parameter = None
+        self._url_parameter = ''
 
     def discover(self, fuzzableRequest ):
         '''
@@ -83,7 +83,7 @@ class webSpider(baseDiscoveryPlugin):
         self.is404 = kb.kb.getData( 'error404page', '404' )
 
         # Set the URL parameter if necessary
-        if self._url_parameter != None:
+        if self._url_parameter:
             fuzzableRequest.setURL(urlParser.setParam(fuzzableRequest.getURL(), self._url_parameter))
             fuzzableRequest.setURI(urlParser.setParam(fuzzableRequest.getURI(), self._url_parameter))
 
@@ -91,8 +91,9 @@ class webSpider(baseDiscoveryPlugin):
         original_dc = fuzzableRequest.getDc()
         if isinstance( fuzzableRequest, httpPostDataRequest.httpPostDataRequest ):
             to_send = original_dc.copy()
-            for parameter in to_send:
-                to_send[ parameter ] = smartFill( parameter )
+            for parameter_name in to_send:
+                for element_index in xrange(len(to_send[parameter_name])):
+                    to_send[ parameter_name ][element_index] = smartFill( parameter_name )
             fuzzableRequest.setDc( to_send )
 
         self._fuzzableRequests = []
@@ -107,10 +108,10 @@ class webSpider(baseDiscoveryPlugin):
             
             # Modified when I added the pdfParser
             # I had to add this x OR y stuff, just because I dont want the SGML parser to analyze
-            # a image file, its useless and consumes cpu power.
+            # a image file, its useless and consumes CPU power.
             if response.is_text_or_html() or response.is_pdf() or response.is_swf():
                 originalURL = response.getRedirURI()
-                if self._url_parameter != None:
+                if self._url_parameter:
                     originalURL = urlParser.setParam(originalURL, self._url_parameter)
                 try:
                     documentParser = dpCache.dpc.getDocumentParserFor( response )
@@ -145,10 +146,10 @@ class webSpider(baseDiscoveryPlugin):
                     references = [ r for r in references if not self._compiled_ignore_re.match( r )]
                                           
                     # work with the parsed references and report broken links
-                    # then work with the parsed references and DO NOT report broken links
+                    # then work with the regex references and DO NOT report broken links
                     count = 0
                     for ref in references:
-                        if self._url_parameter != None:
+                        if self._url_parameter:
                             ref = urlParser.setParam(ref, self._url_parameter)
                         targs = (ref, fuzzableRequest, originalURL, count<len(parsed_references))
                         self._tm.startFunction( target=self._verifyReferences, args=targs, \
@@ -191,7 +192,7 @@ class webSpider(baseDiscoveryPlugin):
                     
                     # Process the list.
                     for fuzzableRequest in fuzzableRequestList:
-                        if self._url_parameter != None:
+                        if self._url_parameter:
                             fuzzableRequest.setURL(urlParser.setParam(fuzzableRequest.getURL(), self._url_parameter))
                             fuzzableRequest.setURI(urlParser.setParam(fuzzableRequest.getURI(), self._url_parameter))
                         fuzzableRequest.setReferer( originalURL )

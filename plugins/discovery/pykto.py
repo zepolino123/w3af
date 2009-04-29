@@ -36,6 +36,8 @@ import core.data.parsers.urlParser as urlParser
 from core.controllers.w3afException import w3afException
 from core.controllers.w3afException import w3afRunOnce
 
+from core.data.db.temp_persist import disk_list
+
 import os.path
 import re
 
@@ -51,7 +53,7 @@ class pykto(baseDiscoveryPlugin):
         
         # int_ernal variables
         self._exec = True
-        self._already_visited = []
+        self._already_visited = disk_list()
         self._first_time = True
         
         # User configured parameters
@@ -93,14 +95,18 @@ class pykto(baseDiscoveryPlugin):
             
             self.is404 = kb.kb.getData( 'error404page', '404' )
             
-            # Give me the base URL
-            if not self._mutate_tests:
+            # Run the basic scan (only once)
+            if self._first_time:
                 url = urlParser.baseUrl( fuzzableRequest.getURL() )
-                # This plugin returns always the same value if called without mutateTests , so 
-                # running it more times is useless
                 self._exec = False
                 self.__run( url )
-            else:
+            
+            # And now mutate if the user configured it...
+            if self._mutate_tests:
+                
+                # If mutations are enabled, I should keep running
+                self._exec = True
+                
                 # Tests are to be mutated
                 url = urlParser.getDomainPath( fuzzableRequest.getURL() )
                 if url not in self._already_visited:
@@ -242,6 +248,16 @@ class pykto(baseDiscoveryPlugin):
                     (server, query , expected_response, method , desc) = parameters
                     
                     if self._generic_scan or self._server_match( server ):
+                        #
+                        # Avoid some special cases
+                        #
+                        if url.endswith('/./') or url.endswith('/%2e/'):
+                            # avoid directory self references
+                            continue
+                        #
+                        # End of special cases
+                        #
+                        
                         om.out.debug('Testing pykto signature: "' + query + '".')
 
                         # I don't use urlJoin here because in some cases pykto needs to

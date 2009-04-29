@@ -79,6 +79,7 @@ class privateIP(baseGrepPlugin):
                     msg += 'with an IP address: "' +  match + '".'
                     v.setDesc( msg )
                     v['IP'] = match                            
+                    v.addToHighlight( match )
                     kb.kb.append( self, 'header', v )       
         
         # Search for IP addresses on HTML
@@ -92,6 +93,11 @@ class privateIP(baseGrepPlugin):
                 ('192.168.' in response) or ('169.254.' in response)):
                 return
             
+            # Some proxy servers will return errors that include headers in the body
+            # along with the client IP
+            if 'X-Forwarded-For: ' in response:
+                return
+
             for regex in self._regex_list:
                 for match in regex.findall(response.getBody()):
                     match = match.strip()

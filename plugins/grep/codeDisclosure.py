@@ -32,6 +32,8 @@ import core.data.kb.knowledgeBase as kb
 import core.data.kb.vuln as vuln
 import core.data.constants.severity as severity
 
+from core.data.db.temp_persist import disk_list
+
 import re
 
 
@@ -80,7 +82,7 @@ class codeDisclosure(baseGrepPlugin):
         self._regexs.append( (commented_jsp, 'JSP') )
         self._regexs.append( (commented_jsp2, 'JSP') )
         
-        self._alreadyAdded = []
+        self._already_added = disk_list()
         self._first_404 = True
 
     def grep(self, request, response):
@@ -89,7 +91,7 @@ class codeDisclosure(baseGrepPlugin):
         @return: None
         '''
 
-        if response.is_text_or_html() and response.getURL() not in self._alreadyAdded:
+        if response.is_text_or_html() and response.getURL() not in self._already_added:
     
             is_404 = kb.kb.getData( 'error404page', '404' )
             
@@ -103,10 +105,11 @@ class codeDisclosure(baseGrepPlugin):
                     v.setId( response.id )
                     v.setSeverity(severity.LOW)
                     v.setName( lang + ' code disclosure vulnerability' )
+                    v.addToHighlight(res)
                     msg = 'The URL: "' + v.getURL() + '" has a code disclosure vulnerability.'
                     v.setDesc( msg )
                     kb.kb.append( self, 'codeDisclosure', v )
-                    self._alreadyAdded.append( response.getURL() )
+                    self._already_added.append( response.getURL() )
 
                 # It's a 404!
                 if res and is_404( response ) and self._first_404:
@@ -115,6 +118,7 @@ class codeDisclosure(baseGrepPlugin):
                     v.setURL( response.getURL() )
                     v.setId( response.id )
                     v.setSeverity(severity.LOW)
+                    v.addToHighlight(res)
                     v.setName( lang + ' code disclosure vulnerability in 404 page' )
                     msg = 'The URL: "' + v.getURL() + '" has a code disclosure vulnerability in the customized 404 script.'
                     v.setDesc( msg )

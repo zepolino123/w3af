@@ -32,6 +32,8 @@ import core.data.kb.knowledgeBase as kb
 import core.data.constants.severity as severity
 import core.data.kb.vuln as vuln
 
+from core.data.db.temp_persist import disk_list
+
 import core.data.parsers.urlParser as urlParser
 from core.data.fuzzer.fuzzer import createRandAlpha
 from core.controllers.w3afException import w3afException
@@ -49,9 +51,8 @@ class frontpage(baseAuditPlugin):
         
         # Internal variables
         self.is404 = None
-        self._already_tested = []
+        self._already_tested = disk_list()
         self._stop_on_first = True
-        
 
     def audit(self, freq ):
         '''
@@ -128,17 +129,17 @@ class frontpage(baseAuditPlugin):
                 msg = 'frontpage plugin seems to have successfully uploaded a file to'
                 msg += ' the remote server.'
                 om.out.debug(msg)
-                return res.id
+            return res.id
         
-        return None
+        return 200
             
-    def _verify_upload(self,  domain_path,  randFile,  request_id):
+    def _verify_upload(self,  domain_path,  randFile,  upload_id):
         '''
         Verify if the file was uploaded.
         
         @parameter domain_path: http://localhost/f00/
         @parameter randFile: The filename that was supposingly uploaded
-        @parameter request_id: The id of the POST request to author.dll
+        @parameter upload_id: The id of the POST request to author.dll
         '''        
         targetURL = urlParser.urlJoin( domain_path, randFile )
         
@@ -154,7 +155,7 @@ class frontpage(baseAuditPlugin):
             if res.getBody() == '' and not self.is404( res ):
                 v = vuln.vuln()
                 v.setURL( targetURL )
-                v.setId( request_id )
+                v.setId( [upload_id, res.id] )
                 v.setSeverity(severity.HIGH)
                 v.setName( 'Insecure Frontpage extensions configuration' )
                 v.setMethod( 'POST' )

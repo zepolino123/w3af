@@ -49,7 +49,7 @@ class findBackdoor(baseDiscoveryPlugin):
 
     def discover(self, fuzzableRequest ):
         '''
-        For every directory, fetch a list of files and analyze the response.
+        For every directory, fetch a list of shell files and analyze the response.
         
         @parameter fuzzableRequest: A fuzzableRequest instance that contains (among other things) the URL to test.
         '''
@@ -76,7 +76,7 @@ class findBackdoor(baseDiscoveryPlugin):
                         v.setName( 'Possible web backdoor' )
                         v.setSeverity(severity.HIGH)
                         v.setURL( response.getURL() )
-                        msg = 'A web backdoor was found at: ' + v.getURL() + ' ; this could'
+                        msg = 'A web backdoor was found at: "' + v.getURL() + '" ; this could'
                         msg += ' indicate that your server was hacked.'
                         v.setDesc( msg )
                         kb.kb.append( self, 'backdoors', v )
@@ -92,6 +92,9 @@ class findBackdoor(baseDiscoveryPlugin):
         @return: A list of filenames of common web shells and web backdoors.
         '''
         res = []
+        
+        ## by aungkhant, Lists are taken from underground shell repositories and common sense
+        
         # PHP
         res.extend( ['php-backdoor.php', 'simple-backdoor.php', 'cmd.php', 'phpshell.php'] )
         res.extend( ['NCC-Shell.php', 'mysql.php', 'mysql_tool.php', 'gfs_sh.php', 'iMHaPFtp.php'] )
@@ -104,20 +107,53 @@ class findBackdoor(baseDiscoveryPlugin):
         res.extend( ['PHANTASMA.php', 'nstview.php', 'nshell.php', 'NetworkFileManagerPHP.php'] )
         res.extend( ['simple_cmd.php', 'Uploader.php', 'php-include-w-shell.php', 'backupsql.php'] )
         res.extend( ['myshell.php', 'c99shell.php'] )
+        res.extend( ['c100.php', 'c100shell.php', 'locus7s.php', 'locus.php'] )
+        res.extend( ['safe0ver.php','stresbypass.php','ekin0x.php','liz0zim.php'])
+        res.extend( ['erne.php','spybypass.php','phpbypass.php','sosyete.php'])
+        res.extend( ['remview.php','zaco.php','nst.php','heykir.php'])
+        res.extend( ['simattacker.php','avent.php','fatal.php','dx.php'])
+        res.extend( ['goonshell.php','safemod.php','unreal.php','w4k.php'])
+        res.extend( ['winshell.php','mysql2.php','sql.php','jackal.php'])
+        res.extend( ['dc.php','w4cking.php','x.php','xx.php','xxx.php'])
+        res.extend( ['w3k.php','h4x.php','h4x0r.php','l33t.php'])
+        res.extend( ['cod3r.php','cod3rzshell.php','cod3rz.php'])
+        res.extend( ['locus.php','locu.php'])
+        res.extend( ['jsback.php','worm.php','simp-worm_sys.p5.php'])
+        res.extend( ['owned.php','0wn3d.php'])
         
         # CGI / Perl
         res.extend( ['perlcmd.cgi', 'cmd.pl'] )
+        res.extend( ['shell.pl','cmd.cgi','shell.cgi'])
         
         # JSP
         res.extend( ['jsp-reverse.jsp', 'cmdjsp.jsp', 'cmd.jsp', 'cmd_win32.jsp'] )
         res.extend( ['JspWebshell.jsp', 'JspWebshell1.2.jsp'] )
+        res.extend( ['shell.jsp'])
+        res.extend( ['jsp-reverse.jspx', 'cmdjsp.jspx', 'cmd.jspx', 'cmd_win32.jspx'] )
+        res.extend( ['JspWebshell.jspx', 'JspWebshell1.2.jspx'] )
+        res.extend( ['shell.jspx'])
+        res.extend( ['browser.jsp','cmd_win32.jsp'])
+        res.extend( ['CmdServlet','cmdServlet','servlet/CmdServlet','servlet/cmdServlet'])
         
         # ASP
         res.extend( ['cmd.asp', 'cmdasp.aspx', 'cmdasp.asp', 'cmd-asp-5.1.asp', 'cmd.aspx'] )
-        res.extend( ['ntdaddy.asp'] )
+        res.extend( ['ntdaddy.asp'] )        
+        res.extend( ['ntdaddy.aspx','ntdaddy.mspx','cmd.mspx'] )
+        res.extend( ['shell.asp','zehir4.asp','rhtools.asp','fso.asp'])
+        res.extend( ['shell.aspx','zehir4.aspx','rhtools.aspx','fso.aspx'])
+        res.extend( ['shell.mspx','zehir4.mspx','rhtools.mspx','fso.mspx'])
+        res.extend( ['kshell.asp','aspydrv.asp','kacak.asp'])
+        res.extend( ['kshell.aspx','aspydrv.aspx','kacak.aspx'])
+        res.extend( ['kshell.mspx','aspydrv.mspx','kacak.mspx'])        
         
         # Other
         res.extend( ['cmd.cfm', 'cfexec.cfm'] )
+        res.extend( ['shell.cfm','shell.do','shell.nsf','shell.d2w','shell.GPL'])
+        res.extend( ['shell.show','shell.py'])
+        res.extend( ['cmd.do','cmd.nsf','cmd.d2w','cmd.GPL'])
+        res.extend( ['cmd.show','cmd.py'])
+        res.extend( ['cmd.c','exploit.c','0wn3d.c'])
+        res.extend( ['cmd.sh','cmd.js','shell.js'])
         return res
 
     def getOptions( self ):

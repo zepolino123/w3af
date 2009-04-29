@@ -28,6 +28,7 @@ import core.data.kb.vuln as vuln
 import core.data.kb.info as info
 import core.data.kb.shell as shell
 
+
 class knowledgeBase:
     '''
     This class saves the data that is sent to it by plugins. It is the only way in which
@@ -38,7 +39,7 @@ class knowledgeBase:
     
     def __init__(self):
         self._kb = {}
-        self._kbLock = thread.allocate_lock()
+        self._kb_lock = thread.allocate_lock()
 
     def save( self, callingInstance, variableName, value ):
         '''
@@ -49,7 +50,7 @@ class knowledgeBase:
         else:
             name = callingInstance.getName()
         
-        with self._kbLock:
+        with self._kb_lock:
             if name not in self._kb.keys():
                 self._kb[ name ] = {variableName: value}
             else:
@@ -64,7 +65,7 @@ class knowledgeBase:
         else:
             name = callingInstance.getName()
         
-        with self._kbLock:
+        with self._kb_lock:
             if name not in self._kb.keys():
                 self._kb[ name ] = {variableName:[value,]}
             else:
@@ -84,7 +85,7 @@ class knowledgeBase:
             
         res = []
         
-        with self._kbLock:
+        with self._kb_lock:
             if name not in self._kb.keys():
                 res = []
             else:
@@ -101,12 +102,12 @@ class knowledgeBase:
         '''
         res = []
         
-        with self._kbLock:
+        with self._kb_lock:
             for pluginName in self._kb:
                 for savedName in self._kb[ pluginName ]:
                     if isinstance( self._kb[ pluginName ][ savedName ], list ):
                         for i in self._kb[ pluginName ][ savedName ]:
-                            if isinstance( i, klass ):
+                            if isinstance(i, klass) :
                                 res.append( i )
 
         return res

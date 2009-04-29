@@ -23,15 +23,13 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 import threading, re, sys, Queue
 import  traceback, webbrowser
+import time
 import gtk
+import os
 from core.controllers.w3afException import w3afException
 
-# w3af crash File creation
-import tempfile
-from core.data.fuzzer.fuzzer import createRandAlNum
-import os
-
 RE_TRIM_SPACES = re.compile( "([\w.]) {1,}")
+
 
 def all(iterable):
     '''Redefinition of >=2.5 builtin all().
@@ -212,9 +210,25 @@ def friendlyException(message):
 
     @param message: text received in the friendly exception.
     '''
-    dlg = gtk.MessageDialog(None, gtk.DIALOG_MODAL, gtk.MESSAGE_WARNING, gtk.BUTTONS_OK, message)
-    dlg.run()
-    dlg.destroy()
+    class w3af_message_dialog(gtk.MessageDialog):
+        def dialog_response_cb(self, widget, response_id):
+            '''
+            http://faq.pygtk.org/index.py?req=show&file=faq10.017.htp
+            '''
+            self.destroy()
+            
+        def dialog_run(self):
+            '''
+            http://faq.pygtk.org/index.py?req=show&file=faq10.017.htp
+            '''
+            if not self.modal:
+                self.set_modal(True)
+            self.connect('response', self.dialog_response_cb)
+            self.show()
+            
+    dlg = w3af_message_dialog(None, gtk.DIALOG_MODAL, gtk.MESSAGE_WARNING, gtk.BUTTONS_OK, message)
+    dlg.set_icon_from_file('core/ui/gtkUi/data/w3af_icon.png')
+    dlg.dialog_run()
     return
 
 class _Wrapper(object):
@@ -238,47 +252,6 @@ class _Wrapper(object):
             raise
 
 coreWrap = _Wrapper(w3afException)
-
-def _crash(type, value, tb):
-    '''Function to handle any exception that is not addressed explicitly.'''
-    if issubclass(type, KeyboardInterrupt ):
-        endThreads()
-        import core.controllers.outputManager as om
-        om.out.console(_('Thanks for using w3af.'))
-        om.out.console(_('Bye!'))
-        sys.exit(0)
-        return
-        
-    exception = traceback.format_exception(type, value, tb)
-    exception = "".join(exception)
-    print exception
-
-    # get version info
-    versions = _("\nPython version:\n%s\n\n") % sys.version
-    versions += _("GTK version:%s\n") % ".".join(str(x) for x in gtk.gtk_version)
-    versions += _("PyGTK version:%s\n\n") % ".".join(str(x) for x in gtk.pygtk_version)
-
-    # save the info to a file
-    filename = tempfile.gettempdir() + os.path.sep + "w3af_crash-" + createRandAlNum(5) + ".txt"
-    arch = file(filename, "w")
-    arch.write(_('Submit this bug here: https://sourceforge.net/tracker/?func=add&group_id=170274&atid=853652 \n'))
-    arch.write(versions)
-    arch.write(exception)
-    arch.close()
-
-    # inform the user
-    exception += _("\nAll this info is in a file called ") + filename + _(" for later review. Please report this bug here https://sourceforge.net/tracker/?func=add&group_id=170274&atid=853652 (this URL is also printed in the file), thank you!")
-    exception += _("\n\nThe program will exit after you close this window.")
-    dlg = gtk.MessageDialog(None, gtk.DIALOG_MODAL, gtk.MESSAGE_ERROR, gtk.BUTTONS_OK, exception)
-    dlg.set_title(_('Bug detected!'))
-    dlg.run()
-    dlg.destroy()
-    endThreads()
-    gtk.main_quit()
-    sys.exit(-1)
-    
-sys.excepthook = _crash
-
 
 #--
 # Trying to not use threads anymore, but still need to 
@@ -315,7 +288,11 @@ class IteratedQueue(RegistThread):
 
     def get(self, start_idx=0):
         '''Serves the elements taken from the queue.'''
+        if start_idx > len(self.repository):
+            start_idx = len(self.repository)
+            
         idx = start_idx
+        
         while True:
             if idx == len(self.repository):
                 msg = None
@@ -445,5 +422,38 @@ def open_help(chapter=''):
     '''
     if chapter:
         chapter = '#' + chapter
-    helpfile = os.path.join(os.getcwd(), "readme/gtkUiHTML/gtkUiUsersGuide.html" + chapter)
+    helpfile = os.path.join(os.getcwd(), "readme/EN/gtkUiHTML/gtkUiUsersGuide.html" + chapter)
     webbrowser.open("file://" + helpfile)
+
+
+def write_console_messages( dlg ):
+    '''
+    Write console messages to the TextDialog.
+    
+    @parameter dlg: The TextDialog.
+    '''
+    import core.data.kb.knowledgeBase as kb
+    from . import messages
+    
+    msg_queue = messages.getQueueDiverter()
+    get_message_index = kb.kb.getData('get_message_index', 'get_message_index')
+    inc_message_index = kb.kb.getData('inc_message_index', 'inc_message_index')
+    
+    for msg in msg_queue.get(get_message_index()):
+        if msg is None:
+            yield True
+            continue
+        
+        inc_message_index()
+
+        if msg.getType() != 'console':
+            continue
+
+        # Handling new lines
+        text = msg.getMsg()
+        if msg.getNewLine():
+            text += '\n'
+
+        dlg.addMessage( text )
+
+    yield False

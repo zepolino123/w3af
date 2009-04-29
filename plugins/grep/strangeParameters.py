@@ -32,6 +32,8 @@ import core.data.kb.knowledgeBase as kb
 import core.data.kb.info as info
 import core.data.kb.vuln as vuln
 
+from core.data.db.temp_persist import disk_list
+
 from core.controllers.w3afException import w3afException
 import core.data.parsers.dpCache as dpCache
 import core.data.parsers.urlParser as urlParser
@@ -48,6 +50,9 @@ class strangeParameters(baseGrepPlugin):
 
     def __init__(self):
         baseGrepPlugin.__init__(self)
+        
+        # Internal variables
+        self._already_reported = disk_list()
         
     def grep(self, request, response):
         '''
@@ -69,35 +74,51 @@ class strangeParameters(baseGrepPlugin):
             parsed_references, re_references = dp.getReferences()
             
             for ref in parsed_references:
+                
                 qs = urlParser.getQueryString( ref )
-                for param in qs:
-                    if self._is_strange( request, param, qs[param] ):
-                        i = info.info()
-                        i.setName('Strange parameter')
-                        i.setURI( ref )
-                        i.setId( response.id )
-                        msg = 'The URI: "' +  i.getURI() + '" has a parameter named: "' + param
-                        msg += '" with value: "' + qs[param] + '", which is quite odd.'
-                        i.setDesc( msg )
-                        i.setVar( param )
-                        i['parameterValue'] = qs[param]
-                        kb.kb.append( self , 'strangeParameters' , i )
+                
+                for param_name in qs:
+                    # This for loop is to address the repeated parameter name issue
+                    for element_index in xrange(len(qs[param_name])):
+                        if self._is_strange( request, param_name, qs[param_name][element_index] )\
+                        and ref not in self._already_reported:
+                            # Don't repeat findings
+                            self._already_reported.append(ref)
 
-                    if self._is_SQL( request, param, qs[param] ): 
+                            i = info.info()
+                            i.setName('Strange parameter')
+                            i.setURI( ref )
+                            i.setId( response.id )
+                            msg = 'The URI: "' +  i.getURI() + '" has a parameter named: "' + param_name
+                            msg += '" with value: "' + qs[param_name][element_index] + '", which is quite odd.'
+                            i.setDesc( msg )
+                            i.setVar( param_name )
+                            i['parameterValue'] = qs[param_name][element_index]
+                            i.addToHighlight(qs[param_name][element_index], param_name)
+
+                            kb.kb.append( self , 'strangeParameters' , i )
+                            
                         # To find this kind of vulns
                         # http://thedailywtf.com/Articles/Oklahoma-
                         # Leaks-Tens-of-Thousands-of-Social-Security-Numbers,-Other-
                         # Sensitive-Data.aspx
-                        v = vuln.vuln()
-                        v.setName('Parameter has SQL sentence')
-                        v.setURI( ref )
-                        v.setId( response.id )
-                        msg = 'The URI: "' +  v.getURI() + '" has a parameter named: "' + param
-                        msg +='" with value: "' + qs[param] + '", which is a SQL sentence.'
-                        v.setDesc( msg )
-                        v.setVar( param )
-                        v['parameterValue'] = qs[param]
-                        kb.kb.append( self , 'strangeParameters' , v )
+                        if self._is_SQL( request, param_name, qs[param_name][element_index] )\
+                        and ref not in self._already_reported:
+                            
+                            # Don't repeat findings
+                            self._already_reported.append(ref)
+                            
+                            v = vuln.vuln()
+                            v.setName('Parameter has SQL sentence')
+                            v.setURI( ref )
+                            v.setId( response.id )
+                            msg = 'The URI: "' +  v.getURI() + '" has a parameter named: "' + param_name
+                            msg +='" with value: "' + qs[param_name][element_index] + '", which is a SQL sentence.'
+                            v.setDesc( msg )
+                            v.setVar( param_name )
+                            v['parameterValue'] = qs[param_name][element_index]
+                            i.addToHighlight(qs[param_name][element_index], param_name)
+                            kb.kb.append( self , 'strangeParameters' , v )
     
     def setOptions( self, OptionList ):
         pass

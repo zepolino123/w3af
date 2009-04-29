@@ -31,6 +31,7 @@ from core.data.url.handlers.keepalive import HTTPHandler as kAHTTP
 from core.data.url.handlers.keepalive import HTTPSHandler as kAHTTPS
 import core.data.url.handlers.MultipartPostHandler as MultipartPostHandler
 from core.data.url.handlers.gzip_handler import HTTPGzipProcessor
+from core.data.url.handlers.FastHTTPBasicAuthHandler import FastHTTPBasicAuthHandler
 import core.data.url.handlers.logHandler as logHandler
 import core.data.url.handlers.mangleHandler as mangleHandler
 
@@ -39,6 +40,7 @@ from core.controllers.configurable import configurable
 # options
 from core.data.options.option import option
 from core.data.options.optionList import optionList
+
 
 class urlOpenerSettings( configurable ):
     '''
@@ -101,9 +103,9 @@ class urlOpenerSettings( configurable ):
             # 404 settings
             cf.cf.save('404exceptions', []  )
             cf.cf.save('always404', [] )
-            cf.cf.save('autodetect404', True )
+            cf.cf.save('autodetect404', False )
             cf.cf.save('byDirectory404', False )
-            cf.cf.save('byDirectoryAndExtension404', False)        
+            cf.cf.save('byDirectoryAndExtension404', True)        
     
     def setHeadersFile(self, HeadersFile ):
         '''
@@ -223,7 +225,7 @@ class urlOpenerSettings( configurable ):
             scheme = 'http://'
             self._password_mgr.add_password(None, domain, username, password)
 
-        self._basicAuthHandler = self._ulib.HTTPBasicAuthHandler(self._password_mgr)
+        self._basicAuthHandler = FastHTTPBasicAuthHandler(self._password_mgr)
 
         # Only for w3af, no usage in urllib2
         self._basicAuthStr = scheme + '://' + username + ':' + password + '@' + domain + '/'

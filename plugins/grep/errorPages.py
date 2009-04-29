@@ -32,6 +32,7 @@ import core.data.kb.info as info
 
 import re
 
+
 class errorPages(baseGrepPlugin):
     '''
     Grep every page for error pages.
@@ -42,7 +43,7 @@ class errorPages(baseGrepPlugin):
     def __init__(self):
         baseGrepPlugin.__init__(self)
         
-        self._alreadyReportedVersions = []
+        self._already_reported_versions = []
         self._compiled_regex = []
 
     def _get_error_strings( self ):
@@ -95,6 +96,10 @@ class errorPages(baseGrepPlugin):
         mesg.append("eval()'d code</b> on line <b>")
         mesg.append("Cannot execute a blank command in")
         mesg.append("Fatal error</b>:  preg_replace")
+        mesg.append("thrown in <b>")
+        mesg.append("#0 {main}")
+        mesg.append("Stack trace:")
+        mesg.append("</b> on line <b>")
         
         # python
         mesg.append("PythonHandler django.core.handlers.modpython")
@@ -105,12 +110,17 @@ class errorPages(baseGrepPlugin):
         mesg.append('[java.lang.')
         mesg.append('class java.lang.')
         mesg.append('java.lang.NullPointerException')
+        mesg.append('java.rmi.ServerException')
         
         mesg.append('onclick="toggle(\'full exception chain stacktrace\')"')
         mesg.append('at org.apache.catalina')
         mesg.append('at org.apache.coyote.')
         mesg.append('at org.apache.tomcat.')
         mesg.append('at org.apache.jasper.')
+
+        # ruby
+        mesg.append('<h1 class="error_title">Ruby on Rails application could not be started</h1>')
+
 
         # Coldfusion
         mesg.append('<title>Error Occurred While Processing Request</title></head><body><p></p>')
@@ -147,6 +157,7 @@ class errorPages(baseGrepPlugin):
                     i.setId( response.id )
                     i.setName( 'Error page' )
                     i.setDesc( 'The URL: "' + response.getURL() + '" contains the descriptive error: "' + msg + '"' )
+                    i.addToHighlight( msg ) 
                     kb.kb.append( self , 'errorPage' , i )
                     
             # Now i'll check if I can get a version number from the error page
@@ -157,7 +168,7 @@ class errorPages(baseGrepPlugin):
                     match = error_regex.search( response.getBody() )
                     if match:
                         match_string = match.groups()[0]
-                        if match_string not in self._alreadyReportedVersions:
+                        if match_string not in self._already_reported_versions:
                             # Save the info obj
                             i = info.info()
                             i.setName('Error page with information disclosure')
@@ -165,10 +176,12 @@ class errorPages(baseGrepPlugin):
                             i.setId( response.id )
                             i.setName( 'Error page with information disclosure' )
                             i.setDesc( 'An error page sent this ' + server +' version: "' + match_string + '".'  )
+                            i.addToHighlight( server )
+                            i.addToHighlight( match_string )
                             kb.kb.append( self , 'server' , i )
                             # Save the string
                             kb.kb.append( self , 'server' , match_string )
-                            self._alreadyReportedVersions.append( match_string )
+                            self._already_reported_versions.append( match_string )
 
     def _get_regex_tuples( self ):
         '''

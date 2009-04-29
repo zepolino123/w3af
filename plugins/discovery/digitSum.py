@@ -31,6 +31,8 @@ from core.controllers.w3afException import w3afException
 from core.controllers.misc.levenshtein import relative_distance
 import core.data.parsers.urlParser as urlParser
 
+from core.data.db.temp_persist import disk_list
+
 import core.data.kb.knowledgeBase as kb
 
 import re
@@ -44,7 +46,7 @@ class digitSum(baseDiscoveryPlugin):
 
     def __init__(self):
         baseDiscoveryPlugin.__init__(self)
-        self._already_visited = []
+        self._already_visited = disk_list()
         self._first_time = True
         
         # This is for the Referer
@@ -134,13 +136,17 @@ class digitSum(baseDiscoveryPlugin):
         
         # Now i'll mangle the query string variables
         if fuzzableRequest.getMethod() == 'GET':
-            for parameter in fuzzableRequest.getDc().keys():
-                for modified_value in self._do_combinations( fuzzableRequest.getDc()[ parameter ] ):
-                    fr_copy = fuzzableRequest.copy()
-                    new_dc = fr_copy.getDc()
-                    new_dc[ parameter ] = modified_value
-                    fr_copy.setDc( new_dc )
-                    res.append( fr_copy )
+            for parameter in fuzzableRequest.getDc():
+                
+                # to support repeater parameter names...
+                for element_index in xrange(len(fuzzableRequest.getDc()[parameter])):
+                    
+                    for modified_value in self._do_combinations( fuzzableRequest.getDc()[ parameter ][element_index] ):
+                        fr_copy = fuzzableRequest.copy()
+                        new_dc = fr_copy.getDc()
+                        new_dc[ parameter ][ element_index ] = modified_value
+                        fr_copy.setDc( new_dc )
+                        res.append( fr_copy )
         
         return res
         

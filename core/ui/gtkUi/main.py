@@ -71,9 +71,10 @@ from core.controllers.w3afException import w3afException
 import core.data.kb.config as cf
 import core.data.parsers.urlParser as urlParser
 import core.controllers.outputManager as om
-from . import scanrun, exploittab, helpers, profiles, craftedRequests, compare
+from . import scanrun, exploittab, helpers, profiles, craftedRequests, compare, exception_handler
 from . import entries, encdec, messages, logtab, pluginconfig, confpanel
 from . import wizard, guardian, proxywin
+from . import exception_handler
 
 from core.controllers.misc.homeDir import get_home_dir
 from core.controllers.misc.get_w3af_version import get_w3af_version
@@ -175,7 +176,17 @@ class AboutDialog(gtk.Dialog):
 
     def _goWeb(self, w):
         '''Opens the web site and closes the dialog.'''
-        webbrowser.open("http://w3af.sourceforge.net/")
+        try:
+            webbrowser.open("http://w3af.sourceforge.net/")
+        except WindowsError, we:
+            #
+            #   This catches bug #2685576
+            #   https://sourceforge.net/tracker2/?func=detail&atid=853652&aid=2685576&group_id=170274
+            #
+            #   Which seems to be related to:
+            #   http://mail.python.org/pipermail/python-list/2004-July/269513.html
+            #
+            pass
         self.destroy()
 
 
@@ -509,6 +520,7 @@ class MainApp(object):
         self.generalconfig.close()
         gtk.main_quit()
         time.sleep(0.5)
+        self.w3af.stop()
         self.w3af.quit()
         return False
 
@@ -556,7 +568,7 @@ class MainApp(object):
         '''
         if not self.saveStateToCore():
             return
-
+        
         # Verify that everything is ready to run
         try:
             helpers.coreWrap(self.w3af.initPlugins)
@@ -570,6 +582,12 @@ class MainApp(object):
             except KeyboardInterrupt:
 #                print 'Ctrl+C found, exiting!'
                 pass
+            except Exception, e:
+                gobject.idle_add(self._scan_stopfeedback)
+                exception_class = type(e)
+                exception_instance = e
+                exception_traceback = sys.exc_traceback
+                exception_handler.handle_crash(exception_class, exception_instance, exception_traceback)
         
         # start real work in background, and start supervising if it ends                
         threading.Thread(target=startScanWrap).start()

@@ -24,12 +24,13 @@ import core.controllers.outputManager as om
 from core.controllers.wizard.wizard import wizard
 
 class short_wizard(wizard):
-    def __init__( self ):
+    
+    def __init__( self, w3af_core ):
         '''
         This method should be overwritten by the actual wizards, so they can define what questions they are
         going to ask.
         '''
-        wizard.__init__( self )
+        wizard.__init__( self, w3af_core )
 
         self._questionList = self._get_instances( ['target_1','target_2'] )
         

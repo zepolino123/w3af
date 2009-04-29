@@ -33,7 +33,15 @@ from core.data.db.reqResDBHandler import reqResDBHandler
 from core.controllers.w3afException import w3afException, w3afMustStopException
 import os
 
-request_example = """\
+manual_request_example = """\
+GET http://localhost/script.php HTTP/1.0
+Host: www.some_host.com
+User-Agent: w3af.sf.net
+Pragma: no-cache
+Content-Type: application/x-www-form-urlencoded
+"""
+
+fuzzy_request_example = """\
 GET http://localhost/$xrange(10)$ HTTP/1.0
 Host: www.some_host.com
 User-Agent: w3af.sf.net
@@ -100,7 +108,7 @@ class ManualRequests(entries.RememberingWindow):
 
         # Add a default request
         if initialRequest is None:
-            self.reqresp.request.rawShow(request_example, '')
+            self.reqresp.request.rawShow(manual_request_example, '')
         else:
             (initialUp, initialDn) = initialRequest
             self.reqresp.request.rawShow(initialUp, initialDn)
@@ -270,7 +278,7 @@ class FuzzyRequests(entries.RememberingWindow):
                                          functools.partial(self.sSB_state.change, "rRV")],
                                         editable=True, widgname="fuzzyrequest")
         if initialRequest is None:
-            self.originalReq.rawShow(request_example, '')
+            self.originalReq.rawShow(fuzzy_request_example, '')
         else:
             (initialUp, initialDn) = initialRequest
             self.originalReq.rawShow(initialUp, initialDn)
@@ -520,9 +528,7 @@ class FuzzyRequests(entries.RememberingWindow):
 
             # Let the user know ahout the problem
             msg = "Stopped sending requests because " + str(e)
-            dlg = gtk.MessageDialog(None, gtk.DIALOG_MODAL, gtk.MESSAGE_WARNING, gtk.BUTTONS_OK, msg)
-            opt = dlg.run()
-            dlg.destroy()
+            helpers.friendlyException( msg )
             return False
 
         if httpResp is not None:
@@ -544,15 +550,38 @@ class FuzzyRequests(entries.RememberingWindow):
         return True
 
     def _pageChange(self, page):
+        '''
+        Change the page, and show the information that was stored in self.responses
+            
+        If OK, the responses are saved like this:
+            self.responses.append((True, httpResp.getId()))
+        
+        else:
+            self.responses.append((False, realreq, realbody, errorMsg))        
+        
+        @return: None.
+        '''
         info = self.responses[page]
         if info[0]:
             reqid = info[1]
             # no need to verify if it was ok: the request was succesful and
             # surely existant
-            request, response = self.dbh.searchById( reqid )[0]
-            self.resultReqResp.request.showObject( request )
-            self.resultReqResp.response.showObject( response )
-            self.title0.set_markup( "<b>Id: %d</b>" % reqid )
+            try:
+                request, response = self.dbh.searchById( reqid )[0]
+            except IndexError:
+                #
+                # This catches a strange error 
+                # https://sourceforge.net/tracker/?func=detail&aid=2696941&group_id=170274&atid=853652
+                # TODO: Investigate this further...
+                #
+                error_msg = 'Error searching the request database'
+                self.resultReqResp.request.rawShow( error_msg, error_msg )
+                self.resultReqResp.response.showError( error_msg )
+                self.title0.set_markup( "<b>Error</b>")
+            else:
+                self.resultReqResp.request.showObject( request )
+                self.resultReqResp.response.showObject( response )
+                self.title0.set_markup( "<b>Id: %d</b>" % reqid )
         else:
             # the request brought problems
             realreq, realbody, errorMsg = info[1:]

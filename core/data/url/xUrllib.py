@@ -50,9 +50,15 @@ from core.controllers.misc.memoryUsage import dumpMemoryUsage
 import traceback
 
 import core.data.kb.config as cf
+import core.data.kb.knowledgeBase as kb
+
+# This is a singleton that's used for assigning request IDs
+from core.controllers.misc.number_generator import consecutive_number_generator
+
 
 class sizeExceeded( Exception ):
     pass
+
     
 class xUrllib:
     '''
@@ -217,7 +223,9 @@ class xUrllib:
         listOfNonTargets = cf.cf.getData('nonTargets') or []
         for u in listOfNonTargets:
             if urlParser.uri2url( uri ) == urlParser.uri2url( u ):
-                om.out.debug('The URL you are trying to reach was configured as a non-target. ( '+uri+' ). Returning an empty response.')
+                msg = 'The URL you are trying to reach was configured as a non-target. ( '
+                msg += uri +' ). Returning an empty response.'
+                om.out.debug( msg )
                 return True
         
         return False
@@ -250,8 +258,8 @@ class xUrllib:
             fuzzReq.setHeaders(headers)
         
         # Send it
-        functionReference = getattr( self , fuzzReq.getMethod() )
-        return functionReference( fuzzReq.getURI(), data=fuzzReq.getData(), headers=fuzzReq.getHeaders(),
+        function_reference = getattr( self , fuzzReq.getMethod() )
+        return function_reference( fuzzReq.getURI(), data=fuzzReq.getData(), headers=fuzzReq.getHeaders(),
                                                 useCache=False, grepResult=False, getSize=get_size )
         
     def GET(self, uri, data='', headers={}, useCache=False, grepResult=True, getSize=False ):
@@ -265,7 +273,7 @@ class xUrllib:
         self._init()
 
         if self._isBlacklisted( uri ):
-            return httpResponse( NO_CONTENT, '', {}, uri, uri, msg='No Content' )
+            return httpResponse( NO_CONTENT, '', {}, uri, uri, msg='No Content', id=consecutive_number_generator.inc() )
         
         qs = urlParser.getQueryString( uri )
         if qs:
@@ -284,7 +292,7 @@ class xUrllib:
             try:
                 self._checkFileSize( req )
             except sizeExceeded, se:
-                return httpResponse( NO_CONTENT, '', {}, uri, uri, msg='No Content' )
+                return httpResponse( NO_CONTENT, '', {}, uri, uri, msg='No Content', id=consecutive_number_generator.inc() )
             except Exception, e:
                 raise e
         
@@ -300,7 +308,7 @@ class xUrllib:
         '''
         self._init()
         if self._isBlacklisted( uri ):
-            return httpResponse( NO_CONTENT, '', {}, uri, uri, msg='No Content' )
+            return httpResponse( NO_CONTENT, '', {}, uri, uri, msg='No Content', id=consecutive_number_generator.inc() )
         
         req = urllib2.Request(uri, data )
         req = self._addHeaders( req, headers )
@@ -310,7 +318,7 @@ class xUrllib:
             try:
                 self._checkFileSize( req )
             except sizeExceeded, se:
-                return httpResponse( NO_CONTENT, '', {}, uri, uri, msg='No Content' )
+                return httpResponse( NO_CONTENT, '', {}, uri, uri, msg='No Content', id=consecutive_number_generator.inc() )
             except Exception, e:
                 raise e
         
@@ -329,14 +337,17 @@ class xUrllib:
                 if fileLen.isdigit():
                     fileLen = int( fileLen )
                 else:
-                    msg = 'The content length header value of the response wasn\'t an integer... this is strange... The value is: ' + res.getHeaders()[ i ]
+                    msg = 'The content length header value of the response wasn\'t an integer...'
+                    msg += ' this is strange... The value is: "' + res.getHeaders()[ i ] + '"'
                     om.out.error( msg )
                     raise w3afException( msg )
         
         if fileLen != None:
             return fileLen
         else:
-            om.out.debug( 'The response didn\'t contain a content-length header. Unable to return the remote file size of request with id: ' + str(res.id) )
+            msg = 'The response didn\'t contain a content-length header. Unable to return the'
+            msg += ' remote file size of request with id: ' + str(res.id)
+            om.out.debug( msg )
             # I prefer to fetch the file, before this om.out.debug was a "raise w3afException", but this didnt make much sense
             return 0
         
@@ -368,7 +379,7 @@ class xUrllib:
                 self._xurllib._init()
                 
                 if self._xurllib._isBlacklisted( uri ):
-                    return httpResponse( NO_CONTENT, '', {}, uri, uri, 'No Content' )
+                    return httpResponse( NO_CONTENT, '', {}, uri, uri, 'No Content', id=consecutive_number_generator.inc() )
             
                 if 'data' in keywords:
                     req = self.methodRequest( uri, keywords['data'] )
@@ -439,6 +450,11 @@ class xUrllib:
                 raise sizeExceeded( msg )
             
     def _send( self , req , useCache=False, useMultipart=False, grepResult=True ):
+        '''
+        Actually send the request object.
+        
+        @return: An httpResponse object.
+        '''
         # This is the place where I hook the pause and stop feature
         # And some other things like memory usage debugging.
         self._callBeforeSend()
@@ -450,7 +466,7 @@ class xUrllib:
         original_url = req._Request__original
         req = self._evasion( req )
         
-        startTime = time.time()
+        start_time = time.time()
         res = None
         try:
             if useCache:
@@ -504,7 +520,7 @@ class xUrllib:
                 info = e.info()
                 geturl = e.geturl()
                 read = self._readRespose( e )
-                httpResObj = httpResponse(code, read, info, geturl, original_url, id=e.id, time=time.time() - startTime, msg=e.msg )
+                httpResObj = httpResponse(code, read, info, geturl, original_url, id=e.id, time=time.time() - start_time, msg=e.msg )
                 
                 # Clear the log of failed requests; this request is done!
                 if id(req) in self._errorCount:
@@ -535,7 +551,7 @@ class xUrllib:
                 del self._errorCount[ id(req) ]
             self._incrementGlobalErrorCount()
             
-            return httpResponse( NO_CONTENT, '', {}, original_url, original_url, msg='No Content' )
+            return httpResponse( NO_CONTENT, '', {}, original_url, original_url, msg='No Content', id=consecutive_number_generator.inc() )
         else:
             # Everything ok !
             if not req.get_data():
@@ -552,7 +568,7 @@ class xUrllib:
             info = res.info()
             geturl = res.geturl()
             read = self._readRespose( res )
-            httpResObj = httpResponse(code, read, info, geturl, original_url, id=res.id, time=time.time() - startTime, msg=res.msg )
+            httpResObj = httpResponse(code, read, info, geturl, original_url, id=res.id, time=time.time() - start_time, msg=res.msg )
             # Let the upper layers know that this response came from the local cache.
             if isinstance(res, CachedResponse):
                 httpResObj.setFromCache(True)

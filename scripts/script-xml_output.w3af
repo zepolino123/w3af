@@ -7,10 +7,13 @@ set fileName output-w3af.xml
 set verbose True
 back
 
-discovery webSpider
+discovery webSpider, allowedMethods
 discovery config webSpider
 set onlyForward True
 back
+
+audit xss
+
 back
 
 target
@@ -19,6 +22,6 @@ back
 
 start
 
-assert len(kb.kb.getData('urls','urlList')) == 16
+assert len(kb.kb.getData('urls','urlList')) >= 14
 
 exit

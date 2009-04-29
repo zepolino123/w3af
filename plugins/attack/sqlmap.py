@@ -185,8 +185,9 @@ class sqlmap(baseAttackPlugin):
                 # The user didn't selected anything, or we are in the selected vuln!
                 om.out.debug('Verifying vulnerability in URL: "' + v.getURL() + '".')
                 vuln_obj = bsql.is_injectable( v.getMutant().getFuzzableReq(), v.getVar() )
+                
                 if vuln_obj:
-                    tmp_vuln_list.extend( vuln_obj )
+                    tmp_vuln_list.append( vuln_obj )
             
             # Ok, go to the next stage with the filtered vulnerabilities
             vulns = tmp_vuln_list
@@ -329,7 +330,7 @@ class sqlmap(baseAttackPlugin):
         The original sqlmap program was coded by Bernardo Damele and Daniele Bellucci, many thanks to both of
         them.
         
-        Seven configurable parameters exist:
+        Six configurable parameters exist:
             - url
             - method
             - data
@@ -420,7 +421,7 @@ class sqlShellObj(shell):
         except TypeError:
             res = 'Invalid number of parameters for command.'
         except KeyboardInterrupt, k:
-            raise k
+            res = 'The user interrupted the process with Ctrl+C.'
         except w3afException, e:
             res = 'An unexpected error was found while trying to run the specified command.\n'
             res +='Exception: "' + str(e) + '"'

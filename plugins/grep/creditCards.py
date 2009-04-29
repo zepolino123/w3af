@@ -35,6 +35,7 @@ import core.data.constants.severity as severity
 
 import re
 
+
 def luhnCheck(value):
     '''
     The Luhn check against the value which can be an array of digits, 
@@ -93,6 +94,7 @@ class creditCards(baseGrepPlugin):
                 v.setId( response.id )
                 v.setSeverity(severity.LOW)
                 v.setName( 'Credit card number disclosure' )
+                v.addToHighlight(card)
                 msg = 'The URL: "' + v.getURL() + '" discloses the credit card number: "'
                 msg += card + '".'
                 v.setDesc( msg )

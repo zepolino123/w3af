@@ -210,7 +210,9 @@ class urlFuzzer(baseDiscoveryPlugin):
     def _get_backup_extensions( self ):
         fileTypes = []
         fileTypes.append ( 'tar.gz' )
+        fileTypes.append ( '7z' )
         fileTypes.append ( 'gz' )
+        fileTypes.append ( 'cab' )
         fileTypes.append ( 'tgz' )
         fileTypes.append ( 'gzip' )
         fileTypes.append ( 'bzip2' )
@@ -257,6 +259,8 @@ class urlFuzzer(baseDiscoveryPlugin):
         appendables.append ( '~' )
         appendables.append ( '.tar.gz' )
         appendables.append ( '.gz' )
+        appendables.append ( '.7z' )
+        appendables.append ( '.cab' )
         appendables.append ( '.tgz' )
         appendables.append ( '.gzip' )
         appendables.append ( '.bzip2' )
@@ -269,6 +273,8 @@ class urlFuzzer(baseDiscoveryPlugin):
         appendables.append ( '.properties' )
         appendables.append ( '.bak' )
         appendables.append ( '.bak1' )
+        appendables.append ( '.bkp' )
+        appendables.append ( '.back' )
         appendables.append ( '.backup' )
         appendables.append ( '.backup1' )       
         appendables.append ( '.old' )

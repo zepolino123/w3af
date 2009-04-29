@@ -39,6 +39,8 @@ import plugins.attack.payloads.payloads as payloads
 import os
 import os.path
 import urllib
+import tempfile
+from core.controllers.misc.temp_dir import get_temp_dir
 
 
 class fileUploadShell(baseAttackPlugin):
@@ -124,12 +126,13 @@ class fileUploadShell(baseAttackPlugin):
 
         # Create a file that will be uploaded
         extension = urlParser.getExtension( url )
-        fname = self._createFile( extension )
+        fname = self._create_file( extension )
         file_handler = open( fname , "r")
         
         # Upload the file
         for file_var_name in vuln_obj['fileVars']:
-            exploit_dc[file_var_name] = file_handler
+            # the [0] was added here to support repeated parameter names
+            exploit_dc[file_var_name][0] = file_handler
         http_method = getattr( self._urlOpener,  method)
         response = http_method( vuln_obj.getURL() ,  exploit_dc )
         
@@ -148,33 +151,27 @@ class fileUploadShell(baseAttackPlugin):
         else:
             return False
     
-    def _createFile( self, extension ):
+    def _create_file( self, extension ):
         '''
         Create a file with a webshell as content.
+        
         @return: Name of the file that was created.
         '''
-        dir = '.tmp' + os.path.sep
-        try:
-            if not os.path.exists( dir ):
-                os.mkdir( dir )
-        except:
-            raise w3afException('Could not create '+ dir + ' directory.')
-        
+        # Get content
         file_content, real_extension = payloads.get_webshells( extension, forceExtension=True )[0]
         if extension == '':
             extension = real_extension
-            
-        fname = createRandAlNum( 8 ) + '.' +extension
-        self._path_name = dir + fname
-        self._file_name = fname
-        file_handler = None
-        try:
-            file_handler = file(  self._path_name , 'w' )
-        except:
-            raise w3afException('Could not create file: ' + self._path_name )
+
+        # Open target
+        temp_dir = get_temp_dir()
+        low_level_fd, self._path_name = tempfile.mkstemp(prefix='w3af_', suffix='.' + extension, dir=temp_dir)
+        file_handler = os.fdopen(low_level_fd, "w+b")
         
-        file_handler.write( file_content )
+        # Write content to target
+        file_handler.write(file_content)
         file_handler.close()
+        
+        _path, self._file_name = os.path.split(self._path_name)
         return self._path_name
     
     def getOptions( self ):

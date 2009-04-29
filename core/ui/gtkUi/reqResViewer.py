@@ -24,6 +24,7 @@ from . import entries
 
 # To show request and responses
 from core.data.db.reqResDBHandler import reqResDBHandler
+from core.data.constants import severity
 
 useMozilla = False
 useGTKHtml2 = False
@@ -378,6 +379,43 @@ class responsePaned(requestResponsePaned):
             self._renderFunction(body, mimeType, baseURI)
 
 
+    def highlight(self, text, sev=severity.MEDIUM):
+        '''
+        Find the text, and handle highlight.
+        @return: None.
+        '''
+        
+        # highlight the response header and body
+        for text_buffer in [self._downTv, self._upTv]:
+            
+            (ini, fin) = text_buffer.get_bounds()
+            alltext = text_buffer.get_text(ini, fin)
+
+            # find the positions where the phrase is found
+            positions = []
+            pos = 0
+            while True:
+                try:
+                    pos = alltext.index(text, pos)
+                except ValueError:
+                    break
+                fin = pos + len(text)
+                iterini = text_buffer.get_iter_at_offset(pos)
+                iterfin = text_buffer.get_iter_at_offset(fin)
+                positions.append((pos, fin, iterini, iterfin))
+                pos += 1
+
+            # highlight them all
+            for (ini, fin, iterini, iterfin) in positions:
+                text_buffer.apply_tag_by_name(sev, iterini, iterfin)
+
+SEVERITY_TO_COLOR={
+    severity.INFORMATION: 'green', 
+    severity.LOW: 'blue',
+    severity.MEDIUM: 'yellow',
+    severity.HIGH: 'red'}
+SEVERITY_TO_COLOR.setdefault('yellow')
+
 class searchableTextView(gtk.VBox, entries.Searchable):
     '''A textview widget that supports searches.
 
@@ -388,6 +426,8 @@ class searchableTextView(gtk.VBox, entries.Searchable):
         
         # Create the textview where the text is going to be shown
         self.textView = gtk.TextView()
+        for sev in SEVERITY_TO_COLOR:
+            self.textView.get_buffer().create_tag(sev, background=SEVERITY_TO_COLOR[sev])
         self.textView.show()
         
         # Scroll where the textView goes
@@ -402,6 +442,18 @@ class searchableTextView(gtk.VBox, entries.Searchable):
         # Create the search widget
         entries.Searchable.__init__(self, self.textView, small=True)
     
+    def get_bounds(self):
+        return self.textView.get_buffer().get_bounds()
+        
+    def get_text(self, start,  end):
+        return self.textView.get_buffer().get_text(start, end)
+        
+    def get_iter_at_offset(self, position):
+        return self.textView.get_buffer().get_iter_at_offset(position)
+    
+    def apply_tag_by_name(self, tag, start, end):
+        return self.textView.get_buffer().apply_tag_by_name(tag, start, end)
+        
     def set_editable(self, e):
         return self.textView.set_editable(e)
         

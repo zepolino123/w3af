@@ -20,9 +20,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
-from core.controllers.w3afException import w3afException
-from core.data.parsers.urlParser import *
+from core.data.parsers.urlParser import uri2url
 import core.data.constants.severity as severity
+
 
 class info(dict):
     '''
@@ -40,8 +40,9 @@ class info(dict):
         self._id = None
         self._name = ''
         self._dc = None
+        self._string_matches = set()
             
-        # Clone the object!
+        # Clone the info object!
         if isinstance( dataObj, info ):
             self.setURI( dataObj.getURI() )
             self.setDesc( dataObj.getDesc() )
@@ -105,7 +106,7 @@ class info(dict):
         else:
             return self._desc
     
-    def _convert_to_range_wrapper(self,  list_of_integers):
+    def _convert_to_range_wrapper(self, list_of_integers):
         '''
         Just a wrapper for _convert_to_range; please see documentation below!
         
@@ -113,7 +114,7 @@ class info(dict):
         '''
         res = self._convert_to_range( list_of_integers )
         if res.endswith(','):
-            res = res [:-1]
+            res = res[:-1]
         return res
     
     def _convert_to_range(self, list_of_integers):
@@ -207,6 +208,13 @@ class info(dict):
         '''
         if isinstance(id, type([])):
             # A list with more than one ID:
+            
+            # I have to check if all of them are actually integers
+            for i in id:
+                if not isinstance(i, type(5)):
+                    # w3afException is correctly handled, I want a crash!
+                    raise Exception('All request/response ids have to be integers.')
+                    
             id.sort()
             self._id = id
         else:
@@ -231,3 +239,18 @@ class info(dict):
     def getDc( self ):
         return self._dc
         
+    def getToHighlight(self):
+        '''
+        The string match is the string that was used to identify the vulnerability. For example,
+        in a SQL injection the string match would look like:
+        
+            - "...supplied argument is not a valid MySQL..."
+            
+        This information is used to highlight the string in the GTK user interface, when showing the
+        request / response.
+        '''
+        return self._string_matches
+        
+    def addToHighlight(self, *str_match):
+        for s in str_match:
+            self._string_matches.add(s)

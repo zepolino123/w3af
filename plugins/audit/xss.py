@@ -71,12 +71,14 @@ class xss(baseAuditPlugin):
         
         # This list is just to test if the parameter is echoed back
         fake_mutants = createMutants( freq , ['', ] )
-            
         for mutant in fake_mutants:
             # verify if the variable we are fuzzing is actually being echoed back
             if self._is_echoed( mutant ):
                 # Search for reflected XSS
                 self._search_reflected_xss(mutant)
+                # And also check stored
+                self._search_stored_xss(mutant)
+                
             elif self._check_stored_xss:
                 # Search for permanent XSS
                 self._search_stored_xss(mutant)
@@ -113,7 +115,7 @@ class xss(baseAuditPlugin):
         xss_strings = [ i[0] for i in filtered_xss_tests ]
         mutant_list = createMutants( mutant.getFuzzableReq() , xss_strings , \
                                                     fuzzableParamList=[mutant.getVar(), ])
-        
+
         # In the mutant, we have to save which browsers are vulnerable to that specific string
         for mutant in mutant_list:
             for xss_string, affected_browsers in filtered_xss_tests:
@@ -185,13 +187,16 @@ class xss(baseAuditPlugin):
         
         # Get the strings only
         xss_strings = [ i[0] for i in xss_tests ]
+        # And now replace the alert by fake_alert; I don't want to break web applications
+        xss_strings = [ xss_test.replace('alert', 'fake_alert') for xss_test in xss_strings ]
+        
         mutant_list = createMutants( mutant.getFuzzableReq() , xss_strings , \
                                                     fuzzableParamList=[mutant.getVar(), ])
         
         # In the mutant, we have to save which browsers are vulnerable to that specific string
         for mutant in mutant_list:
             for xss_string, affected_browsers in xss_tests:
-                if xss_string in mutant.getModValue():
+                if xss_string.replace('alert', 'fake_alert') in mutant.getModValue():
                     mutant.affected_browsers = affected_browsers
 
         for mutant in mutant_list:
@@ -413,9 +418,9 @@ class xss(baseAuditPlugin):
         '''
         @return: A list of option objects for this plugin.
         '''
-        d1 = 'Search persistent XSS'
+        d1 = 'Identify stored cross site scripting vulnerabilities'
         h1 = 'If set to True, w3af will navigate all pages of the target one more time,'
-        h1 += ' searching for persistent cross site scripting vulnerabilities.'
+        h1 += ' searching for stored cross site scripting vulnerabilities.'
         o1 = option('checkStored', self._check_stored_xss, d1, 'boolean', help=h1)
         
         d2 = 'Set the amount of checks to perform for each fuzzable parameter.'
