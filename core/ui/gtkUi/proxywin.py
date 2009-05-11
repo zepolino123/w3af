@@ -112,6 +112,7 @@ class ProxiedRequests(entries.RememberingWindow):
         self.reqresp.request.set_sensitive(False)
         self.reqresp.response.set_sensitive(False)
 
+        self.reqresp.pack_start(hbox, False, False)
         # notebook
         nb = gtk.Notebook()
         nb.append_page(self.reqresp, gtk.Label(_("Request and Response")))
@@ -123,7 +124,6 @@ class ProxiedRequests(entries.RememberingWindow):
         self.vbox.pack_start(nb, True, True)
         nb.show()
         
-        self.vbox.pack_start(hbox, False, False)
         
         # the config options
         self.proxyoptions = ProxyOptions()
