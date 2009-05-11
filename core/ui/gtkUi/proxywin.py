@@ -91,28 +91,29 @@ class ProxiedRequests(entries.RememberingWindow):
         toolbar.show()
 
         # the buttons
-        hbox = gtk.HBox()
+        buttonBox = gtk.HBox()
         self.bt_drop = gtk.Button(_("  Drop  "))
         self.bt_drop.set_sensitive(False)
         self.bt_drop.connect("clicked", self._drop)
-        hbox.pack_start(self.bt_drop, False, False, padding=10)
+        buttonBox.pack_start(self.bt_drop, False, False, padding=10)
         self.bt_send = gtk.Button(_("  Send  "))
         self.bt_send.connect("clicked", self._send)
-        hbox.pack_start(self.bt_send, False, False, padding=10)
+        buttonBox.pack_start(self.bt_send, False, False, padding=10)
         self.bt_next = gtk.Button(_("  Next  "))
         self.bt_next.set_sensitive(False)
         self.bt_next.connect("clicked", self._next)
-        hbox.pack_end(self.bt_next, False, False, padding=10)
-        hbox.show_all()
+        buttonBox.pack_end(self.bt_next, False, False, padding=10)
+        buttonBox.show_all()
 
         # request-response viewer
-        self.reqresp = reqResViewer.reqResViewer(w3af, 
-                          [self.bt_drop.set_sensitive, self.bt_send.set_sensitive], 
-                          editableRequest=True)
+        self.reqresp = reqResViewer.reqResViewer(w3af, \
+                [self.bt_drop.set_sensitive, self.bt_send.set_sensitive], \
+                editableRequest=True)
         self.reqresp.request.set_sensitive(False)
         self.reqresp.response.set_sensitive(False)
 
-        self.reqresp.pack_start(hbox, False, False)
+        self.reqresp.pack_start(buttonBox, False, False)
+
         # notebook
         nb = gtk.Notebook()
         nb.append_page(self.reqresp, gtk.Label(_("Request and Response")))
@@ -120,11 +121,9 @@ class ProxiedRequests(entries.RememberingWindow):
         lab2 = gtk.Label(_("History"))
         nb.append_page(httplog, lab2)
         lab2.show()
-        
         self.vbox.pack_start(nb, True, True)
         nb.show()
-        
-        
+
         # the config options
         self.proxyoptions = ProxyOptions()
         self.proxyoptions.append("ignoreimgs", 
@@ -196,9 +195,9 @@ class ProxiedRequests(entries.RememberingWindow):
 
         @param widget: who sent the signal.
         '''
-        (tsup, tlow) = self.reqresp.request.getBothTexts()
+        (headers, data) = self.reqresp.request.getBothTexts()
         try:
-            httpResp = helpers.coreWrap(self.proxy.sendRawRequest, self.fuzzable, tsup, tlow)
+            httpResp = helpers.coreWrap(self.proxy.sendRawRequest, self.fuzzable, headers, data)
         except w3afException:
             return
         else:
