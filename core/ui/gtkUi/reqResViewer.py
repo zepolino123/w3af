@@ -49,7 +49,7 @@ def sigsegv_handler(signum, frame):
     print _('https://sourceforge.net/tracker/index.php?func=detail&aid=1933524&group_id=170274&atid=853652')
 signal.signal(signal.SIGSEGV, sigsegv_handler)
 # End signal handler
-    
+
 class reqResViewer(gtk.VBox):
     '''
     A widget with the request and the response inside.
@@ -57,23 +57,24 @@ class reqResViewer(gtk.VBox):
     @author: Andres Riancho ( andres.riancho@gmail.com )
     @author: Facundo Batista ( facundo@taniquetil.com.ar )
     '''
-    def __init__(self, w3af, enableWidget=None, withManual=True, withFuzzy=True, withCompare=True, editableRequest=False, editableResponse=False, widgname="default"):
+    def __init__(self, w3af, enableWidget=None, withManual=True, withFuzzy=True,\
+            withCompare=True, editableRequest=False, editableResponse=False, widgname="default"):
         super(reqResViewer,self).__init__()
         self.w3af = w3af
-        
-        pan = entries.RememberingHPaned(w3af, "pane-reqRV"+widgname, 400)
-        pan.show()
-        self.pack_start(pan)
+
+        nb = gtk.Notebook()
+        self.pack_start(nb, True, True)
+        nb.show()
 
         # request
-        self.request = requestPaned(w3af, enableWidget, editable=editableRequest, widgname=widgname)
+        self.request = requestPart(w3af, enableWidget, editable=editableRequest, widgname=widgname)
         self.request.show()
-        pan.pack1(self.request.notebook)
+        nb.append_page(self.request, gtk.Label(_("Request")))
 
         # response
-        self.response = responsePaned(w3af, editable=editableResponse, widgname=widgname)
+        self.response = responsePart(w3af, editable=editableResponse, widgname=widgname)
         self.response.show()
-        pan.pack2(self.response.notebook)
+        nb.append_page(self.response, gtk.Label(_("Response")))
 
         # buttons
         if withManual or withFuzzy or withCompare:
@@ -115,108 +116,83 @@ class reqResViewer(gtk.VBox):
         requp,reqdn = self.request.getBothTexts()
         self.w3af.mainwin.commCompareTool((requp, reqdn, self.response.showingResponse))
 
-class requestResponsePaned(entries.RememberingVPaned):
+class requestResponsePart(gtk.Notebook):
     def __init__(self, w3af, enableWidget=None, editable=False, widgname="default"):
-        entries.RememberingVPaned.__init__(self, w3af, "pane-rRVreqRespPane"+widgname)
+        super(requestResponsePart, self).__init__()
         self.childButtons = []
-
         # The textview where a part of the req/res is showed
-        self._upTv = searchableTextView()
-        self._upTv.set_editable(editable)
-        self._upTv.set_border_width(5)
+        self._raw = searchableTextView()
+        self._raw.set_editable(editable)
+        self._raw.set_border_width(5)
+        self._raw.show()
+
         if enableWidget:
-            self._upTv.get_buffer().connect("changed", self._changed, enableWidget)
+            self._raw.get_buffer().connect("changed", self._changed, enableWidget)
             for widg in enableWidget:
                 widg(False)
-        
-        # The textview where a part of the req/res is showed (this is for postdata and response body)
-        self._downTv = searchableTextView()
-        self._downTv.set_editable(editable)
-        self._downTv.set_border_width(5)
-        
-        # vertical pan (allows resize of req/res texts)
-        self.pack1( self._upTv )
-        self.pack2( self._downTv )
+
+        self.append_page(self._raw, gtk.Label("Raw"))
         self.show()
 
     def set_sensitive(self, how):
-        '''Sets the pane on/off.
-
-        This is not a camelcase name to match the GTK interface.
+        '''Sets the pane on/off
         '''
-        self.notebook.set_sensitive(how)
+        super(requestResponsePart, self).set_sensitive(how)
         for but in self.childButtons:
             but.set_sensitive(how)
 
     def _changed(self, widg, toenable):
-        '''Supervises if the widget has some text.'''
-        uppBuf = self._upTv.get_buffer()
+        ''' Supervises if the widget has some text
+        '''
+        uppBuf = self._raw.get_buffer()
         uppText = uppBuf.get_text(uppBuf.get_start_iter(), uppBuf.get_end_iter())
         for widg in toenable:
             widg(bool(uppText))
-        
+
     def _clear( self, textView ):
-        '''
-        Clears a text view.
+        ''' Clears a text view
         '''
         buff = textView.get_buffer()
         start, end = buff.get_bounds()
         buff.delete(start, end)
-        
+
     def clearPanes(self):
-        '''Public interface to clear both panes.'''
-        self._clear( self._upTv )
-        self._clear( self._downTv )
+        ''' Public interface to clear both panes.'''
+        self._clear( self._raw )
 
     def showError(self, text):
-        '''Show an error.
-        
-        Errors are shown in the upper part, with the lower one greyed out.
+        ''' Show an error. Errors are shown in the upper part, with the lower one greyed out.
         '''
-        self._clear(self._upTv)
-        buff = self._upTv.get_buffer()
+        self._clear(self._raw)
+        buff = self._raw.get_buffer()
         iter = buff.get_end_iter()
         buff.insert(iter, text)
-        
-        self._clear(self._downTv)
-        self._downTv.set_sensitive(False)
-        
+
     def getBothTexts(self):
         '''Returns the upper and lower texts.'''
-        uppBuf = self._upTv.get_buffer()
-        uppText = uppBuf.get_text(uppBuf.get_start_iter(), uppBuf.get_end_iter())
-        lowBuf = self._downTv.get_buffer()
-        lowText = lowBuf.get_text(lowBuf.get_start_iter(), lowBuf.get_end_iter())
-        return (uppText, lowText)
-        
+        rawBuf = self._raw.get_buffer()
+        rawText = rawBuf.get_text(rawBuf.get_start_iter(), rawBuf.get_end_iter())
+        headers, data = rawText.split("\n\n")
+        return (headers, data)
+
     def _to_utf8(self, text):
         '''
         This method was added to fix:
-        
+
         GtkWarning: gtk_text_buffer_emit_insert: assertion `g_utf8_validate (text, len, NULL)'
-        
+
         @parameter text: A text that may or may not be in UTF-8.
         @return: A text, that's in UTF-8, and can be printed in a text view
         '''
         text = repr(text)
         text = text[1:-1]
-        
+
         for special_char in ['\n', '\r', '\t']:
             text = text.replace( repr(special_char)[1:-1], special_char )
-        
+
         return text
 
-class requestPaned(requestResponsePaned):
-    def __init__(self, w3af, enableWidget=None, editable=False, widgname="default"):
-        requestResponsePaned.__init__(self, w3af, enableWidget, editable, widgname+"request")
-
-        self.notebook = gtk.Notebook()
-        l = gtk.Label("Request")
-        self.notebook.append_page(self, l)
-        
-        self.notebook.show()
-        self.show()
-        
+class requestPart(requestResponsePart):
     def showObject(self, fuzzableRequest):
         '''
         Show the data from a fuzzableRequest object in the textViews.
@@ -225,60 +201,23 @@ class requestPaned(requestResponsePaned):
         head = fuzzableRequest.dumpRequestHead()
         postdata = fuzzableRequest.getData()
 
-        self._clear(self._upTv)
-        buff = self._upTv.get_buffer()
+        self._clear(self._raw)
+        buff = self._raw.get_buffer()
         iterl = buff.get_end_iter()
-        buff.insert(iterl, self._to_utf8(head))
-        
-        self._downTv.set_sensitive(True)
-        self._clear(self._downTv)
-        buff = self._downTv.get_buffer()
-        iterl = buff.get_end_iter()
-        buff.insert(iterl, self._to_utf8(postdata))
-        
-    def showParsed( self, method, uri, version, headers, postData ):
-        '''
-        Show the data in the corresponding order in self._upTv and self._downTv
-        
-        FIXME: This method AIN'T USED. Please deprecate in the future!
-        '''
-        # Clear previous results
-        self._clear( self._upTv )
-        self._clear( self._downTv )
-        
-        buff = self._upTv.get_buffer()
-        iterl = buff.get_end_iter()
-        buff.insert( iterl, method + ' ' + uri + ' ' + 'HTTP/' + version + '\n')
-        buff.insert( iterl, headers )
-        
-        buff = self._downTv.get_buffer()
-        iterl = buff.get_end_iter()
-        buff.insert( iterl, postData )
-    
+        buff.insert(iterl, self._to_utf8(head + "\n\n" + postdata))
+
     def rawShow(self, requestresponse, body):
         '''Show the raw data.'''
-        self._clear(self._upTv)
-        buff = self._upTv.get_buffer()
+        self._clear(self._raw)
+        buff = self._raw.get_buffer()
         iterl = buff.get_end_iter()
-        buff.insert(iterl, requestresponse)
-        
-        self._downTv.set_sensitive(True)
-        self._clear(self._downTv)
-        buff = self._downTv.get_buffer()
-        iterl = buff.get_end_iter()
-        buff.insert(iterl, body)
-        
-class responsePaned(requestResponsePaned):
+        buff.insert(iterl, requestresponse + "\n\n" + body)
+
+class responsePart(requestResponsePart):
     def __init__(self, w3af, editable=False, widgname="default"):
-        requestResponsePaned.__init__(self, w3af, editable=editable, widgname=widgname+"response")
-        self.notebook = gtk.Notebook()
+        requestResponsePart.__init__(self, w3af, editable=editable, widgname=widgname+"response")
         self.showingResponse = None
-
-        # first page
-        l = gtk.Label("Response")
-        self.notebook.append_page(self, l)
-        self.notebook.show()
-
+        
         # second page, only there if html renderer available
         self._renderingWidget = None
         if (withMozillaTab and useMozilla) or (withGtkHtml2 and useGTKHtml2):
@@ -290,14 +229,12 @@ class responsePaned(requestResponsePaned):
                 self._renderFunction = self._renderMozilla
             else:
                 renderWidget = None
-                
+
             self._renderingWidget = renderWidget
             if renderWidget is not None:
                 swRenderedHTML = gtk.ScrolledWindow()
                 swRenderedHTML.add(renderWidget)
-                self.notebook.append_page(swRenderedHTML, gtk.Label(_("Rendered response")))
-        
-        self.show()
+                self.append_page(swRenderedHTML, gtk.Label(_("Rendered response")))
 
     def _renderGtkHtml2(self, body, mimeType, baseURI):
         # It doesn't make sense to render something empty
@@ -320,7 +257,7 @@ class responsePaned(requestResponsePaned):
 
     def _renderMozilla(self, body, mimeType, baseURI):
         self._renderingWidget.render_data(body, long(len(body)), baseURI , mimeType)
-        
+
 
     def showObject(self, httpResp):
         '''
@@ -331,52 +268,10 @@ class responsePaned(requestResponsePaned):
         resp = httpResp.dumpResponseHead()
         body = httpResp.getBody()
 
-        self._clear(self._upTv)
-        buff = self._upTv.get_buffer()
+        self._clear(self._raw)
+        buff = self._raw.get_buffer()
         iterl = buff.get_end_iter()
-        buff.insert(iterl, self._to_utf8(resp))
-        
-        self._downTv.set_sensitive(True)
-        self._clear(self._downTv)
-        buff = self._downTv.get_buffer()
-        iterl = buff.get_end_iter()
-        buff.insert(iterl, self._to_utf8(body))
-
-    def showParsed( self, version, code, msg, headers, body, baseURI ):
-        '''
-        Show the data in the corresponding order in self._upTv and self._downTv
-        '''
-        # Clear previous results
-        self._clear( self._upTv )
-        self._clear( self._downTv )
-
-        buff = self._upTv.get_buffer()
-        iterl = buff.get_end_iter()
-        buff.insert( iterl, 'HTTP/' + version + ' ' + str(code) + ' ' + str(msg) + '\n')
-        buff.insert( iterl, headers )
-        
-        # Get the mimeType from the response headers
-        mimeType = 'text/html'
-        headers = headers.split('\n')
-        headers = [h for h in headers if h]
-        for h in headers:
-            h_name, h_value = h.split(':', 1)
-            if 'content-type' in h_name.lower():
-                mimeType = h_value.strip()
-                break
-        
-        # FIXME: Show images
-        if 'image' in mimeType:
-            mimeType = 'text/html'
-            body = _('The response type is: <i>') + mimeType + _('</i>. w3af is still under development, in the future images will be displayed.')
-            
-        buff = self._downTv.get_buffer()
-        iterl = buff.get_end_iter()
-        buff.insert( iterl, body )
-        
-        # Show it rendered
-        if self._renderingWidget is not None:
-            self._renderFunction(body, mimeType, baseURI)
+        buff.insert(iterl, self._to_utf8(resp + "\n\n" + body))
 
 
     def highlight(self, text, sev=severity.MEDIUM):
@@ -384,10 +279,10 @@ class responsePaned(requestResponsePaned):
         Find the text, and handle highlight.
         @return: None.
         '''
-        
+
         # highlight the response header and body
-        for text_buffer in [self._downTv, self._upTv]:
-            
+        for text_buffer in [self._downTv, self._raw]:
+
             (ini, fin) = text_buffer.get_bounds()
             alltext = text_buffer.get_text(ini, fin)
 
@@ -423,13 +318,13 @@ class searchableTextView(gtk.VBox, entries.Searchable):
     '''
     def __init__(self):
         gtk.VBox.__init__(self)
-        
+
         # Create the textview where the text is going to be shown
         self.textView = gtk.TextView()
         for sev in SEVERITY_TO_COLOR:
             self.textView.get_buffer().create_tag(sev, background=SEVERITY_TO_COLOR[sev])
         self.textView.show()
-        
+
         # Scroll where the textView goes
         sw1 = gtk.ScrolledWindow()
         sw1.set_shadow_type(gtk.SHADOW_ETCHED_IN)
@@ -438,28 +333,28 @@ class searchableTextView(gtk.VBox, entries.Searchable):
         sw1.show()
         self.pack_start(sw1, expand=True, fill=True)
         self.show()
-        
+
         # Create the search widget
         entries.Searchable.__init__(self, self.textView, small=True)
-    
+
     def get_bounds(self):
         return self.textView.get_buffer().get_bounds()
-        
+
     def get_text(self, start,  end):
         return self.textView.get_buffer().get_text(start, end)
-        
+
     def get_iter_at_offset(self, position):
         return self.textView.get_buffer().get_iter_at_offset(position)
-    
+
     def apply_tag_by_name(self, tag, start, end):
         return self.textView.get_buffer().apply_tag_by_name(tag, start, end)
-        
+
     def set_editable(self, e):
         return self.textView.set_editable(e)
-        
+
     def set_border_width(self, b):
         return self.textView.set_border_width(b)
-        
+
     def get_buffer(self):
         return self.textView.get_buffer()
 
