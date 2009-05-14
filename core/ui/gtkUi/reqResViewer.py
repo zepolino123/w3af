@@ -169,10 +169,18 @@ class requestResponsePart(gtk.Notebook):
         buff.insert(iter, text)
 
     def getBothTexts(self):
-        '''Returns the upper and lower texts.'''
+        '''Returns request data as headers + data'''
         rawBuf = self._raw.get_buffer()
         rawText = rawBuf.get_text(rawBuf.get_start_iter(), rawBuf.get_end_iter())
-        headers, data = rawText.split("\n\n")
+        headers = rawText
+        data = ""
+        tmp = rawText.find("\n\n")
+
+        if tmp != -1:
+            headers = rawText[0:tmp+1]
+            data = rawText[tmp+2:]
+            if data.strip() == "":
+                data = ""
         return (headers, data)
 
     def _to_utf8(self, text):
