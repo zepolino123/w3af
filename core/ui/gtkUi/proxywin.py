@@ -63,6 +63,8 @@ class ProxiedRequests(entries.RememberingWindow):
         self.set_icon_from_file('core/ui/gtkUi/data/w3af_icon.png')
         self.w3af = w3af
 
+        def_padding = 5
+
         # toolbar elements
         uimanager = gtk.UIManager()
         accelgroup = uimanager.get_accel_group()
@@ -92,17 +94,17 @@ class ProxiedRequests(entries.RememberingWindow):
 
         # the buttons
         buttonBox = gtk.HBox()
-        self.bt_drop = gtk.Button(_("  Drop  "))
+        self.bt_drop = gtk.Button(_("Drop"))
         self.bt_drop.set_sensitive(False)
         self.bt_drop.connect("clicked", self._drop)
-        buttonBox.pack_start(self.bt_drop, False, False, padding=10)
-        self.bt_send = gtk.Button(_("  Send  "))
+        buttonBox.pack_start(self.bt_drop, False, False, padding=def_padding)
+        self.bt_send = gtk.Button(_("Send"))
         self.bt_send.connect("clicked", self._send)
-        buttonBox.pack_start(self.bt_send, False, False, padding=10)
-        self.bt_next = gtk.Button(_("  Next  "))
+        buttonBox.pack_start(self.bt_send, False, False, padding=def_padding)
+        self.bt_next = gtk.Button(_("Next"))
         self.bt_next.set_sensitive(False)
         self.bt_next.connect("clicked", self._next)
-        buttonBox.pack_end(self.bt_next, False, False, padding=10)
+        buttonBox.pack_start(self.bt_next, False, False, padding=def_padding)
         buttonBox.show_all()
 
         # request-response viewer
@@ -112,11 +114,13 @@ class ProxiedRequests(entries.RememberingWindow):
         self.reqresp.request.set_sensitive(False)
         self.reqresp.response.set_sensitive(False)
 
-        self.reqresp.pack_start(buttonBox, False, False)
-
+        vbox = gtk.VBox()
+        vbox.pack_start(buttonBox, False, False, padding=def_padding)
+        vbox.pack_start(self.reqresp, True, True)
+        vbox.show()
         # notebook
         nb = gtk.Notebook()
-        nb.append_page(self.reqresp, gtk.Label(_("Request and Response")))
+        nb.append_page(vbox, gtk.Label(_("Intercept")))
         httplog = httpLogTab.httpLogTab(w3af)
         lab2 = gtk.Label(_("History"))
         nb.append_page(httplog, lab2)
@@ -173,10 +177,8 @@ class ProxiedRequests(entries.RememberingWindow):
             if req is not None:
                 self.waitingRequests = False
                 self.fuzzable = req
-                head = req.dumpRequestHead()
-                data = req.getData()
                 self.reqresp.request.set_sensitive(True)
-                self.reqresp.request.rawShow(head, data)
+                self.reqresp.request.showObject(req)
                 self.bt_drop.set_sensitive(True)
         return self.keepChecking
 
