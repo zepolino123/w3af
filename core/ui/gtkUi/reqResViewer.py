@@ -1,4 +1,4 @@
-'''
+"""
 reqResViewer.py
 
 Copyright 2008 Andres Riancho
@@ -18,16 +18,20 @@ You should have received a copy of the GNU General Public License
 along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-'''
+"""
 import gtk
+import gobject
+import pango
+
 from . import entries
 
 # To show request and responses
 from core.data.db.reqResDBHandler import reqResDBHandler
 from core.data.constants import severity
+from core.controllers.w3afException import w3afException
 
 useMozilla = False
-useGTKHtml2 = False
+useGTKHtml2 = True
 
 try:
     import gtkmozembed
@@ -51,12 +55,12 @@ signal.signal(signal.SIGSEGV, sigsegv_handler)
 # End signal handler
 
 class reqResViewer(gtk.VBox):
-    '''
+    """
     A widget with the request and the response inside.
 
     @author: Andres Riancho ( andres.riancho@gmail.com )
     @author: Facundo Batista ( facundo@taniquetil.com.ar )
-    '''
+    """
     def __init__(self, w3af, enableWidget=None, withManual=True, withFuzzy=True,\
             withCompare=True, editableRequest=False, editableResponse=False, widgname="default"):
         super(reqResViewer,self).__init__()
@@ -66,17 +70,17 @@ class reqResViewer(gtk.VBox):
         self.pack_start(nb, True, True)
         nb.show()
 
-        # request
+        # Request
         self.request = requestPart(w3af, enableWidget, editable=editableRequest, widgname=widgname)
         self.request.show()
         nb.append_page(self.request, gtk.Label(_("Request")))
 
-        # response
+        # Response
         self.response = responsePart(w3af, editable=editableResponse, widgname=widgname)
         self.response.show()
         nb.append_page(self.response, gtk.Label(_("Response")))
 
-        # buttons
+        # Buttons
         if withManual or withFuzzy or withCompare:
             from .craftedRequests import ManualRequests, FuzzyRequests
             hbox = gtk.HBox()
@@ -104,72 +108,92 @@ class reqResViewer(gtk.VBox):
         self.show()
 
     def _sendRequest(self, widg, func):
-        '''Sends the texts to the manual or fuzzy request.
+        """Sends the texts to the manual or fuzzy request.
 
         @param func: where to send the request.
-        '''
-        up,dn = self.request.getBothTexts()
-        func(self.w3af, (up,dn))
+        """
+        headers,data = self.request.getBothTexts()
+        func(self.w3af, (headers,data))
 
     def _sendReqResp(self, widg):
-        '''Sends the texts to the compare tool.'''
-        requp,reqdn = self.request.getBothTexts()
-        self.w3af.mainwin.commCompareTool((requp, reqdn, self.response.showingResponse))
+        """Sends the texts to the compare tool."""
+        headers,data = self.request.getBothTexts()
+        self.w3af.mainwin.commCompareTool((headers, data, self.response.showingResponse))
 
 class requestResponsePart(gtk.Notebook):
+    """Request/response common class."""
+
     def __init__(self, w3af, enableWidget=None, editable=False, widgname="default"):
         super(requestResponsePart, self).__init__()
         self.childButtons = []
-        # The textview where a part of the req/res is showed
-        self._raw = searchableTextView()
-        self._raw.set_editable(editable)
-        self._raw.set_border_width(5)
-        self._raw.show()
+        self._initRawTab()
+        self._initHeadersTab()
 
         if enableWidget:
             self._raw.get_buffer().connect("changed", self._changed, enableWidget)
             for widg in enableWidget:
                 widg(False)
-
-        self.append_page(self._raw, gtk.Label("Raw"))
         self.show()
 
+    def _initRawTab(self):
+        """Init for Raw tab."""
+        self._raw = searchableTextView()
+        self._raw.set_editable(editable)
+        self._raw.set_border_width(5)
+        self._raw.show()
+        self.append_page(self._raw, gtk.Label("Raw"))
+
+    def _initHeadersTab(self):
+        """Init for Headers tab."""
+        self._headersStore = gtk.ListStore(gobject.TYPE_STRING, gobject.TYPE_STRING)
+        self._headersTreeview = gtk.TreeView(self._headersStore)
+
+        # Column for Name
+        column = gtk.TreeViewColumn(_('Name'), gtk.CellRendererText(), text=0)
+        column.set_sort_column_id(0)
+        self._headersTreeview.append_column(column)
+
+        # Column for Value
+        column = gtk.TreeViewColumn(_('Value'), gtk.CellRendererText(), text=1)
+        column.set_sort_column_id(1)
+        self._headersTreeview.append_column(column)
+        self._headersTreeview.show()
+        self.append_page(self._headersTreeview, gtk.Label("Headers"))
+
     def set_sensitive(self, how):
-        '''Sets the pane on/off
-        '''
+        """Sets the pane on/off."""
         super(requestResponsePart, self).set_sensitive(how)
         for but in self.childButtons:
             but.set_sensitive(how)
 
     def _changed(self, widg, toenable):
-        ''' Supervises if the widget has some text
-        '''
-        uppBuf = self._raw.get_buffer()
-        uppText = uppBuf.get_text(uppBuf.get_start_iter(), uppBuf.get_end_iter())
+        """Supervises if the widget has some text."""
+        rawBuf = self._raw.get_buffer()
+        rawText = rawBuf.get_text(rawBuf.get_start_iter(), rawBuf.get_end_iter())
         for widg in toenable:
-            widg(bool(uppText))
+            widg(bool(rawText))
 
     def _clear( self, textView ):
-        ''' Clears a text view
-        '''
+        """Clears a text view."""
         buff = textView.get_buffer()
         start, end = buff.get_bounds()
         buff.delete(start, end)
 
     def clearPanes(self):
-        ''' Public interface to clear both panes.'''
+        """Public interface to clear both panes."""
         self._clear( self._raw )
 
     def showError(self, text):
-        ''' Show an error. Errors are shown in the upper part, with the lower one greyed out.
-        '''
+        """Show an error.
+        Errors are shown in the upper part, with the lower one greyed out.
+        """
         self._clear(self._raw)
         buff = self._raw.get_buffer()
         iter = buff.get_end_iter()
         buff.insert(iter, text)
 
     def getBothTexts(self):
-        '''Returns request data as headers + data'''
+        """Returns request data as turple headers + data."""
         rawBuf = self._raw.get_buffer()
         rawText = rawBuf.get_text(rawBuf.get_start_iter(), rawBuf.get_end_iter())
         headers = rawText
@@ -184,14 +208,14 @@ class requestResponsePart(gtk.Notebook):
         return (headers, data)
 
     def _to_utf8(self, text):
-        '''
+        """
         This method was added to fix:
 
         GtkWarning: gtk_text_buffer_emit_insert: assertion `g_utf8_validate (text, len, NULL)'
 
         @parameter text: A text that may or may not be in UTF-8.
         @return: A text, that's in UTF-8, and can be printed in a text view
-        '''
+        """
         text = repr(text)
         text = text[1:-1]
 
@@ -200,11 +224,14 @@ class requestResponsePart(gtk.Notebook):
 
         return text
 
+    def showObject(self, obj):
+        raise w3afException('Child MUST implment a showObject method.')
+
 class requestPart(requestResponsePart):
+    """Request part"""
+
     def showObject(self, fuzzableRequest):
-        '''
-        Show the data from a fuzzableRequest object in the textViews.
-        '''
+        """Show the data from a fuzzableRequest object in the textViews."""
         self.showingRequest = fuzzableRequest
         head = fuzzableRequest.dumpRequestHead()
         postdata = fuzzableRequest.getData()
@@ -213,19 +240,27 @@ class requestPart(requestResponsePart):
         buff = self._raw.get_buffer()
         iterl = buff.get_end_iter()
         buff.insert(iterl, self._to_utf8(head + "\n\n" + postdata))
+        self._updateHeadersTab(fuzzableRequest.getHeaders())
+
+    def _updateHeadersTab(self, headers):
+        self._headersStore.clear()
+        print headers
+        for header in headers:
+            self._headersStore.append([header, headers[header]])
 
     def rawShow(self, requestresponse, body):
-        '''Show the raw data.'''
+        """Show the raw data."""
         self._clear(self._raw)
         buff = self._raw.get_buffer()
         iterl = buff.get_end_iter()
         buff.insert(iterl, requestresponse + "\n\n" + body)
 
 class responsePart(requestResponsePart):
+    """Response part"""
     def __init__(self, w3af, editable=False, widgname="default"):
         requestResponsePart.__init__(self, w3af, editable=editable, widgname=widgname+"response")
         self.showingResponse = None
-        
+
         # second page, only there if html renderer available
         self._renderingWidget = None
         if (withMozillaTab and useMozilla) or (withGtkHtml2 and useGTKHtml2):
@@ -242,36 +277,34 @@ class responsePart(requestResponsePart):
             if renderWidget is not None:
                 swRenderedHTML = gtk.ScrolledWindow()
                 swRenderedHTML.add(renderWidget)
-                self.append_page(swRenderedHTML, gtk.Label(_("Rendered response")))
-
+                self.append_page(swRenderedHTML, gtk.Label(_("Rendered")))
+        self.show_all()
     def _renderGtkHtml2(self, body, mimeType, baseURI):
         # It doesn't make sense to render something empty
-        if body != '':
-            try:
-                document = gtkhtml2.Document()
-                document.clear()
-                document.open_stream(mimeType)
-                document.write_stream(body)
-                document.close_stream()
-                self._renderingWidget.set_document(document)
-            except ValueError, ve:
-                # I get here when the mime type is an image or something that I can't display
-                pass
-            except Exception, e:
-                print _('This is a catched exception!')
-                print _('Exception:'), type(e), str(e)
-                print _('I think you hitted bug #1933524 , this is mainly a gtkhtml2 problem. Please report this error here:')
-                print _('https://sourceforge.net/tracker/index.php?func=detail&aid=1933524&group_id=170274&atid=853652')
+
+        if body == '':
+            return
+        try:
+            document = gtkhtml2.Document()
+            document.clear()
+            document.open_stream(mimeType)
+            document.write_stream(body)
+            document.close_stream()
+            self._renderingWidget.set_document(document)
+        except ValueError, ve:
+            # I get here when the mime type is an image or something that I can't display
+            pass
+        except Exception, e:
+            print _('This is a catched exception!')
+            print _('Exception:'), type(e), str(e)
+            print _('I think you hitted bug #1933524 , this is mainly a gtkhtml2 problem. Please report this error here:')
+            print _('https://sourceforge.net/tracker/index.php?func=detail&aid=1933524&group_id=170274&atid=853652')
 
     def _renderMozilla(self, body, mimeType, baseURI):
         self._renderingWidget.render_data(body, long(len(body)), baseURI , mimeType)
 
-
     def showObject(self, httpResp):
-        '''
-        Show the data from a httpResp object in the textViews.
-        '''
-
+        """Show the data from a httpResp object in the textViews."""
         self.showingResponse = httpResp
         resp = httpResp.dumpResponseHead()
         body = httpResp.getBody()
@@ -280,13 +313,48 @@ class responsePart(requestResponsePart):
         buff = self._raw.get_buffer()
         iterl = buff.get_end_iter()
         buff.insert(iterl, self._to_utf8(resp + "\n\n" + body))
+        self.showParsed("1.1", httpResp.getCode(), httpResp.getMsg(),\
+                httpResp.dumpResponseHead(), httpResp.getBody(), httpResp.getURI())
+
+    def showParsed( self, version, code, msg, headers, body, baseURI ):
+        """Show the parsed data"""
+        # Clear previous results
+        #self._clear( self._raw )
+
+        #buff = self._raw.get_buffer()
+        #iterl = buff.get_end_iter()
+        #buff.insert( iterl, 'HTTP/' + version + ' ' + str(code) + ' ' + str(msg) + '\n')
+        #buff.insert( iterl, headers )
+        
+        # Get the mimeType from the response headers
+        mimeType = 'text/html'
+        #headers = headers.split('\n')
+        #headers = [h for h in headers if h]
+        #for h in headers:
+        #    h_name, h_value = h.split(':', 1)
+        #    if 'content-type' in h_name.lower():
+        #        mimeType = h_value.strip()
+        #        break
+        
+        # FIXME: Show images
+        if 'image' in mimeType:
+            mimeType = 'text/html'
+            body = _('The response type is: <i>') + mimeType + _('</i>. w3af is still under development, in the future images will be displayed.')
+            
+        #buff = self._downTv.get_buffer()
+        #iterl = buff.get_end_iter()
+        #buff.insert( iterl, body )
+        
+        # Show it rendered
+        if self._renderingWidget is not None:
+            self._renderFunction(body, mimeType, baseURI)
 
 
     def highlight(self, text, sev=severity.MEDIUM):
-        '''
+        """
         Find the text, and handle highlight.
         @return: None.
-        '''
+        """
 
         # highlight the response header and body
         for text_buffer in [self._downTv, self._raw]:
@@ -320,10 +388,10 @@ SEVERITY_TO_COLOR={
 SEVERITY_TO_COLOR.setdefault('yellow')
 
 class searchableTextView(gtk.VBox, entries.Searchable):
-    '''A textview widget that supports searches.
+    """A textview widget that supports searches.
 
     @author: Andres Riancho ( andres.riancho@gmail.com )
-    '''
+    """
     def __init__(self):
         gtk.VBox.__init__(self)
 
@@ -367,9 +435,9 @@ class searchableTextView(gtk.VBox, entries.Searchable):
         return self.textView.get_buffer()
 
 class reqResWindow(entries.RememberingWindow):
-    '''
+    """
     A window to show a request/response pair.
-    '''
+    """
     def __init__(self, w3af, request_id, enableWidget=None, withManual=True,
                  withFuzzy=True, withCompare=True, editableRequest=False, 
                  editableResponse=False, widgname="default"):
