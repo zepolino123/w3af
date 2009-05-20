@@ -126,7 +126,7 @@ class requestResponsePart(gtk.Notebook):
     def __init__(self, w3af, enableWidget=None, editable=False, widgname="default"):
         super(requestResponsePart, self).__init__()
         self.childButtons = []
-        self._initRawTab()
+        self._initRawTab(editable)
         self._initHeadersTab()
 
         if enableWidget:
@@ -135,7 +135,7 @@ class requestResponsePart(gtk.Notebook):
                 widg(False)
         self.show()
 
-    def _initRawTab(self):
+    def _initRawTab(self, editable):
         """Init for Raw tab."""
         self._raw = searchableTextView()
         self._raw.set_editable(editable)
@@ -279,6 +279,7 @@ class responsePart(requestResponsePart):
                 swRenderedHTML.add(renderWidget)
                 self.append_page(swRenderedHTML, gtk.Label(_("Rendered")))
         self.show_all()
+
     def _renderGtkHtml2(self, body, mimeType, baseURI):
         # It doesn't make sense to render something empty
 
