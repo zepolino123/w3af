@@ -112,8 +112,7 @@ class ProxiedRequests(entries.RememberingWindow):
         self.reqresp = reqResViewer.reqResViewer(w3af, \
                 [self.bt_drop.set_sensitive, self.bt_send.set_sensitive], \
                 editableRequest=True)
-        self.reqresp.request.set_sensitive(False)
-        self.reqresp.response.set_sensitive(False)
+        self.reqresp.set_sensitive(False)
 
         vbox = gtk.VBox()
         vbox.pack_start(buttonBox, False, False, padding=def_padding)
