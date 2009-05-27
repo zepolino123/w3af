@@ -165,7 +165,7 @@ class requestResponsePart(gtk.Notebook):
 
         # Column for Value
         renderer = gtk.CellRendererText()
-        renderer.set_property( 'editable', True )
+        renderer.set_property('editable', editable)
         renderer.connect('edited', self._header_edited, self._headersStore)
         column = gtk.TreeViewColumn(_('Value'), renderer, text=1)
         column.set_resizable(True)
@@ -177,6 +177,7 @@ class requestResponsePart(gtk.Notebook):
         column = gtk.TreeViewColumn(_('Action'))
         # Up
         renderer = gtk.CellRendererPixbuf()
+        #renderer.connect('clicked', self._move_header_up, model)
         column.pack_start(renderer, False)
         column.set_attributes(renderer, stock_id=2)
         # Down
@@ -187,30 +188,47 @@ class requestResponsePart(gtk.Notebook):
         renderer = gtk.CellRendererPixbuf()
         column.pack_start(renderer, False)
         column.set_attributes(renderer, stock_id=4)
-        self._headersTreeview.append_column(column)
+
+        if editable:
+            self._headersTreeview.append_column(column)
 
         self._headersTreeview.show()
-        hbox = gtk.HBox()
-        nameEntry = gtk.Entry()
-        nameEntry.show()
-        hbox.pack_start(nameEntry, False, False, padding=2)
-        valueEntry = gtk.Entry()
-        valueEntry.show()
-        hbox.pack_start(valueEntry, False, False, padding=2)
+        addForm = gtk.HBox()
+        self.nameEntry = gtk.Entry()
+        self.nameEntry.show()
+        addForm.pack_start(self.nameEntry, False, False, padding=2)
+        self.valueEntry = gtk.Entry()
+        self.valueEntry.show()
+        addForm.pack_start(self.valueEntry, False, False, padding=2)
         b = gtk.Button(stock=gtk.STOCK_ADD)
-        #b.connect("clicked", self._sendRequest, ManualRequests)
-        #self.request.childButtons.append(b)
+        b.connect("clicked", self._addHeader)
         b.show()
-        hbox.pack_start(b, False, False, padding=2)
-        hbox.show()
+        addForm.pack_start(b, False, False, padding=2)
+        addForm.show()
         vbox.pack_start(self._headersTreeview)
-        vbox.pack_start(hbox, False, False)
+        if editable:
+            vbox.pack_start(addForm, False, False)
         vbox.show()
         self.append_page(vbox, gtk.Label("Headers"))
+
+    def _addHeader(self, widget):
+        """Add header to header view."""
+        name = self.nameEntry.get_text()
+        value = self.valueEntry.get_text()
+
+        if not name:
+            return
+
+        self._headersStore.append([name, value, gtk.STOCK_GO_UP,\
+                    gtk.STOCK_GO_DOWN, gtk.STOCK_DELETE])
+        self.nameEntry.set_text("")
+        self.valueEntry.set_text("")
+        self._synchronize()
 
     def _header_edited(self, cell, path, new_text, model):
         print "Change '%s' to '%s'" % (model[path][1], new_text)
         model[path][1] = new_text
+        self._synchronize()
         return
 
     def set_sensitive(self, how):
@@ -221,10 +239,12 @@ class requestResponsePart(gtk.Notebook):
 
     def _changed(self, widg, toenable):
         """Supervises if the widget has some text."""
+        print "Changed!!!!"
         rawBuf = self._raw.get_buffer()
         rawText = rawBuf.get_text(rawBuf.get_start_iter(), rawBuf.get_end_iter())
         for widg in toenable:
             widg(bool(rawText))
+        self._synchronize()
 
     def _clear(self, textView):
         """Clears a text view."""
@@ -280,7 +300,7 @@ class requestResponsePart(gtk.Notebook):
     def showObject(self, obj):
         raise w3afException('Child MUST implment a showObject method.')
 
-    def _synchronize(self, source=None):
+    def _synchronize(self):
         raise w3afException('Child MUST implment a _synchronize method.')
 
 class requestPart(requestResponsePart):
@@ -297,20 +317,25 @@ class requestPart(requestResponsePart):
         iterl = buff.get_end_iter()
         buff.insert(iterl, self._to_utf8(head + "\n\n" + postdata))
         self._updateHeadersTab(fuzzableRequest.getHeaders())
+        self._synchronize()
 
     def _updateHeadersTab(self, headers):
         self._headersStore.clear()
-        print headers
         for header in headers:
             self._headersStore.append([header, headers[header], gtk.STOCK_GO_UP,\
                     gtk.STOCK_GO_DOWN, gtk.STOCK_DELETE])
 
-    def rawShow(self, requestresponse, body):
+    def showRaw(self, requestresponse, body):
         """Show the raw data."""
         self._clear(self._raw)
         buff = self._raw.get_buffer()
         iterl = buff.get_end_iter()
         buff.insert(iterl, requestresponse + "\n\n" + body)
+        # TODO save to showingRequest!
+        self._synchronize()
+
+    def _synchronize(self):
+        print "Request _synchronize call!"
 
 class responsePart(requestResponsePart):
     """Response part"""
@@ -337,6 +362,9 @@ class responsePart(requestResponsePart):
                 swRenderedHTML.add(renderWidget)
                 self.append_page(swRenderedHTML, gtk.Label(_("Rendered")))
         self.show_all()
+
+    def _synchronize(self):
+        print "Response _synchronize call!"
 
     def _renderGtkHtml2(self, body, mimeType, baseURI):
         # It doesn't make sense to render something empty
