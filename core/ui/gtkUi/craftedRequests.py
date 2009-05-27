@@ -108,10 +108,10 @@ class ManualRequests(entries.RememberingWindow):
 
         # Add a default request
         if initialRequest is None:
-            self.reqresp.request.rawShow(manual_request_example, '')
+            self.reqresp.request.showRaw(manual_request_example, '')
         else:
             (initialUp, initialDn) = initialRequest
-            self.reqresp.request.rawShow(initialUp, initialDn)
+            self.reqresp.request.showRaw(initialUp, initialDn)
 
         # Show all!
         table.show_all()
@@ -200,7 +200,7 @@ class PreviewWindow(entries.RememberingWindow):
             it = self.generator.next()
             self.pages.append(it)
         (txtup, txtdn) = self.pages[page]
-        self.panes.rawShow(txtup, txtdn)
+        self.panes.showRaw(txtup, txtdn)
 
 
 
@@ -278,10 +278,10 @@ class FuzzyRequests(entries.RememberingWindow):
                                          functools.partial(self.sSB_state.change, "rRV")],
                                         editable=True, widgname="fuzzyrequest")
         if initialRequest is None:
-            self.originalReq.rawShow(fuzzy_request_example, '')
+            self.originalReq.showRaw(fuzzy_request_example, '')
         else:
             (initialUp, initialDn) = initialRequest
-            self.originalReq.rawShow(initialUp, initialDn)
+            self.originalReq.showRaw(initialUp, initialDn)
 
         # Add the right button popup menu to the text widgets
         self.originalReq._upTv.textView.connect("populate-popup", self._populate_popup)
@@ -575,7 +575,7 @@ class FuzzyRequests(entries.RememberingWindow):
                 # TODO: Investigate this further...
                 #
                 error_msg = 'Error searching the request database'
-                self.resultReqResp.request.rawShow( error_msg, error_msg )
+                self.resultReqResp.request.showRaw( error_msg, error_msg )
                 self.resultReqResp.response.showError( error_msg )
                 self.title0.set_markup( "<b>Error</b>")
             else:
@@ -585,6 +585,6 @@ class FuzzyRequests(entries.RememberingWindow):
         else:
             # the request brought problems
             realreq, realbody, errorMsg = info[1:]
-            self.resultReqResp.request.rawShow( realreq, realbody )
+            self.resultReqResp.request.showRaw( realreq, realbody )
             self.resultReqResp.response.showError( errorMsg )
             self.title0.set_markup( "<b>Error</b>")
