@@ -30,6 +30,9 @@ from core.data.db.reqResDBHandler import reqResDBHandler
 from core.data.constants import severity
 from core.controllers.w3afException import w3afException
 
+# highlight
+from extlib.gtkcodebuffer.gtkcodebuffer import CodeBuffer, SyntaxLoader, add_syntax_path
+
 useMozilla = False
 useGTKHtml2 = True
 
@@ -361,6 +364,18 @@ class responsePart(requestResponsePart):
                 swRenderedHTML = gtk.ScrolledWindow()
                 swRenderedHTML.add(renderWidget)
                 self.append_page(swRenderedHTML, gtk.Label(_("Rendered")))
+        
+        # third page, only if the content is some type of markup language (xml, html)
+        self._markup_highlight = None
+        #if is_markup():
+        if True:
+            lang = SyntaxLoader("xml")
+            self._markup_highlight_buff = CodeBuffer(lang=lang)
+
+            self._markup_highlight = gtk.ScrolledWindow()
+            self._markup_highlight.add( gtk.TextView(self._markup_highlight_buff) )
+            self.append_page(self._markup_highlight, gtk.Label(_("HTML")))
+                
         self.show_all()
 
     def _synchronize(self):
@@ -402,6 +417,8 @@ class responsePart(requestResponsePart):
         buff.insert(iterl, self._to_utf8(resp + "\n\n" + body))
         self.showParsed("1.1", httpResp.getCode(), httpResp.getMsg(),\
                 httpResp.dumpResponseHead(), httpResp.getBody(), httpResp.getURI())
+                
+        self._markup_highlight_buff.set_text(body)
 
     def showParsed( self, version, code, msg, headers, body, baseURI ):
         """Show the parsed data"""
