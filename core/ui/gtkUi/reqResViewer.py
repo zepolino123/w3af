@@ -134,6 +134,7 @@ class requestResponsePart(gtk.Notebook):
 
     def __init__(self, w3af, enableWidget=None, editable=False, widgname="default"):
         super(requestResponsePart, self).__init__()
+        self.def_padding = 5
         self.childButtons = []
         self._initRawTab(editable)
         self._initHeadersTab(editable)
@@ -154,10 +155,9 @@ class requestResponsePart(gtk.Notebook):
 
     def _initHeadersTab(self, editable):
         """Init for Headers tab."""
-        vbox = gtk.VBox()
+        box = gtk.HBox()
 
-        self._headersStore = gtk.ListStore(gobject.TYPE_STRING, gobject.TYPE_STRING,\
-                gobject.TYPE_STRING, gobject.TYPE_STRING, gobject.TYPE_STRING)
+        self._headersStore = gtk.ListStore(gobject.TYPE_STRING, gobject.TYPE_STRING)
         self._headersTreeview = gtk.TreeView(self._headersStore)
 
         # Column for Name
@@ -169,70 +169,83 @@ class requestResponsePart(gtk.Notebook):
         # Column for Value
         renderer = gtk.CellRendererText()
         renderer.set_property('editable', editable)
-        renderer.connect('edited', self._header_edited, self._headersStore)
+        renderer.connect('edited', self._headerEdited, self._headersStore)
         column = gtk.TreeViewColumn(_('Value'), renderer, text=1)
         column.set_resizable(True)
         column.set_expand(True)
         column.set_sort_column_id(1)
         self._headersTreeview.append_column(column)
-
-        # Column for Action
-        column = gtk.TreeViewColumn(_('Action'))
-        # Up
-        renderer = gtk.CellRendererPixbuf()
-        #renderer.connect('clicked', self._move_header_up, model)
-        column.pack_start(renderer, False)
-        column.set_attributes(renderer, stock_id=2)
-        # Down
-        renderer = gtk.CellRendererPixbuf()
-        column.pack_start(renderer, False)
-        column.set_attributes(renderer, stock_id=3)
-        # Delete
-        renderer = gtk.CellRendererPixbuf()
-        column.pack_start(renderer, False)
-        column.set_attributes(renderer, stock_id=4)
-
-        if editable:
-            self._headersTreeview.append_column(column)
-
         self._headersTreeview.show()
-        addForm = gtk.HBox()
-        self.nameEntry = gtk.Entry()
-        self.nameEntry.show()
-        addForm.pack_start(self.nameEntry, False, False, padding=2)
-        self.valueEntry = gtk.Entry()
-        self.valueEntry.show()
-        addForm.pack_start(self.valueEntry, False, False, padding=2)
+        box.pack_start(self._headersTreeview)
+
+        # Buttons area
+        buttonBox = gtk.VBox()
+        b = gtk.Button(stock=gtk.STOCK_GO_UP)
+        b.connect("clicked", self._moveHeaderUp)
+        b.show()
+        buttonBox.pack_start(b, False, False, self.def_padding)
+        b = gtk.Button(stock=gtk.STOCK_GO_DOWN)
+        b.connect("clicked", self._moveHeaderDown)
+        b.show()
+        buttonBox.pack_start(b, False, False, self.def_padding)
         b = gtk.Button(stock=gtk.STOCK_ADD)
         b.connect("clicked", self._addHeader)
         b.show()
-        addForm.pack_start(b, False, False, padding=2)
-        addForm.show()
-        vbox.pack_start(self._headersTreeview)
+        buttonBox.pack_start(b, False, False, self.def_padding)
+        b = gtk.Button(stock=gtk.STOCK_DELETE)
+        b.connect("clicked", self._deleteHeader)
+        b.show()
+        buttonBox.pack_start(b, False, False, self.def_padding)
+        buttonBox.show()
         if editable:
-            vbox.pack_start(addForm, False, False)
-        vbox.show()
-        self.append_page(vbox, gtk.Label("Headers"))
+            box.pack_start(buttonBox, False, False, self.def_padding)
+        box.show()
+        self.append_page(box, gtk.Label("Headers"))
 
     def _addHeader(self, widget):
-        """Add header to header view."""
-        name = self.nameEntry.get_text()
-        value = self.valueEntry.get_text()
+        """Add header to header."""
+        i = self._headersStore.append(["", ""])
+        selection = self._headersTreeview.get_selection()
+        selection.select_iter(i)
 
-        if not name:
-            return
-
-        self._headersStore.append([name, value, gtk.STOCK_GO_UP,\
-                    gtk.STOCK_GO_DOWN, gtk.STOCK_DELETE])
-        self.nameEntry.set_text("")
-        self.valueEntry.set_text("")
+    def _deleteHeader(self, widget):
+        """Delete selected header."""
+        selection = self._headersTreeview.get_selection()
+        (model, selected) = selection.get_selected()
+        if selected:
+            model.remove(selected)
         self._synchronize()
 
-    def _header_edited(self, cell, path, new_text, model):
-        print "Change '%s' to '%s'" % (model[path][1], new_text)
+    def _moveHeaderDown(self, widget):
+        """Move down selected header."""
+        selection = self._headersTreeview.get_selection()
+        (model, selected) = selection.get_selected()
+        if not selected:
+            return
+        next = model.iter_next(selected)
+        if next:
+            model.swap(selected, next)
+        self._synchronize()
+
+    def _moveHeaderUp(self, widget):
+        """Move up selected header."""
+        selection = self._headersTreeview.get_selection()
+        model, selected = selection.get_selected()
+        if not selected:
+            return
+        path = model.get_path(selected)
+        position = path[-1]
+        if position == 0:
+            return
+        prev_path = list(path)[:-1]
+        prev_path.append(position - 1)
+        prev = model.get_iter(tuple(prev_path))
+        model.swap(selected, prev)
+        self._synchronize()
+
+    def _headerEdited(self, cell, path, new_text, model):
         model[path][1] = new_text
         self._synchronize()
-        return
 
     def set_sensitive(self, how):
         """Sets the pane on/off."""
@@ -242,7 +255,6 @@ class requestResponsePart(gtk.Notebook):
 
     def _changed(self, widg, toenable):
         """Supervises if the widget has some text."""
-        print "Changed!!!!"
         rawBuf = self._raw.get_buffer()
         rawText = rawBuf.get_text(rawBuf.get_start_iter(), rawBuf.get_end_iter())
         for widg in toenable:
@@ -325,8 +337,7 @@ class requestPart(requestResponsePart):
     def _updateHeadersTab(self, headers):
         self._headersStore.clear()
         for header in headers:
-            self._headersStore.append([header, headers[header], gtk.STOCK_GO_UP,\
-                    gtk.STOCK_GO_DOWN, gtk.STOCK_DELETE])
+            self._headersStore.append([header, headers[header]])
 
     def showRaw(self, requestresponse, body):
         """Show the raw data."""
