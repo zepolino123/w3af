@@ -203,7 +203,10 @@ class ProxiedRequests(entries.RememberingWindow):
 
         @param widget: who sent the signal.
         """
-        (headers, data) = self.reqresp.request.getBothTexts()
+        request = self.reqresp.request.getObject()
+        headers = request.dumpRequestHead()
+        data = request.getData()
+
         try:
             httpResp = helpers.coreWrap(self.proxy.sendRawRequest, self.fuzzable, headers, data)
         except w3afException:
