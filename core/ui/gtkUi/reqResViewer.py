@@ -29,6 +29,7 @@ from . import entries
 from core.data.db.reqResDBHandler import reqResDBHandler
 from core.data.constants import severity
 from core.controllers.w3afException import w3afException
+from core.data.parsers.httpRequestParser import httpRequestParser
 
 # highlight
 from extlib.gtkcodebuffer.gtkcodebuffer import CodeBuffer, SyntaxLoader, add_syntax_path
@@ -122,7 +123,8 @@ class reqResViewer(gtk.VBox):
     def _sendReqResp(self, widg):
         """Sends the texts to the compare tool."""
         headers,data = self.request.getBothTexts()
-        self.w3af.mainwin.commCompareTool((headers, data, self.response.showingResponse))
+        self.w3af.mainwin.commCompareTool((headers, data,\
+            self.response.getObject()))
 
     def set_sensitive(self, how):
         """Sets the pane on/off."""
@@ -131,10 +133,13 @@ class reqResViewer(gtk.VBox):
 
 class requestResponsePart(gtk.Notebook):
     """Request/response common class."""
+    SOURCE_RAW = 1
+    SOURCE_HEADERS = 2
 
     def __init__(self, w3af, enableWidget=None, editable=False, widgname="default"):
         super(requestResponsePart, self).__init__()
         self.def_padding = 5
+        self._obj = None
         self.childButtons = []
         self._initRawTab(editable)
         self._initHeadersTab(editable)
@@ -161,7 +166,10 @@ class requestResponsePart(gtk.Notebook):
         self._headersTreeview = gtk.TreeView(self._headersStore)
 
         # Column for Name
-        column = gtk.TreeViewColumn(_('Name'), gtk.CellRendererText(), text=0)
+        renderer = gtk.CellRendererText()
+        renderer.set_property('editable', editable)
+        renderer.connect('edited', self._headerNameEdited, self._headersStore)
+        column = gtk.TreeViewColumn(_('Name'), renderer, text=0)
         column.set_sort_column_id(0)
         column.set_resizable(True)
         self._headersTreeview.append_column(column)
@@ -169,7 +177,7 @@ class requestResponsePart(gtk.Notebook):
         # Column for Value
         renderer = gtk.CellRendererText()
         renderer.set_property('editable', editable)
-        renderer.connect('edited', self._headerEdited, self._headersStore)
+        renderer.connect('edited', self._headerValueEdited, self._headersStore)
         column = gtk.TreeViewColumn(_('Value'), renderer, text=1)
         column.set_resizable(True)
         column.set_expand(True)
@@ -179,24 +187,22 @@ class requestResponsePart(gtk.Notebook):
         box.pack_start(self._headersTreeview)
 
         # Buttons area
+        buttons = [
+                (gtk.STOCK_GO_UP, self._moveHeaderUp),
+                (gtk.STOCK_GO_DOWN, self._moveHeaderDown),
+                (gtk.STOCK_ADD, self._addHeader),
+                (gtk.STOCK_DELETE, self._deleteHeader)
+                ]
+
         buttonBox = gtk.VBox()
-        b = gtk.Button(stock=gtk.STOCK_GO_UP)
-        b.connect("clicked", self._moveHeaderUp)
-        b.show()
-        buttonBox.pack_start(b, False, False, self.def_padding)
-        b = gtk.Button(stock=gtk.STOCK_GO_DOWN)
-        b.connect("clicked", self._moveHeaderDown)
-        b.show()
-        buttonBox.pack_start(b, False, False, self.def_padding)
-        b = gtk.Button(stock=gtk.STOCK_ADD)
-        b.connect("clicked", self._addHeader)
-        b.show()
-        buttonBox.pack_start(b, False, False, self.def_padding)
-        b = gtk.Button(stock=gtk.STOCK_DELETE)
-        b.connect("clicked", self._deleteHeader)
-        b.show()
-        buttonBox.pack_start(b, False, False, self.def_padding)
+
+        for button in buttons:
+            b = gtk.Button(stock=button[0])
+            b.connect("clicked", button[1])
+            b.show()
+            buttonBox.pack_start(b, False, False, self.def_padding)
         buttonBox.show()
+
         if editable:
             box.pack_start(buttonBox, False, False, self.def_padding)
         box.show()
@@ -214,7 +220,8 @@ class requestResponsePart(gtk.Notebook):
         (model, selected) = selection.get_selected()
         if selected:
             model.remove(selected)
-        self._synchronize()
+        self._changeHeaderCB()
+        self._synchronize(self.SOURCE_HEADERS)
 
     def _moveHeaderDown(self, widget):
         """Move down selected header."""
@@ -225,7 +232,8 @@ class requestResponsePart(gtk.Notebook):
         next = model.iter_next(selected)
         if next:
             model.swap(selected, next)
-        self._synchronize()
+        self._changeHeaderCB()
+        self._synchronize(self.SOURCE_HEADERS)
 
     def _moveHeaderUp(self, widget):
         """Move up selected header."""
@@ -241,11 +249,18 @@ class requestResponsePart(gtk.Notebook):
         prev_path.append(position - 1)
         prev = model.get_iter(tuple(prev_path))
         model.swap(selected, prev)
-        self._synchronize()
+        self._changeHeaderCB()
+        self._synchronize(self.SOURCE_HEADERS)
 
-    def _headerEdited(self, cell, path, new_text, model):
+    def _headerNameEdited(self, cell, path, new_text, model):
+        model[path][0] = new_text
+        self._changeHeaderCB()
+        self._synchronize(self.SOURCE_HEADERS)
+
+    def _headerValueEdited(self, cell, path, new_text, model):
         model[path][1] = new_text
-        self._synchronize()
+        self._changeHeaderCB()
+        self._synchronize(self.SOURCE_HEADERS)
 
     def set_sensitive(self, how):
         """Sets the pane on/off."""
@@ -257,9 +272,12 @@ class requestResponsePart(gtk.Notebook):
         """Supervises if the widget has some text."""
         rawBuf = self._raw.get_buffer()
         rawText = rawBuf.get_text(rawBuf.get_start_iter(), rawBuf.get_end_iter())
+
         for widg in toenable:
             widg(bool(rawText))
-        self._synchronize()
+
+        self._changeRawCB()
+        self._synchronize(self.SOURCE_RAW)
 
     def _clear(self, textView):
         """Clears a text view."""
@@ -315,48 +333,68 @@ class requestResponsePart(gtk.Notebook):
     def showObject(self, obj):
         raise w3afException('Child MUST implment a showObject method.')
 
+    def getObject(self):
+        return self._obj
+
     def _synchronize(self):
         raise w3afException('Child MUST implment a _synchronize method.')
 
-class requestPart(requestResponsePart):
-    """Request part"""
+    def _changeHeaderCB(self):
+        raise w3afException('Child MUST implment a _changeHeaderCB method.')
 
-    def showObject(self, fuzzableRequest):
-        """Show the data from a fuzzableRequest object in the textViews."""
-        self.showingRequest = fuzzableRequest
-        head = fuzzableRequest.dumpRequestHead()
-        postdata = fuzzableRequest.getData()
-
-        self._clear(self._raw)
-        buff = self._raw.get_buffer()
-        iterl = buff.get_end_iter()
-        buff.insert(iterl, self._to_utf8(head + "\n\n" + postdata))
-        self._updateHeadersTab(fuzzableRequest.getHeaders())
-        self._synchronize()
+    def _changeRawCB(self):
+        raise w3afException('Child MUST implment a _changeRawCB method.')
 
     def _updateHeadersTab(self, headers):
         self._headersStore.clear()
         for header in headers:
             self._headersStore.append([header, headers[header]])
 
-    def showRaw(self, requestresponse, body):
-        """Show the raw data."""
-        self._clear(self._raw)
-        buff = self._raw.get_buffer()
-        iterl = buff.get_end_iter()
-        buff.insert(iterl, requestresponse + "\n\n" + body)
-        # TODO save to showingRequest!
+class requestPart(requestResponsePart):
+    """Request part"""
+
+    def showObject(self, fuzzableRequest):
+        """Show the data from a fuzzableRequest object in the textViews."""
+        self._obj = fuzzableRequest
         self._synchronize()
 
-    def _synchronize(self):
-        print "Request _synchronize call!"
+    def showRaw(self, head, body):
+        """Show the raw data."""
+        self._obj = httpRequestParser(head, body)
+        self._synchronize()
+
+    def _synchronize(self, source=None):
+        # Raw tab
+        if source != self.SOURCE_RAW:
+            head = self._obj.dumpRequestHead()
+            postdata = self._obj.getData()
+            self._clear(self._raw)
+            buff = self._raw.get_buffer()
+            iterl = buff.get_end_iter()
+            buff.insert(iterl, self._to_utf8(head + "\n\n" + postdata))
+        # Headers tab
+        if source != self.SOURCE_HEADERS:
+            self._updateHeadersTab(self._obj.getHeaders())
+
+    def _changeHeaderCB(self):
+        print "_changeHeaderCB call"
+        headers = {}
+        # TODO Add Cookie processing!
+        for header in self._headersStore:
+            headers[header[0]] = header[1]
+        self._obj.setHeaders(headers)
+
+    def _changeRawCB(self):
+        print "_changeRawCB call"
+        (head, data) = self.getBothTexts()
+        if len(head):
+            self._obj = httpRequestParser(head, data)
 
 class responsePart(requestResponsePart):
     """Response part"""
 
     def __init__(self, w3af, editable=False, widgname="default"):
         requestResponsePart.__init__(self, w3af, editable=editable, widgname=widgname+"response")
-        self.showingResponse = None
 
         # second page, only there if html renderer available
         self._renderingWidget = None
@@ -392,6 +430,12 @@ class responsePart(requestResponsePart):
     def _synchronize(self):
         print "Response _synchronize call!"
 
+    def _changeHeaderCB(self):
+        print "Response _changeHeaderCB call!"
+
+    def _changeRawCB(self):
+        print "Response _changeRawCB call!"
+
     def _renderGtkHtml2(self, body, mimeType, baseURI):
         # It doesn't make sense to render something empty
 
@@ -418,7 +462,7 @@ class responsePart(requestResponsePart):
 
     def showObject(self, httpResp):
         """Show the data from a httpResp object in the textViews."""
-        self.showingResponse = httpResp
+        self._obj = httpResp
         resp = httpResp.dumpResponseHead()
         body = httpResp.getBody()
 
