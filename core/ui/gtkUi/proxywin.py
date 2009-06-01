@@ -36,8 +36,6 @@ ui_proxy_menu = """
   <toolbar name="Toolbar">
     <toolitem action="Active"/>
     <toolitem action="TrapReq"/>
-    <separator name="sep1"/>
-    <toolitem action="Config"/>
     <separator name="sep2"/>
     <toolitem action="Help"/>
   </toolbar>
@@ -64,7 +62,7 @@ class ProxiedRequests(entries.RememberingWindow):
             onDestroy=self._close)
         self.set_icon_from_file('core/ui/gtkUi/data/w3af_icon.png')
         self.w3af = w3af
-        def_padding = 5
+        self.def_padding = 5
 
         # Toolbar elements
         uimanager = gtk.UIManager()
@@ -73,7 +71,6 @@ class ProxiedRequests(entries.RememberingWindow):
         actiongroup = gtk.ActionGroup('UIManager')
         actiongroup.add_actions([
             ('Help', gtk.STOCK_HELP, _('_Help'), None, _('Help regarding this window'), self._help),
-            ('Config', gtk.STOCK_EDIT, _('_Configuration'), None, _('Configure the proxy'), self._config),
         ])
         actiongroup.add_toggle_actions([
             # xml_name, icon, real_menu_text, accelerator, tooltip, callback, initial_flag
@@ -85,8 +82,8 @@ class ProxiedRequests(entries.RememberingWindow):
         uimanager.insert_action_group(actiongroup, 0)
         uimanager.add_ui_from_string(ui_proxy_menu)
         toolbar = uimanager.get_widget('/Toolbar')
-        assert toolbar.get_n_items() == 6
-        separat = toolbar.get_nth_item(4)
+        assert toolbar.get_n_items() == 4
+        separat = toolbar.get_nth_item(2)
         separat.set_draw(False)
         separat.set_expand(True)
         self.vbox.pack_start(toolbar, False)
@@ -98,14 +95,14 @@ class ProxiedRequests(entries.RememberingWindow):
         self.bt_drop = gtk.Button(_("_Drop"))
         self.bt_drop.set_sensitive(False)
         self.bt_drop.connect("clicked", self._drop)
-        buttonBox.pack_start(self.bt_drop, False, False, padding=def_padding)
+        buttonBox.pack_start(self.bt_drop, False, False, padding=self.def_padding)
         self.bt_send = gtk.Button(_("_Send"))
         self.bt_send.connect("clicked", self._send)
-        buttonBox.pack_start(self.bt_send, False, False, padding=def_padding)
+        buttonBox.pack_start(self.bt_send, False, False, padding=self.def_padding)
         self.bt_next = gtk.Button(_("_Next"))
         self.bt_next.set_sensitive(False)
         self.bt_next.connect("clicked", self._next)
-        buttonBox.pack_start(self.bt_next, False, False, padding=def_padding)
+        buttonBox.pack_start(self.bt_next, False, False, padding=self.def_padding)
         buttonBox.show_all()
 
         # Request-response viewer
@@ -115,35 +112,28 @@ class ProxiedRequests(entries.RememberingWindow):
         self.reqresp.set_sensitive(False)
 
         vbox = gtk.VBox()
-        vbox.pack_start(buttonBox, False, False, padding=def_padding)
+        vbox.pack_start(buttonBox, False, False, padding=self.def_padding)
         vbox.pack_start(self.reqresp, True, True)
         vbox.show()
 
         # Notebook
-        nb = gtk.Notebook()
-        nb.append_page(vbox, gtk.Label(_("Intercept")))
+        self.nb = gtk.Notebook()
+        # Intercept
+        self.nb.append_page(vbox, gtk.Label(_("Intercept")))
         httplog = httpLogTab.httpLogTab(w3af)
+        # History
         lab2 = gtk.Label(_("History"))
-        nb.append_page(httplog, lab2)
+        self.nb.append_page(httplog, lab2)
         lab2.show()
-        self.vbox.pack_start(nb, True, True, padding=def_padding)
-        nb.show()
+        # Options
+        self._initOptions()
+        self.vbox.pack_start(self.nb, True, True, padding=self.def_padding)
+        self.nb.show()
 
         # Status bar for messages
         self.status_bar = gtk.Statusbar()
         self.vbox.pack_start(self.status_bar, False, False)
         self.status_bar.show()
-
-        # Config options
-        self.proxyoptions = ProxyOptions()
-        self.proxyoptions.append("ignoreimgs", 
-                Option(_("Ignore images"), False, _("Ignore images"), "boolean", _("Ignore images by extension")))
-        self.proxyoptions.append("ipport", 
-                Option(_("Where to listen"), "localhost:8080", "IP:port", "ipport", _("IP and port where to listen")))
-        self.proxyoptions.append("trap", 
-                Option(_("What to trap"), ".*", _("URLs to trap"), "regex", _("Regular expression that indicates what URLs to trap")))
-        self.proxyoptions.append("fixlength", 
-                Option("Fix content length", False, "Fix content length", "boolean"))
 
         # Finish it
         try:
@@ -156,6 +146,71 @@ class ProxiedRequests(entries.RememberingWindow):
             self.keepChecking = True
             gobject.timeout_add(200, self._superviseRequests)
             self.show()
+
+    def _initOptions(self):
+        self.like_initial = True
+        # Config options
+        self.proxyoptions = ProxyOptions()
+        self.proxyoptions.append("ignoreimgs",\
+                Option(_("Ignore images"), False, _("Ignore images"),\
+                "boolean", _("Ignore images by extension")))
+        self.proxyoptions.append("ipport",\
+                Option(_("Where to listen"), "localhost:8080", "IP:port",\
+                "ipport", _("IP and port where to listen")))
+        self.proxyoptions.append("trap",\
+                Option(_("What to trap"), ".*", _("URLs to trap"), "regex",\
+                _("Regular expression that indicates what URLs to trap")))
+        self.proxyoptions.append("fixlength",\
+                Option("Fix content length", False, "Fix content length", "boolean"))
+
+        self._previous_ipport = self.proxyoptions.ipport.getValue()
+
+        optionBox = gtk.VBox()
+        optionBox.show()
+        # buttons and config panel
+        buttonsArea = gtk.HBox()
+        buttonsArea.show()
+        saveBtn = gtk.Button(_("Save configuration"))
+        saveBtn.show()
+        rvrtBtn = gtk.Button(_("Revert to previous configuration"))
+        buttonsArea.pack_start(rvrtBtn, False, False, padding=self.def_padding)
+        buttonsArea.pack_start(saveBtn, False, False, padding=self.def_padding)
+        rvrtBtn.show()
+        self._optionsPanel = ConfigOptions(self.w3af, self, self.proxyoptions.options, saveBtn, rvrtBtn)
+        optionBox.pack_start(self._optionsPanel, False, False)
+        optionBox.pack_start(buttonsArea, False, False)
+
+        self.nb.append_page(optionBox, gtk.Label(_("Options")))
+
+    def configChanged(self, like_initial):
+        """Propagates the change from the options.
+
+        @params like_initial: If the config is like the initial one
+        """
+        self.like_initial = like_initial
+
+    def reloadOptions(self):
+        # shutdown/restart if needed
+        new_ipport = self.proxyoptions.ipport.getValue() 
+        if new_ipport != self._previous_ipport:
+            self.w3af.mainwin.sb(_("Stopping local proxy"))
+            self.proxy.stop()
+            try:
+                self._startProxy()
+            except:
+                self.w3af.mainwin.sb(_("Failed to start local proxy"))
+
+        # rest of config
+        try:
+            self.proxy.setWhatToTrap(self.proxyoptions.trap.getValue())
+            self.proxy.setIgnoreImages(self.proxyoptions.ignoreimgs.getValue())
+            self.proxy.setFixContentLength(self.proxyoptions.fixlength.getValue())
+        except w3afException, w3:
+            msg = _("Invalid configuration!\n" + str(w3))
+            dlg = gtk.MessageDialog(None, gtk.DIALOG_MODAL, gtk.MESSAGE_WARNING, gtk.BUTTONS_OK, msg)
+            opt = dlg.run()
+            dlg.destroy()
+        self._previous_ipport = new_ipport
 
     def _startProxy(self):
         """Starts the proxy."""
@@ -260,32 +315,6 @@ class ProxiedRequests(entries.RememberingWindow):
         trapactive = widget.get_active()
         self.proxy.setTrap(trapactive)
 
-    def _config(self, action):
-        """Open the configuration dialog."""
-        previous_ipport = self.proxyoptions.ipport.getValue()
-        ConfigDialog("Configuration", self.w3af, self.proxyoptions.options)
-
-        # shutdown/restart if needed
-        new_ipport = self.proxyoptions.ipport.getValue() 
-        if new_ipport != previous_ipport:
-            self.w3af.mainwin.sb(_("Stopping local proxy"))
-            self.proxy.stop()
-            try:
-                self._startProxy()
-            except:
-                self.w3af.mainwin.sb(_("Failed to start local proxy"))
-
-        # rest of config
-        try:
-            self.proxy.setWhatToTrap(self.proxyoptions.trap.getValue())
-            self.proxy.setIgnoreImages(self.proxyoptions.ignoreimgs.getValue())
-            self.proxy.setFixContentLength(self.proxyoptions.fixlength.getValue())
-        except w3afException, w3:
-            msg = _("Invalid configuration!\n" + str(w3))
-            dlg = gtk.MessageDialog(None, gtk.DIALOG_MODAL, gtk.MESSAGE_WARNING, gtk.BUTTONS_OK, msg)
-            opt = dlg.run()
-            dlg.destroy()
-
     def _help(self, action):
         """Shows the help."""
         helpfile = os.path.join(os.getcwd(), "readme/EN/gtkUiHTML/gtkUiUsersGuide.html#Using_the_Proxy")
@@ -296,18 +325,18 @@ class ConfigOptions(gtk.VBox):
     """Only the options for configuration.
 
     @param w3af: The Core
-    @param confdialog: The parent widget
+    @param parentWidg: The parentWidg widget
     @param options: The options to configure.
     @param save_btn: The save button.
     @param rvrt_btn: The revert button.
 
     @author: Facundo Batista <facundobatista =at= taniquetil.com.ar>
     """
-    def __init__(self, w3af, confdialog, options, save_btn, rvrt_btn):
+    def __init__(self, w3af, parentWidg, options, save_btn, rvrt_btn):
         super(ConfigOptions,self).__init__()
         self.set_spacing(5)
         self.w3af = w3af
-        self.confdialog = confdialog
+        self.parentWidg = parentWidg
         self.widgets_status = {}
         self.tab_widget = {}
         self.propagAnyWidgetChanged = helpers.PropagateBuffer(self._changedAnyWidget)
@@ -408,7 +437,7 @@ class ConfigOptions(gtk.VBox):
         """
         self.save_btn.set_sensitive(not like_initial)
         self.rvrt_btn.set_sensitive(not like_initial)
-        self.confdialog.like_initial = like_initial
+        self.parentWidg.like_initial = like_initial
 
     def _changedLabelNotebook(self, like_initial, label, text):
         if like_initial:
@@ -476,74 +505,11 @@ class ConfigOptions(gtk.VBox):
         for opt in self.options:
             opt.widg.save()
         self.w3af.mainwin.sb(_("Configuration saved successfully"))
+        self.parentWidg.reloadOptions()
 
     def _revertPanel(self, *vals):
         """Revert all widgets to their initial state."""
         for widg in self.widgets_status:
             widg.revertValue()
         self.w3af.mainwin.sb(_("The configuration was reverted to its last saved state"))
-
-
-class ConfigDialog(gtk.Dialog):
-    """Puts a Config panel inside a Dialog.
-
-    @param title: the title of the window.
-    @param w3af: the Core instance
-
-    @author: Facundo Batista <facundobatista =at= taniquetil.com.ar>
-    """
-    def __init__(self, title, w3af, options):
-        super(ConfigDialog,self).__init__(title, None, gtk.DIALOG_MODAL, ())
-        self.set_icon_from_file('core/ui/gtkUi/data/w3af_icon.png')
-
-        # buttons and config panel
-        save_btn = self._button(_("Save configuration"))
-        rvrt_btn = self._button(_("Revert to previous configuration"))
-        close_btn = self._button(stock=gtk.STOCK_CLOSE)
-        close_btn.connect("clicked", self._btn_close)
-        self._panel = ConfigOptions(w3af, self, options, save_btn, rvrt_btn)
-        self.vbox.pack_start(self._panel)
-
-        self.like_initial = True
-        self.connect("event", self._evt_close)
-        self.run()
-        self.destroy()
-
-    def _button(self, text="", stock=None):
-        """Builds a button."""
-        b = gtk.Button(text, stock)
-        b.show()
-        self.action_area.pack_start(b)
-        return b
-
-    def configChanged(self, like_initial):
-        """Propagates the change from the options.
-
-        @params like_initial: If the config is like the initial one
-        """
-        self.like_initial = like_initial
-
-    def _evt_close(self, widget, event):
-        """Handles the user trying to close the configuration.
-
-        Filters by event.
-        """
-        if event.type != gtk.gdk.DELETE:
-            return False
-        return self._close()
-
-    def _btn_close(self, widget):
-        """Handles the user trying to close the configuration."""
-        if not self._close():
-            self.emit("delete_event", gtk.gdk.Event(gtk.gdk.DELETE))
-
-    def _close(self):
-        """Generic close."""
-        if self.like_initial:
-            return False
-
-        msg = _("Do you want to quit without saving the changes?")
-        dlg = gtk.MessageDialog(None, gtk.DIALOG_MODAL, gtk.MESSAGE_WARNING, gtk.BUTTONS_YES_NO, msg)
-        stayhere = dlg.run() != gtk.RESPONSE_YES
-        dlg.destroy()
-        return stayhere
+        self.parentWidg.reloadOptions()
