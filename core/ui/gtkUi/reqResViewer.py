@@ -350,6 +350,8 @@ class requestResponsePart(gtk.Notebook):
         for header in headers:
             self._headersStore.append([header, headers[header]])
 
+    def getRawTextView(self):
+        return self._raw
 class requestPart(requestResponsePart):
     """Request part"""
 
