@@ -20,7 +20,12 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
-import gtk, gobject, threading, functools
+import gtk
+import gobject
+import threading
+import functools
+import os
+
 from . import reqResViewer, helpers, entries, fuzzygen
 
 # Alternative ways of seeing the data
@@ -31,7 +36,6 @@ from .payload_generators import create_generator_menu
 
 from core.data.db.reqResDBHandler import reqResDBHandler
 from core.controllers.w3afException import w3afException, w3afMustStopException
-import os
 
 manual_request_example = """\
 GET http://localhost/script.php HTTP/1.0
@@ -63,7 +67,8 @@ class ThreadedURLImpact(threading.Thread):
     def run(self):
         '''Starts the thread.'''
         try:
-            self.httpResp = self.w3af.uriOpener.sendRawRequest(self.tsup, self.tlow, self.fixContentLength)
+            self.httpResp = self.w3af.uriOpener.sendRawRequest(self.tsup,\
+                    self.tlow, self.fixContentLength)
             self.ok = True
         except Exception, e:
             self.exception = e
@@ -92,7 +97,7 @@ class ManualRequests(entries.RememberingWindow):
         self._fixContentLengthCB.show()
 
         # send button
-        b = gtk.Button("   Send   ")
+        b = gtk.Button("Send")
         b.connect("clicked", self._send)
 
         # Store all inside the table
@@ -100,7 +105,8 @@ class ManualRequests(entries.RememberingWindow):
         table.attach(b, 19, 20, 0, 1, xoptions=gtk.SHRINK)
 
         # request-response viewer
-        self.reqresp = reqResViewer.reqResViewer(w3af, [b.set_sensitive], withManual=False, editableRequest=True)
+        self.reqresp = reqResViewer.reqResViewer(w3af, [b.set_sensitive],\
+                withManual=False, editableRequest=True)
         self.reqresp.response.set_sensitive(False)
         self.vbox.pack_start(self.reqresp, True, True)
 
@@ -124,9 +130,12 @@ class ManualRequests(entries.RememberingWindow):
         '''
         (tsup, tlow) = self.reqresp.request.getBothTexts()
 
-        busy = gtk.gdk.Window(self.window, gtk.gdk.screen_width(), gtk.gdk.screen_height(), gtk.gdk.WINDOW_CHILD, 0, gtk.gdk.INPUT_ONLY)
+        busy = gtk.gdk.Window(self.window, gtk.gdk.screen_width(),\
+                gtk.gdk.screen_height(), gtk.gdk.WINDOW_CHILD,\
+                0, gtk.gdk.INPUT_ONLY)
         busy.set_cursor(gtk.gdk.Cursor(gtk.gdk.WATCH))
         busy.show()
+
         while gtk.events_pending():
             gtk.main_iteration()
 
@@ -177,8 +186,8 @@ class PreviewWindow(entries.RememberingWindow):
         self.set_transient_for(parent)
 
         # content
-        self.panes = reqResViewer.requestPaned(w3af, editable=False, widgname="fuzzypreview")
-        self.vbox.pack_start(self.panes.notebook)
+        self.panes = reqResViewer.requestPart(w3af, editable=False, widgname="fuzzypreview")
+        self.vbox.pack_start(self.panes)
         self.panes.show()
 
 
@@ -272,11 +281,11 @@ class FuzzyRequests(entries.RememberingWindow):
         self._fixContentLengthCB.show()
 
         # request
-        self.originalReq = reqResViewer.requestPaned(w3af,
-                                        [analyzBut.set_sensitive,
-                                         self.sendPlayBut.set_sensitive,
-                                         functools.partial(self.sSB_state.change, "rRV")],
-                                        editable=True, widgname="fuzzyrequest")
+        self.originalReq = reqResViewer.requestPart(w3af,\
+                [analyzBut.set_sensitive, self.sendPlayBut.set_sensitive,\
+                functools.partial(self.sSB_state.change, "rRV")],\
+                editable=True, widgname="fuzzyrequest")
+
         if initialRequest is None:
             self.originalReq.showRaw(fuzzy_request_example, '')
         else:
@@ -284,17 +293,17 @@ class FuzzyRequests(entries.RememberingWindow):
             self.originalReq.showRaw(initialUp, initialDn)
 
         # Add the right button popup menu to the text widgets
-        self.originalReq._upTv.textView.connect("populate-popup", self._populate_popup)
-        self.originalReq._downTv.textView.connect("populate-popup", self._populate_popup)
+        rawTextView = self.originalReq.getRawTextView()
+        rawTextView.textView.connect("populate-popup", self._populate_popup)
 
         # help
         helplabel = gtk.Label()
         helplabel.set_selectable(True)
         helplabel.set_markup(FUZZYHELP)
-        self.originalReq.notebook.append_page(helplabel, gtk.Label("Syntax help"))
+        self.originalReq.append_page(helplabel, gtk.Label("Syntax help"))
         helplabel.show()
-        self.originalReq.notebook.show()
-        vbox.pack_start(self.originalReq.notebook, True, True, padding=5)
+        self.originalReq.show()
+        vbox.pack_start(self.originalReq, True, True, padding=5)
         vbox.show()
 
         # the commands
@@ -376,19 +385,15 @@ class FuzzyRequests(entries.RememberingWindow):
         self.show()
 
     def _populate_popup(self, textview, menu):
-        '''
-        Populates the menu with the fuzzing items.
-        '''
+        '''Populates the menu with the fuzzing items.'''
         menu.append(gtk.SeparatorMenuItem())
         main_generator_menu = gtk.MenuItem(_("Generators"))
-        main_generator_menu.set_submenu( create_generator_menu(self) )
+        main_generator_menu.set_submenu(create_generator_menu(self))
         menu.append(main_generator_menu)
         menu.show_all()
 
     def _clearResponses( self, widg ):
-        '''
-        Clears all the responses from the fuzzy window.
-        '''
+        '''Clears all the responses from the fuzzy window.'''
         self.responses = []
         self.resultReqResp.request.clearPanes()
         self.resultReqResp.response.clearPanes()
@@ -398,9 +403,7 @@ class FuzzyRequests(entries.RememberingWindow):
         self.pagesControl.deactivate()
 
     def _clusterData( self, widg):
-        '''
-        Analyze if we can cluster the responses and do it.
-        '''
+        '''Analyze if we can cluster the responses and do it.'''
         data = []
         for resp in self.responses:
             if resp[0]:
