@@ -39,9 +39,9 @@ useGTKHtml2 = True
 
 try:
     import gtkmozembed
-    withMozillaTab = True
+    withMozilla = True
 except Exception, e:
-    withMozillaTab = False
+    withMozilla = False
 
 try:
     import gtkhtml2
@@ -352,6 +352,7 @@ class requestResponsePart(gtk.Notebook):
 
     def getRawTextView(self):
         return self._raw
+
 class requestPart(requestResponsePart):
     """Request part"""
 
@@ -368,26 +369,22 @@ class requestPart(requestResponsePart):
     def _synchronize(self, source=None):
         # Raw tab
         if source != self.SOURCE_RAW:
-            head = self._obj.dumpRequestHead()
-            postdata = self._obj.getData()
             self._clear(self._raw)
             buff = self._raw.get_buffer()
             iterl = buff.get_end_iter()
-            buff.insert(iterl, self._to_utf8(head + "\n\n" + postdata))
+            buff.insert(iterl, self._to_utf8(self._obj.dump()))
         # Headers tab
         if source != self.SOURCE_HEADERS:
             self._updateHeadersTab(self._obj.getHeaders())
 
     def _changeHeaderCB(self):
-        print "_changeHeaderCB call"
         headers = {}
-        # TODO Add Cookie processing!
+        # TODO Add Cookie processing?!
         for header in self._headersStore:
             headers[header[0]] = header[1]
         self._obj.setHeaders(headers)
 
     def _changeRawCB(self):
-        print "_changeRawCB call"
         (head, data) = self.getBothTexts()
         if len(head):
             self._obj = httpRequestParser(head, data)
@@ -397,52 +394,75 @@ class responsePart(requestResponsePart):
 
     def __init__(self, w3af, editable=False, widgname="default"):
         requestResponsePart.__init__(self, w3af, editable=editable, widgname=widgname+"response")
-
-        # second page, only there if html renderer available
-        self._renderingWidget = None
-        if (withMozillaTab and useMozilla) or (withGtkHtml2 and useGTKHtml2):
-            if withGtkHtml2 and useGTKHtml2:
-                renderWidget = gtkhtml2.View()
-                self._renderFunction = self._renderGtkHtml2
-            elif withMozillaTab and useMozilla:
-                renderWidget = gtkmozembed.MozEmbed()
-                self._renderFunction = self._renderMozilla
-            else:
-                renderWidget = None
-
-            self._renderingWidget = renderWidget
-            if renderWidget is not None:
-                swRenderedHTML = gtk.ScrolledWindow()
-                swRenderedHTML.add(renderWidget)
-                self.append_page(swRenderedHTML, gtk.Label(_("Rendered")))
-        
-        # third page, only if the content is some type of markup language (xml, html)
-        self._markup_highlight = None
-        #if is_markup():
-        if True:
-            lang = SyntaxLoader("xml")
-            self._markup_highlight_buff = CodeBuffer(lang=lang)
-
-            self._markup_highlight = gtk.ScrolledWindow()
-            self._markup_highlight.add( gtk.TextView(self._markup_highlight_buff) )
-            self.append_page(self._markup_highlight, gtk.Label(_("HTML")))
-                
+        # Second page, only there if html renderer available
+        self._initRenderTab()
+        # Third page, only if the content is some type of markup language (xml, html)
+        self._initSyntaxTab()
         self.show_all()
 
-    def _synchronize(self):
-        print "Response _synchronize call!"
+    def _initSyntaxTab(self):
+        """Init Syntax Tab."""
+        self._markup_highlight = None
+        #if is_markup():
+        lang = SyntaxLoader("xml")
+        self._markup_highlight_buff = CodeBuffer(lang=lang)
+
+        self._markup_highlight = gtk.ScrolledWindow()
+        self._markup_highlight.add( gtk.TextView(self._markup_highlight_buff) )
+        self.append_page(self._markup_highlight, gtk.Label(_("HTML")))
+
+    def _initRenderTab(self):
+        """Init Render Tab."""
+        self._renderingWidget = None
+
+        if not withMozilla and not withGtkHtml2:
+            return
+
+        if withGtkHtml2 and useGTKHtml2:
+            renderWidget = gtkhtml2.View()
+            self._renderFunction = self._renderGtkHtml2
+        elif withMozilla and useMozilla:
+            renderWidget = gtkmozembed.MozEmbed()
+            self._renderFunction = self._renderMozilla
+        else:
+            renderWidget = None
+
+        self._renderingWidget = renderWidget
+        if renderWidget is not None:
+            swRenderedHTML = gtk.ScrolledWindow()
+            swRenderedHTML.add(renderWidget)
+            self.append_page(swRenderedHTML, gtk.Label(_("Rendered")))
+
+    def showObject(self, httpResp):
+        """Show the data from a httpResp object."""
+        self._obj = httpResp
+        self._synchronize()
+
+    def _synchronize(self, source=None):
+        # Raw tab
+        self._clear(self._raw)
+        buff = self._raw.get_buffer()
+        iterl = buff.get_end_iter()
+        buff.insert(iterl, self._to_utf8(self._obj.dump()))
+        # Headers tab
+        self._updateHeadersTab(self._obj.getHeaders())
+        # Render
+        self._showParsed("1.1", self._obj.getCode(), self._obj.getMsg(),\
+                self._obj.dumpResponseHead(), self._obj.getBody(), self._obj.getURI())
+        # Syntax highlighting
+        self._showSyntax(self._obj.getBody())
 
     def _changeHeaderCB(self):
-        print "Response _changeHeaderCB call!"
+        pass
 
     def _changeRawCB(self):
-        print "Response _changeRawCB call!"
+        pass
 
     def _renderGtkHtml2(self, body, mimeType, baseURI):
         # It doesn't make sense to render something empty
-
         if body == '':
             return
+
         try:
             document = gtkhtml2.Document()
             document.clear()
@@ -462,23 +482,13 @@ class responsePart(requestResponsePart):
     def _renderMozilla(self, body, mimeType, baseURI):
         self._renderingWidget.render_data(body, long(len(body)), baseURI , mimeType)
 
-    def showObject(self, httpResp):
-        """Show the data from a httpResp object in the textViews."""
-        self._obj = httpResp
-        resp = httpResp.dumpResponseHead()
-        body = httpResp.getBody()
+    def _showSyntax(self, body):
+        self._markup_highlight_buff.set_text(self._obj.getBody())
 
-        self._clear(self._raw)
-        buff = self._raw.get_buffer()
-        iterl = buff.get_end_iter()
-        buff.insert(iterl, self._to_utf8(resp + "\n\n" + body))
-        self.showParsed("1.1", httpResp.getCode(), httpResp.getMsg(),\
-                httpResp.dumpResponseHead(), httpResp.getBody(), httpResp.getURI())
-                
-        self._markup_highlight_buff.set_text(body)
-
-    def showParsed( self, version, code, msg, headers, body, baseURI ):
+    def _showParsed(self, version, code, msg, headers, body, baseURI):
         """Show the parsed data"""
+        if self._renderingWidget is None:
+            return
         # Clear previous results
         #self._clear( self._raw )
 
@@ -496,27 +506,21 @@ class responsePart(requestResponsePart):
         #    if 'content-type' in h_name.lower():
         #        mimeType = h_value.strip()
         #        break
-        
         # FIXME: Show images
         if 'image' in mimeType:
             mimeType = 'text/html'
             body = _('The response type is: <i>') + mimeType + _('</i>. w3af is still under development, in the future images will be displayed.')
-            
+
         #buff = self._downTv.get_buffer()
         #iterl = buff.get_end_iter()
         #buff.insert( iterl, body )
-        
         # Show it rendered
-        if self._renderingWidget is not None:
-            self._renderFunction(body, mimeType, baseURI)
-
+        self._renderFunction(body, mimeType, baseURI)
 
     def highlight(self, text, sev=severity.MEDIUM):
-        """
-        Find the text, and handle highlight.
+        """Find the text, and handle highlight.
         @return: None.
         """
-
         # highlight the response header and body
         for text_buffer in [self._downTv, self._raw]:
 
@@ -540,6 +544,7 @@ class responsePart(requestResponsePart):
             # highlight them all
             for (ini, fin, iterini, iterfin) in positions:
                 text_buffer.apply_tag_by_name(sev, iterini, iterfin)
+
 
 SEVERITY_TO_COLOR={
     severity.INFORMATION: 'green', 
