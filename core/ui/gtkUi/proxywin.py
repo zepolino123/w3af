@@ -120,11 +120,9 @@ class ProxiedRequests(entries.RememberingWindow):
         self.nb = gtk.Notebook()
         # Intercept
         self.nb.append_page(vbox, gtk.Label(_("Intercept")))
-        httplog = httpLogTab.httpLogTab(w3af)
         # History
-        lab2 = gtk.Label(_("History"))
-        self.nb.append_page(httplog, lab2)
-        lab2.show()
+        self.httplog = httpLogTab.httpLogTab(w3af)
+        self.nb.append_page(self.httplog, gtk.Label(_("History")))
         # Options
         self._initOptions()
         self.vbox.pack_start(self.nb, True, True, padding=self.def_padding)
