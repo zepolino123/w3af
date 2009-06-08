@@ -46,6 +46,7 @@ class httpLogTab(entries.RememberingHPaned):
     def __init__(self, w3af):
         super(httpLogTab,self).__init__(w3af, "pane-httplogtab", 300)
         self.w3af = w3af
+        self.def_padding = 5
 
         # Show the information message about long searchs only one time
         self._alreadyReported = True
@@ -55,12 +56,15 @@ class httpLogTab(entries.RememberingHPaned):
 
         # The search entry
         self._searchText = searchEntry('')
-        self._searchText.connect("activate", self._findRequestResponse )
+        self._searchText.connect("activate", self._findRequestResponse)
 
+        # The button that is used to advanced search
+        advSearchBtn = gtk.Button(label=_("Advanced"))
+        self._advSearchBoxVisibility = False
+        advSearchBtn.connect("clicked", self._showHideAdvancedBox)
         # The button that is used to search
         searchBtn = gtk.Button(stock=gtk.STOCK_FIND)
-        searchBtn.connect("clicked", self._findRequestResponse )
-
+        searchBtn.connect("clicked", self._findRequestResponse)
         # The button that is used show all entries
         showAllBtn = gtk.Button(stock=gtk.STOCK_CLEAR)
         showAllBtn.connect("clicked", self._showAllRequestResponses)
@@ -68,10 +72,11 @@ class httpLogTab(entries.RememberingHPaned):
         # Create the container that has the menu
         menuHbox = gtk.HBox()
         menuHbox.set_spacing(10)
-        menuHbox.pack_start( searchLabel, False )
-        menuHbox.pack_start( self._searchText )
-        menuHbox.pack_start( searchBtn, False )
-        menuHbox.pack_start( showAllBtn, False )
+        menuHbox.pack_start(searchLabel, False)
+        menuHbox.pack_start(self._searchText)
+        menuHbox.pack_start(advSearchBtn, False)
+        menuHbox.pack_start(searchBtn, False)
+        menuHbox.pack_start(showAllBtn, False)
         menuHbox.show_all()
 
         # Create the main container
@@ -102,7 +107,7 @@ class httpLogTab(entries.RememberingHPaned):
         self._sw.set_sensitive(False)
         self._sw.show_all()
 
-        self._showAllRequestResponses(None)
+        self._showAllRequestResponses()
 
         # I want all sections to be resizable
         self._vpan = entries.RememberingVPaned(w3af, "pane-swandrRV", 100)
@@ -111,13 +116,29 @@ class httpLogTab(entries.RememberingHPaned):
         self._vpan.show()
 
         # Add the menuHbox, the request/response viewer and the r/r selector on the bottom
-        mainvbox.pack_start( menuHbox, False )
-        mainvbox.pack_start( self._vpan )
+        mainvbox.pack_start(menuHbox, False)
+        self._initAdvSearchBox()
+        mainvbox.pack_start(self._advSearchBox, False)
+        mainvbox.pack_start(self._vpan)
         mainvbox.show()
 
         # Add everything
         self.add( mainvbox )
         self.show()
+
+    def _initAdvSearchBox(self):
+        self._advSearchBox = gtk.HBox()
+        self._advSearchBox.pack_start(gtk.Label(_("Code")), False, False,\
+                padding=self.def_padding)
+        self._codeCombo = gtk.combo_box_new_text()
+        self._codeCombo.append_text("=")
+        self._codeCombo.set_active(0)
+        self._codeCombo.append_text("<")
+        self._codeCombo.append_text(">")
+        self._codeEntry = gtk.Entry()
+        self._advSearchBox.pack_start(self._codeCombo, False, False, padding=self.def_padding)
+        self._advSearchBox.pack_start(self._codeEntry, False, False, padding=self.def_padding)
+        self._advSearchBox.show_all()
 
     def __add_columns(self, treeview):
         model = treeview.get_model()
@@ -161,7 +182,14 @@ class httpLogTab(entries.RememberingHPaned):
         column.set_sort_column_id(6)
         treeview.append_column(column)
 
-    def _showAllRequestResponses(self, widget):
+    def _showHideAdvancedBox(self, widget=None):
+        if self._advSearchBoxVisibility:
+            self._advSearchBox.hide_all()
+        else:
+            self._advSearchBox.show_all()
+        self._advSearchBoxVisibility = not self._advSearchBoxVisibility
+
+    def _showAllRequestResponses(self, widget=None):
         self._searchText.set_text("")
         self._findRequestResponse(widget, "id > 0")
 
@@ -251,7 +279,7 @@ class httpLogTab(entries.RememberingHPaned):
         else:
             position = 13 + 120
 
-        self._vpan.set_position(position)
+        #self._vpan.set_position(position)
         self._sw.show_all()
 
 class searchEntry(entries.ValidatedEntry):
