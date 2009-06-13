@@ -69,7 +69,32 @@ class reqResDBHandler:
             return True
         else:
             return False
-            
+
+    def search(self, search_data, result_limit=-1 ):
+        '''Make complex search.
+        search_data = [(name, value, operator), ...]
+        '''
+
+        if not self._initDB():
+            raise w3afException('The database is not initialized yet.')
+
+        where = "1=1"
+        for item in search_data:
+            oper = "="
+            value = item[1]
+            if len(item) > 2:
+                oper = item[2]
+            if isinstance(value, str):
+                value = "'" + value + "'"
+            else:
+                value = str(value)
+            where += " AND (" + item[0] + " " + oper + " " + value + ")"
+        try:
+            result = self._db.retrieve_all(where, result_limit=result_limit)
+            return result
+        except w3afException:
+            raise w3afException('You performed an invalid search. Please verify your syntax.')
+
     def searchByString( self, search_string, result_limit=-1 ):
         '''
         @return: A request object that matches the search string.
