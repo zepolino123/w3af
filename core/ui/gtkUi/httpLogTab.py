@@ -30,18 +30,19 @@ from core.data.db.reqResDBHandler import reqResDBHandler
 from core.controllers.w3afException import w3afException
 
 class httpLogTab(entries.RememberingHPaned):
-    '''
-    A tab that shows all HTTP requests and responses made by the framework.
+    '''A tab that shows all HTTP requests and responses made by the framework.
     @author: Andres Riancho ( andres.riancho@gmail.com )
     '''
-    def __init__(self, w3af):
+    def __init__(self, w3af, padding=10):
+        """Init object."""
         super(httpLogTab,self).__init__(w3af, "pane-httplogtab", 300)
         self.w3af = w3af
-        self.padding = 5
+        self._padding = padding
         # Create the database handler
         self._dbHandler = reqResDBHandler()
         # Create the main container
         mainvbox = gtk.VBox()
+        mainvbox.set_spacing(self._padding)
         # Add the menuHbox, the request/response viewer and the r/r selector on the bottom
         self._initSearchBox(mainvbox)
         self._initAdvSearchBox(mainvbox)
@@ -54,14 +55,16 @@ class httpLogTab(entries.RememberingHPaned):
 
     def _initReqResViewer(self, mainvbox):
         """Create the req/res viewer."""
-        self._reqResViewer = reqResViewer.reqResViewer(self.w3af, editableRequest=False, editableResponse=False)
+        self._reqResViewer = reqResViewer.reqResViewer(self.w3af,
+                editableRequest=False, editableResponse=False)
         self._reqResViewer.set_sensitive(False)
-        # Create the req/res selector (when a search with more than one result is done, this window appears)
+        # Create the req/res selector (when a search with more 
+        # than one result is done, this window appears)
         self._sw = gtk.ScrolledWindow()
         self._sw.set_shadow_type(gtk.SHADOW_ETCHED_IN)
         self._sw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-        self._lstore = gtk.ListStore(gobject.TYPE_UINT, gobject.TYPE_STRING,\
-                gobject.TYPE_STRING, gobject.TYPE_UINT, gobject.TYPE_STRING,\
+        self._lstore = gtk.ListStore(gobject.TYPE_UINT, gobject.TYPE_STRING,
+                gobject.TYPE_STRING, gobject.TYPE_UINT, gobject.TYPE_STRING,
                 gobject.TYPE_UINT, gobject.TYPE_FLOAT)
         # Create tree view
         self._lstoreTreeview = gtk.TreeView(self._lstore)
@@ -81,8 +84,7 @@ class httpLogTab(entries.RememberingHPaned):
         mainvbox.pack_start(self._vpan)
 
     def _initSearchBox(self, mainvbox):
-        # This is a search bar for request/responses
-        searchLabel = gtk.Label(_("Search:"))
+        """Init Search box."""
         # The search entry
         self._searchText = gtk.Entry()
         self._searchText.connect("activate", self._findRequestResponse)
@@ -97,52 +99,47 @@ class httpLogTab(entries.RememberingHPaned):
         showAllBtn.connect("clicked", self._showAllRequestResponses)
         # Create the container that has the menu
         menuHbox = gtk.HBox()
-        menuHbox.set_spacing(10)
-        menuHbox.pack_start(searchLabel, False)
+        menuHbox.set_spacing(self._padding)
+        menuHbox.pack_start(gtk.Label(_("Search:")), False)
         menuHbox.pack_start(self._searchText)
         menuHbox.pack_start(advSearchBtn, False)
         menuHbox.pack_start(searchBtn, False)
         menuHbox.pack_start(showAllBtn, False)
         menuHbox.show_all()
-        mainvbox.pack_start(menuHbox, False)
+        mainvbox.pack_start(menuHbox, False, True)
 
     def _initAdvSearchBox(self, mainvbox):
+        """Init advanced search options."""
         self._comboValues = ["=", ">", "<"]
         self._advSearchBox = gtk.HBox()
-        # Code option
-        self._advSearchBox.pack_start(gtk.Label(_("Code")), False, False, padding=self.padding)
-        self._codeCombo = gtk.combo_box_new_text()
-        for o in self._comboValues:
-            self._codeCombo.append_text(o)
-        self._codeCombo.set_active(0)
-        self._codeEntry = gtk.Entry()
-        self._advSearchBox.pack_start(self._codeCombo, False, False, padding=self.padding)
-        self._advSearchBox.pack_start(self._codeEntry, False, False, padding=self.padding)
-        # ID option
-        self._advSearchBox.pack_start(gtk.Label(_("ID")), False, False, padding=self.padding)
-        self._idCombo = gtk.combo_box_new_text()
-        for o in self._comboValues:
-            self._idCombo.append_text(o)
-        self._idCombo.set_active(0)
-        self._idEntry = gtk.Entry()
-        self._advSearchBox.pack_start(self._idCombo, False, False, padding=self.padding)
-        self._advSearchBox.pack_start(self._idEntry, False, False, padding=self.padding)
+        self._advSearchBox.set_spacing(self._padding)
+        options = [("code", _("Code")), ("id", _("ID"))]
+        for opt in options:
+            self._advSearchBox.pack_start(gtk.Label(opt[1]), False, False)
+            combo = gtk.combo_box_new_text()
+            for o in self._comboValues:
+                combo.append_text(o)
+            combo.set_active(0)
+            setattr(self, "_" + opt[0] + "Combo", combo)
+            entry = gtk.Entry()
+            entry.connect("activate", self._findRequestResponse)
+            setattr(self, "_" + opt[0] + "Entry", entry)
+            self._advSearchBox.pack_start(combo, False, False)
+            self._advSearchBox.pack_start(entry, False, False)
         self._advSearchBox.hide_all()
-        mainvbox.pack_start(self._advSearchBox, False, False, padding=self.padding)
+        mainvbox.pack_start(self._advSearchBox, False, False)
 
     def __add_columns(self, treeview):
+        """Add columns to main log table."""
         model = treeview.get_model()
-
         # column for id's
         column = gtk.TreeViewColumn(_('ID'), gtk.CellRendererText(),text=0)
         column.set_sort_column_id(0)
         treeview.append_column(column)
-
         # column for METHOD
         column = gtk.TreeViewColumn(_('Method'), gtk.CellRendererText(),text=1)
         column.set_sort_column_id(1)
         treeview.append_column(column)
-
         # column for URI
         renderer = gtk.CellRendererText()
         renderer.set_property( 'ellipsize', pango.ELLIPSIZE_END)
@@ -150,35 +147,33 @@ class httpLogTab(entries.RememberingHPaned):
         column.set_sort_column_id(2)
         column.set_resizable(True)
         treeview.append_column(column)
-
         # column for Code
         column = gtk.TreeViewColumn(_('Code'), gtk.CellRendererText(),text=3)
         column.set_sort_column_id(3)
         treeview.append_column(column)
-
         # column for response message
         column = gtk.TreeViewColumn(_('Message'), gtk.CellRendererText(),text=4)
         column.set_sort_column_id(4)
         column.set_resizable(True)
         treeview.append_column(column)
-
         # column for content-length
         column = gtk.TreeViewColumn(_('Content-Length'), gtk.CellRendererText(),text=5)
         column.set_sort_column_id(5)
         treeview.append_column(column)
-
         # column for response time
         column = gtk.TreeViewColumn(_('Time (ms)'), gtk.CellRendererText(),text=6)
         column.set_sort_column_id(6)
         treeview.append_column(column)
 
     def _showHideAdvancedBox(self, widget):
+        """Show/hide advanced options."""
         if not widget.get_active():
             self._advSearchBox.hide_all()
         else:
             self._advSearchBox.show_all()
 
     def _showAllRequestResponses(self, widget=None):
+        """Show all results."""
         self._searchText.set_text("")
         self._codeEntry.set_text("")
         self._idEntry.set_text("")
@@ -189,6 +184,7 @@ class httpLogTab(entries.RememberingHPaned):
             return
 
     def _findRequestResponse(self, widget=None):
+        """Find entries (req/res)."""
         searchText = self._searchText.get_text()
         searchText = searchText.strip()
         entryId = self._idEntry.get_text()
@@ -222,63 +218,63 @@ class httpLogTab(entries.RememberingHPaned):
             self._emptyResults()
             msg = _('The search you performed returned too many results (') + str(len(searchResultObjects)) + ').\n'
             msg += _('Please refine your search and try again.')
-            self._showMessage('Too many results', msg )
+            self._showMessage('Too many results', msg)
             return
         else:
             # show the results in the list view (when first row is selected that just triggers
             # the req/resp filling.
             self._sw.set_sensitive(True)
             self._reqResViewer.set_sensitive(True)
-            self._showListView( searchResultObjects )
+            self._showListView(searchResultObjects)
             self._lstoreTreeview.set_cursor((0,))
             return
 
     def _showMessage(self, title, msg, gtkLook=gtk.MESSAGE_INFO):
+        """Show message to user as GTK dialog."""
         dlg = gtk.MessageDialog(None, gtk.DIALOG_MODAL, gtkLook, gtk.BUTTONS_OK, msg)
         dlg.set_title(title)
         dlg.run()
         dlg.destroy()
 
     def _viewInReqResViewer(self, widget):
-        '''
-        This method is called when the user clicks on one of the search results that are shown in the listview
-        '''
+        """Action for "onselect" event of the main listview."""
         (path, column) = widget.get_cursor()
         itemNumber = path[0]
-        # Now I have the item number in the lstore, the next step is to get the id of that item in the lstore
-        iid = self._lstore[ itemNumber ][0]
-        self.showReqResById( iid )
+        # Now I have the item number in the lstore, 
+        # the next step is to get the id of that item in the lstore
+        iid = self._lstore[itemNumber][0]
+        self.showReqResById(iid)
 
-    def showReqResById( self, search_id ):
-        '''
-        This method should be called by other tabs when they want to show what request/response pair
+    def showReqResById(self, search_id):
+        """This method should be called by other tabs when
+        they want to show what request/response pair
         is related to the vulnerability.
-        '''
-        search_result = self._dbHandler.searchById( search_id )
+        """
+        search_result = self._dbHandler.searchById(search_id)
         if len(search_result) == 1:
             request, response = search_result[0]
-            self._reqResViewer.request.showObject( request )
-            self._reqResViewer.response.showObject( response )
+            self._reqResViewer.request.showObject(request)
+            self._reqResViewer.response.showObject(response)
         else:
             self._showMessage(_('Error'), _('The id ') + str(search_id) + _('is not inside the database.'))
 
     def _emptyResults(self):
+        """Empty all panes."""
         self._reqResViewer.request.clearPanes()
         self._reqResViewer.response.clearPanes()
         self._reqResViewer.set_sensitive(False)
         self._sw.set_sensitive(False)
         self._lstore.clear()
 
-    def _showListView( self, results ):
-        '''
-        Show the results of the search in a listview
-        '''
+    def _showListView(self, results):
+        """Show the results of the search in a listview."""
         # First I clear all old results...
         self._lstore.clear()
         for item in results:
             request, response = item
-            self._lstore.append( [response.getId(), request.getMethod(), request.getURI(), \
-            response.getCode(), response.getMsg(), len(response.getBody()), response.getWaitTime()] )
+            self._lstore.append([response.getId(), request.getMethod(), request.getURI(),
+                response.getCode(), response.getMsg(), len(response.getBody()),
+                response.getWaitTime()] )
         # Size search results
         if len(results) < 10:
             position = 13 + 48 * len(results)
