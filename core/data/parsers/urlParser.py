@@ -126,7 +126,25 @@ def normalizeURL( url ):
     So, to sum up, this method takes an URL, and returns a normalized URL. For the example we were talking before,
     it will return: 'http://abc/f00.b4r' instead of the normal response from urlparser.urljoin: 'http://abc/../f00.b4r'
     '''
-    baseURL = getProtocol( url ) + '://'+ getNetLocation( url ) + '/'
+    # net location normalization:
+    net_location = getNetLocation( url )
+    protocol = getProtocol( url )
+    if ':' in net_location:
+        host,  port = net_location.split(':')
+        if protocol.lower() == 'http' and port == '80':
+            net_location = host
+        elif protocol.lower() == 'https' and port == '443':
+            net_location = host
+        else:
+            # The net location has a specific port definition
+            net_location = host + ':' + port
+    else:
+        # The net location has no port definition
+        host = net_location
+    
+    # A normalized baseURL:
+    baseURL = protocol + '://'+ net_location + '/'
+
     relativeURL = getPathQs( url )
     
     commonjoin = _uparse.urljoin( baseURL, relativeURL )
