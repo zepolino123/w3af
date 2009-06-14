@@ -156,7 +156,7 @@ class requestResponsePart(gtk.Notebook):
         self._raw.set_editable(editable)
         self._raw.set_border_width(5)
         self._raw.show()
-        self.append_page(self._raw, gtk.Label("Raw"))
+        self.append_page(self._raw, gtk.Label(_("Raw")))
 
     def _initHeadersTab(self, editable):
         """Init for Headers tab."""
@@ -206,7 +206,7 @@ class requestResponsePart(gtk.Notebook):
         if editable:
             box.pack_start(buttonBox, False, False, self.def_padding)
         box.show()
-        self.append_page(box, gtk.Label("Headers"))
+        self.append_page(box, gtk.Label(_("Headers")))
 
     def _addHeader(self, widget):
         """Add header to header."""
@@ -356,6 +356,82 @@ class requestResponsePart(gtk.Notebook):
 class requestPart(requestResponsePart):
     """Request part"""
 
+    def __init__(self, w3af, enableWidget=None, editable=False, widgname="default"):
+        requestResponsePart.__init__(self, w3af, enableWidget, editable, widgname=widgname+"request")
+        self.SOURCE_PARAMS = 3
+        self._initParamsTab(editable)
+        self.show_all()
+
+    def _initParamsTab(self, editable):
+        """Init Params tab."""
+        box = gtk.HBox()
+        self._paramsStore = gtk.ListStore(gobject.TYPE_STRING, gobject.TYPE_STRING)
+        self._paramsTreeview = gtk.TreeView(self._paramsStore)
+        # Column for Name
+        renderer = gtk.CellRendererText()
+        renderer.set_property('editable', editable)
+        renderer.connect('edited', self._paramNameEdited, self._paramsStore)
+        column = gtk.TreeViewColumn(_('Name'), renderer, text=0)
+        column.set_sort_column_id(0)
+        column.set_resizable(True)
+        self._paramsTreeview.append_column(column)
+        # Column for Value
+        renderer = gtk.CellRendererText()
+        renderer.set_property('editable', editable)
+        renderer.connect('edited', self._paramValueEdited, self._paramsStore)
+        column = gtk.TreeViewColumn(_('Value'), renderer, text=1)
+        column.set_resizable(True)
+        column.set_expand(True)
+        column.set_sort_column_id(1)
+        self._paramsTreeview.append_column(column)
+        self._paramsTreeview.show()
+        box.pack_start(self._paramsTreeview)
+
+        # Buttons area
+        buttons = [
+                (gtk.STOCK_ADD, self._addParam),
+                (gtk.STOCK_DELETE, self._deleteParam)
+                ]
+
+        buttonBox = gtk.VBox()
+
+        for button in buttons:
+            b = gtk.Button(stock=button[0])
+            b.connect("clicked", button[1])
+            b.show()
+            buttonBox.pack_start(b, False, False, self.def_padding)
+        buttonBox.show()
+
+        if editable:
+            box.pack_start(buttonBox, False, False, self.def_padding)
+        box.show()
+        self.append_page(box, gtk.Label(_("Params")))
+
+    def _addParam(self, widget):
+        """Add param to params table."""
+        i = self._paramsStore.append(["", ""])
+        selection = self._headersTreeview.get_selection()
+        selection.select_iter(i)
+
+    def _deleteParam(self, widget):
+        """Delete selected param."""
+        selection = self._paramsTreeview.get_selection()
+        (model, selected) = selection.get_selected()
+        if selected:
+            model.remove(selected)
+        self._changeParamCB()
+        self._synchronize(self.SOURCE_PARAMS)
+
+    def _paramNameEdited(self, cell, path, new_text, model):
+        model[path][0] = new_text
+        self._changeParamCB()
+        self._synchronize(self.SOURCE_PARAMS)
+
+    def _paramValueEdited(self, cell, path, new_text, model):
+        model[path][1] = new_text
+        self._changeParamCB()
+        self._synchronize(self.SOURCE_PARAMS)
+
     def showObject(self, fuzzableRequest):
         """Show the data from a fuzzableRequest object in the textViews."""
         self._obj = fuzzableRequest
@@ -376,6 +452,13 @@ class requestPart(requestResponsePart):
         # Headers tab
         if source != self.SOURCE_HEADERS:
             self._updateHeadersTab(self._obj.getHeaders())
+        # Params tab
+        if source != self.SOURCE_PARAMS:
+            print "DATA:", self._obj.getData()
+            print "_synchronize PARAMS!"
+
+    def _changeParamCB(self):
+        print "call _changeParamCB!"
 
     def _changeHeaderCB(self):
         headers = {}
