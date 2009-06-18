@@ -30,6 +30,8 @@ from core.data.db.reqResDBHandler import reqResDBHandler
 from core.data.constants import severity
 from core.controllers.w3afException import w3afException
 from core.data.parsers.httpRequestParser import httpRequestParser
+from core.data.parsers.urlParser import getQueryString
+from core.data.dc.queryString import queryString
 
 # highlight
 from extlib.gtkcodebuffer.gtkcodebuffer import CodeBuffer, SyntaxLoader, add_syntax_path
@@ -454,11 +456,27 @@ class requestPart(requestResponsePart):
             self._updateHeadersTab(self._obj.getHeaders())
         # Params tab
         if source != self.SOURCE_PARAMS:
-            print "DATA:", self._obj.getData()
-            print "_synchronize PARAMS!"
+            queryParams = getQueryString(self._obj.getURI())
+            self._updateParamsTab(queryParams)
+
+    def _updateParamsTab(self, queryParams):
+        self._paramsStore.clear()
+        for paramName in queryParams:
+            if isinstance(queryParams[paramName], list):
+                for dubParamValue in queryParams[paramName]:
+                    self._paramsStore.append([paramName, dubParamValue])
+            else:
+                self._paramsStore.append([paramName, queryParams[paramName]])
 
     def _changeParamCB(self):
-        print "call _changeParamCB!"
+        rQueryString  = queryString()
+        for param in self._paramsStore:
+            if param[0] in rQueryString:
+                rQueryString[param[0]].append(param[1])
+            else:
+                rQueryString[param[0]] = [param[1], ]
+        url = self._obj.getURL()
+        self._obj.setURI(url + "?" + str(rQueryString))
 
     def _changeHeaderCB(self):
         headers = {}
