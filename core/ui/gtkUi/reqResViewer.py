@@ -524,7 +524,7 @@ class responsePart(requestResponsePart):
         self._initRenderTab()
         # Third page, only if the content is some type of markup language (xml, html)
         self._initSyntaxTab()
-        self.show_all()
+        self.show()
 
     def _initSyntaxTab(self):
         """Init Syntax Tab."""
@@ -532,9 +532,9 @@ class responsePart(requestResponsePart):
         #if is_markup():
         lang = SyntaxLoader("xml")
         self._markup_highlight_buff = CodeBuffer(lang=lang)
-
         self._markup_highlight = gtk.ScrolledWindow()
         self._markup_highlight.add( gtk.TextView(self._markup_highlight_buff) )
+        self._markup_highlight.show_all()
         self.append_page(self._markup_highlight, gtk.Label(_("HTML")))
 
     def _initRenderTab(self):
@@ -557,6 +557,7 @@ class responsePart(requestResponsePart):
         if renderWidget is not None:
             swRenderedHTML = gtk.ScrolledWindow()
             swRenderedHTML.add(renderWidget)
+            swRenderedHTML.show_all()
             self.append_page(swRenderedHTML, gtk.Label(_("Rendered")))
 
     def showObject(self, httpResp):
