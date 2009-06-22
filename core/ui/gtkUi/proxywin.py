@@ -119,10 +119,14 @@ class ProxiedRequests(entries.RememberingWindow):
         # Notebook
         self.nb = gtk.Notebook()
         # Intercept
-        self.nb.append_page(vbox, gtk.Label(_("Intercept")))
+        tmp = gtk.Label(_("_Intercept"))
+        tmp.set_use_underline(True)
+        self.nb.append_page(vbox, tmp)
         # History
         self.httplog = httpLogTab.httpLogTab(w3af)
-        self.nb.append_page(self.httplog, gtk.Label(_("History")))
+        tmp = gtk.Label(_("_History"))
+        tmp.set_use_underline(True)
+        self.nb.append_page(self.httplog, tmp)
         # Options
         self._initOptions()
         self.vbox.pack_start(self.nb, True, True, padding=self.def_padding)
@@ -177,8 +181,9 @@ class ProxiedRequests(entries.RememberingWindow):
         self._optionsPanel = ConfigOptions(self.w3af, self, self.proxyoptions.options, saveBtn, rvrtBtn)
         optionBox.pack_start(self._optionsPanel, False, False)
         optionBox.pack_start(buttonsArea, False, False)
-
-        self.nb.append_page(optionBox, gtk.Label(_("Options")))
+        tmp = gtk.Label(_("_Options"))
+        tmp.set_use_underline(True)
+        self.nb.append_page(optionBox, tmp)
 
     def configChanged(self, like_initial):
         """Propagates the change from the options.
