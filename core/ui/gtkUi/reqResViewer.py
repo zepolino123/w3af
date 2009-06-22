@@ -355,6 +355,31 @@ class requestResponsePart(gtk.Notebook):
     def getRawTextView(self):
         return self._raw
 
+    def highlight(self, text, sev=severity.MEDIUM):
+        """Find the text, and handle highlight.
+        @return: None
+        """
+        # highlight the response header and body
+        for text_buffer in [self._raw]:
+            (ini, fin) = text_buffer.get_bounds()
+            alltext = text_buffer.get_text(ini, fin)
+            # find the positions where the phrase is found
+            positions = []
+            pos = 0
+            while True:
+                try:
+                    pos = alltext.index(text, pos)
+                except ValueError:
+                    break
+                fin = pos + len(text)
+                iterini = text_buffer.get_iter_at_offset(pos)
+                iterfin = text_buffer.get_iter_at_offset(fin)
+                positions.append((pos, fin, iterini, iterfin))
+                pos += 1
+            # highlight them all
+            for (ini, fin, iterini, iterfin) in positions:
+                text_buffer.apply_tag_by_name(sev, iterini, iterfin)
+
 class requestPart(requestResponsePart):
     """Request part"""
 
@@ -362,7 +387,7 @@ class requestPart(requestResponsePart):
         requestResponsePart.__init__(self, w3af, enableWidget, editable, widgname=widgname+"request")
         self.SOURCE_PARAMS = 3
         self._initParamsTab(editable)
-        self.show_all()
+        self.show()
 
     def _initParamsTab(self, editable):
         """Init Params tab."""
@@ -618,33 +643,6 @@ class responsePart(requestResponsePart):
         # Show it rendered
         self._renderFunction(body, mimeType, baseURI)
 
-    def highlight(self, text, sev=severity.MEDIUM):
-        """Find the text, and handle highlight.
-        @return: None.
-        """
-        # highlight the response header and body
-        for text_buffer in [self._downTv, self._raw]:
-
-            (ini, fin) = text_buffer.get_bounds()
-            alltext = text_buffer.get_text(ini, fin)
-
-            # find the positions where the phrase is found
-            positions = []
-            pos = 0
-            while True:
-                try:
-                    pos = alltext.index(text, pos)
-                except ValueError:
-                    break
-                fin = pos + len(text)
-                iterini = text_buffer.get_iter_at_offset(pos)
-                iterfin = text_buffer.get_iter_at_offset(fin)
-                positions.append((pos, fin, iterini, iterfin))
-                pos += 1
-
-            # highlight them all
-            for (ini, fin, iterini, iterfin) in positions:
-                text_buffer.apply_tag_by_name(sev, iterini, iterfin)
 
 
 SEVERITY_TO_COLOR={
@@ -706,7 +704,7 @@ class reqResWindow(entries.RememberingWindow):
     A window to show a request/response pair.
     """
     def __init__(self, w3af, request_id, enableWidget=None, withManual=True,
-                 withFuzzy=True, withCompare=True, editableRequest=False, 
+                 withFuzzy=True, withCompare=True, editableRequest=False,
                  editableResponse=False, widgname="default"):
         # Create the window
         entries.RememberingWindow.__init__(
