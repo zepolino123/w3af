@@ -474,8 +474,7 @@ class requestPart(requestResponsePart):
         if source != self.SOURCE_RAW:
             self._clear(self._raw)
             buff = self._raw.get_buffer()
-            iterl = buff.get_end_iter()
-            buff.insert(iterl, self._to_utf8(self._obj.dump()))
+            buff.set_text(self._to_utf8(self._obj.dump()))
         # Headers tab
         if source != self.SOURCE_HEADERS:
             self._updateHeadersTab(self._obj.getHeaders())
@@ -512,8 +511,13 @@ class requestPart(requestResponsePart):
 
     def _changeRawCB(self):
         (head, data) = self.getBothTexts()
-        if len(head):
+        try:
+            if not len(head):
+                raise w3afException("Empty HTTP Request head")
             self._obj = httpRequestParser(head, data)
+            self._raw.reset_bg_color()
+        except w3afException, ex:
+            self._raw.set_bg_color(gtk.gdk.color_parse("#FFCACA"))
 
 class responsePart(requestResponsePart):
     """Response part"""
@@ -569,8 +573,7 @@ class responsePart(requestResponsePart):
         # Raw tab
         self._clear(self._raw)
         buff = self._raw.get_buffer()
-        iterl = buff.get_end_iter()
-        buff.insert(iterl, self._to_utf8(self._obj.dump()))
+        buff.set_text(self._to_utf8(self._obj.dump()))
         # Headers tab
         self._updateHeadersTab(self._obj.getHeaders())
         # Render
@@ -663,6 +666,7 @@ class searchableTextView(gtk.VBox, entries.Searchable):
 
         # Create the textview where the text is going to be shown
         self.textView = gtk.TextView()
+        self.reset_bg_color()
         for sev in SEVERITY_TO_COLOR:
             self.textView.get_buffer().create_tag(sev, background=SEVERITY_TO_COLOR[sev])
         self.textView.show()
@@ -674,7 +678,6 @@ class searchableTextView(gtk.VBox, entries.Searchable):
         sw1.add(self.textView)
         sw1.show()
         self.pack_start(sw1, expand=True, fill=True)
-        self.show()
 
         # Create the search widget
         entries.Searchable.__init__(self, self.textView, small=True)
@@ -696,6 +699,12 @@ class searchableTextView(gtk.VBox, entries.Searchable):
 
     def set_border_width(self, b):
         return self.textView.set_border_width(b)
+
+    def set_bg_color(self, color):
+        self.textView.modify_base(gtk.STATE_NORMAL, color)
+
+    def reset_bg_color(self):
+        self.textView.modify_base(gtk.STATE_NORMAL, gtk.gdk.color_parse("#E4E4E4"))
 
     def get_buffer(self):
         return self.textView.get_buffer()
