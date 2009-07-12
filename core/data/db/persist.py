@@ -50,10 +50,9 @@ class persist:
         self._filename = None
         self._db = None
         self._primary_key_columns = None
-        
         self._insertion_count = 0
         self._db_lock = thread.allocate_lock()
-            
+
     def open( self, filename ):
         '''
         Open an already existing database.
@@ -94,14 +93,14 @@ class persist:
                 # Now we save the data to the attributes
                 self._filename = filename_utf8
                 self._primary_key_columns = pk_getters
-    
+
     def create( self, filename, primary_key_columns ):
         '''
         @parameter primary_key_columns: A list of getters that we use to get the values for the primary key.
         @parameter filename: The file name where to save the data.
         '''
         self._create_db( filename, primary_key_columns)
-        
+
     def persist( self, primary_key_values, obj ):
         '''
         Save an object to a file; if this is the first object to persist, we are going to create the database.
@@ -137,7 +136,7 @@ class persist:
             c.execute( insert_stm, bindings )
             c.close()
             self._commit_if_needed()
-        
+
     def _commit_if_needed( self ):
         '''
         Once every 50 calls to this method, the data is commited to disk.
@@ -150,7 +149,7 @@ class persist:
                 raise w3afException('The database layer of object persistence raised and exception: ' + str(e) )
             else:
                 self._insertion_count = 0
-            
+
     def _create_db( self, filename, primary_key_columns):
         '''
         Create the database; the columns of the database are going to be the primary_key_columns.
@@ -230,10 +229,10 @@ class persist:
                 obj = Unpickler(f).load()
                 return obj
     
-    def retrieve_all( self, search_string, result_limit=-1 ):
+    def retrieve_all(self, search_string, result_limit=-1, orderby=None):
         '''
         This method returns a list of objects (if any is found).
-        
+
         Examples:
             if search_string is 
                 id='1' and url='abc'
@@ -245,16 +244,19 @@ class persist:
         '''
         if not self._db:
             raise w3afException('No database has been initialized.')
-        
+
         # Get the row(s)
         c = self._db.cursor()
-        select_stm = "select * from data_table"
+        select_stm = "SELECT * FROM data_table"
         # This is a SQL injection! =)
-        select_stm += " where " + search_string
-        
+        select_stm += " WHERE " + search_string
+
+        if orderby:
+            select_stm += " ORDER BY " + orderby
+
         # Add the result limit, remember that a result_limit of -1 is "no limit"
         select_stm += ' LIMIT '  + str(result_limit)
-        
+
         with self._db_lock:
             try:
                 c.execute( select_stm )
@@ -263,15 +265,15 @@ class persist:
                 raise w3afException(str(e))
             else:
                 res = []
-                
+
                 # unpickle
                 for row in rows:
                     f = StringIO( str(row[-1]) )
                     obj = Unpickler(f).load()
                     res.append(obj)
-                    
+
                 return res
-            
+
     def raw_stm( self, stm ):
         '''
         Executes a select to the underlaying database. Only used for debugging.
@@ -289,8 +291,8 @@ class persist:
         self._db.close()
         self._primary_key_columns = None
         self._filename = None
-        
-        
+
+
 class test_class:
     def __init__( self ):
         self._spam =  'abc'
