@@ -28,22 +28,26 @@ import pango
 from . import reqResViewer, entries
 from core.data.db.reqResDBHandler import reqResDBHandler
 from core.controllers.w3afException import w3afException
+import core.controllers.outputManager as om
 
 class httpLogTab(entries.RememberingHPaned):
     '''A tab that shows all HTTP requests and responses made by the framework.
     @author: Andres Riancho ( andres.riancho@gmail.com )
     '''
-    def __init__(self, w3af, padding=10):
+    def __init__(self, w3af, padding=10, time_refresh=False):
         """Init object."""
         super(httpLogTab,self).__init__(w3af, "pane-httplogtab", 300)
         self.w3af = w3af
         self._padding = padding
+        self._lastId = 0
         # Create the database handler
         self._dbHandler = reqResDBHandler()
+        if time_refresh:
+            gobject.timeout_add(1000, self.refreshResults)
         # Create the main container
         mainvbox = gtk.VBox()
         mainvbox.set_spacing(self._padding)
-        # Add the menuHbox, the request/response viewer and the r/r selector on the bottom
+        # Add the menuHbox, Req/Res viewer and the R/R selector on the bottom
         self._initSearchBox(mainvbox)
         self._initAdvSearchBox(mainvbox)
         self._initReqResViewer(mainvbox)
@@ -51,7 +55,6 @@ class httpLogTab(entries.RememberingHPaned):
         # Add everything
         self.add(mainvbox)
         self.show()
-        self._showAllRequestResponses()
 
     def _initReqResViewer(self, mainvbox):
         """Create the req/res viewer."""
@@ -63,8 +66,9 @@ class httpLogTab(entries.RememberingHPaned):
         self._sw = gtk.ScrolledWindow()
         self._sw.set_shadow_type(gtk.SHADOW_ETCHED_IN)
         self._sw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-        self._lstore = gtk.ListStore(gobject.TYPE_UINT, gobject.TYPE_STRING,
-                gobject.TYPE_STRING, gobject.TYPE_UINT, gobject.TYPE_STRING,
+        self._lstore = gtk.ListStore(gobject.TYPE_UINT,
+                gobject.TYPE_STRING,gobject.TYPE_STRING,
+                gobject.TYPE_UINT, gobject.TYPE_STRING,
                 gobject.TYPE_UINT, gobject.TYPE_FLOAT)
         # Create tree view
         self._lstoreTreeview = gtk.TreeView(self._lstore)
@@ -73,8 +77,9 @@ class httpLogTab(entries.RememberingHPaned):
         self.__add_columns( self._lstoreTreeview )
         self._lstoreTreeview.show()
         self._lstoreTreeview.connect('cursor-changed', self._viewInReqResViewer)
+        self._lstoreTreeview.connect('button-release-event', self._popupMenu)
         self._sw.add(self._lstoreTreeview)
-        self._sw.set_sensitive(False)
+        #self._sw.set_sensitive(False)
         self._sw.show_all()
         # I want all sections to be resizable
         self._vpan = entries.RememberingVPaned(self.w3af, "pane-swandrRV", 100)
@@ -82,6 +87,99 @@ class httpLogTab(entries.RememberingHPaned):
         self._vpan.pack2(self._reqResViewer)
         self._vpan.show()
         mainvbox.pack_start(self._vpan)
+
+    def _popupMenu(self, tv, event):
+        '''Shows a menu when you right click on a Req/Res row.
+
+        @param tv: the treeview.
+        @parameter event: The GTK event
+        '''
+        # It's a right click !
+        if event.button != 3:
+            return
+        _time = event.time
+        (path, column) = tv.get_cursor()
+
+        if not path:
+            return
+        # Get the information about the click
+        requestId = self._lstore[path][0]
+        # Create the popup menu
+        gm = gtk.Menu()
+        e = gtk.MenuItem(_("Audit it with..."))
+        sm = gtk.Menu()
+        e.set_submenu(sm)
+        gm.append(e)
+        pluginType = "audit"
+        for pluginName in sorted(self.w3af.getPluginList(pluginType)):
+            e = gtk.MenuItem(pluginName)
+            e.connect('activate', self._auditRequest, requestId, pluginName,
+                    pluginType)
+            # FIXME need submenu activate!
+            #sm.append(e)
+            gm.append(e)
+        sm.show_all()
+        gm.show_all()
+        gm.popup(None, None, None, event.button, _time)
+
+    def _auditRequest(self, menuItem, requestId, pluginName, pluginType):
+        """SoC of audit custom request."""
+        searchResult = self._dbHandler.searchById(requestId)
+        if len(searchResult) != 1:
+            return
+        request, response = searchResult[0]
+        plugin = self.w3af.getPluginInstance(pluginName, pluginType)
+        plugin.audit_wrapper(request)
+        try:
+            plugin.end()
+        except w3afException, e:
+            om.out.error(str(e))
+
+    def _initSearchBox(self, mainvbox):
+        """Init Search box."""
+        # The search entry
+        self._searchText = gtk.Entry()
+        self._searchText.connect("activate", self._findRequestResponse)
+        # The button that is used to advanced search
+        advSearchBtn = gtk.ToggleButton(label=_("_Advanced"))
+        advSearchBtn.connect("toggled", self._showHideAdvancedBox)
+        # The button that is used to search
+        searchBtn = gtk.Button(stock=gtk.STOCK_FIND)
+        searchBtn.connect("clicked", self._findRequestResponse)
+        # The button that is used show all entries
+        showAllBtn = gtk.Button(stock=gtk.STOCK_CLEAR)
+        showAllBtn.connect("clicked", self._showAllRequestResponses)
+        # Create the container that has the menu
+        menuHbox = gtk.HBox()
+        menuHbox.set_spacing(self._padding)
+        menuHbox.pack_start(gtk.Label(_("Search:")), False)
+        menuHbox.pack_start(self._searchText)
+        menuHbox.pack_start(advSearchBtn, False)
+        menuHbox.pack_start(searchBtn, False)
+        menuHbox.pack_start(showAllBtn, False)
+        menuHbox.show_all()
+        mainvbox.pack_start(menuHbox, False, True)
+
+    def _initAdvSearchBox(self, mainvbox):
+        """Init advanced search options."""
+        self._comboValues = ["=", ">", "<"]
+        self._advSearchBox = gtk.HBox()
+        self._advSearchBox.set_spacing(self._padding)
+        options = [("code", _("Code")), ("id", _("ID"))]
+        for opt in options:
+            self._advSearchBox.pack_start(gtk.Label(opt[1]), False, False)
+            combo = gtk.combo_box_new_text()
+            for o in self._comboValues:
+                combo.append_text(o)
+            combo.set_active(0)
+            setattr(self, "_" + opt[0] + "Combo", combo)
+            entry = gtk.Entry()
+            entry.connect("activate", self._findRequestResponse)
+            setattr(self, "_" + opt[0] + "Entry", entry)
+            self._advSearchBox.pack_start(combo, False, False)
+            self._advSearchBox.pack_start(entry, False, False)
+        self._advSearchBox.hide_all()
+        mainvbox.pack_start(self._advSearchBox, False, False)
 
     def _initSearchBox(self, mainvbox):
         """Init Search box."""
@@ -132,38 +230,57 @@ class httpLogTab(entries.RememberingHPaned):
     def __add_columns(self, treeview):
         """Add columns to main log table."""
         model = treeview.get_model()
-        # column for id's
+        # Column for id's
         column = gtk.TreeViewColumn(_('ID'), gtk.CellRendererText(),text=0)
         column.set_sort_column_id(0)
         treeview.append_column(column)
-        # column for METHOD
+        # TODO
+        # Column for bookmark
+        # Problem: need more powerful DB backend, 
+        # e.g. something like ORM
+        #
+        #renderer = gtk.CellRendererToggle()
+        #renderer.set_property('activatable', True)
+        #renderer.connect('toggled', self.toggleBookmark, model)
+        #column = gtk.TreeViewColumn(_('B'), renderer)
+        #column.add_attribute(renderer, "active", 1)
+        #column.set_sort_column_id(1)
+        #treeview.append_column(column)
+        # Column for METHOD
         column = gtk.TreeViewColumn(_('Method'), gtk.CellRendererText(),text=1)
         column.set_sort_column_id(1)
         treeview.append_column(column)
-        # column for URI
+        # Column for URI
         renderer = gtk.CellRendererText()
-        renderer.set_property( 'ellipsize', pango.ELLIPSIZE_END)
-        column = gtk.TreeViewColumn('URI' + ' ' * 155, renderer,text=2)
-        column.set_sort_column_id(2)
+        renderer.set_property('ellipsize', pango.ELLIPSIZE_END)
+        column = gtk.TreeViewColumn('URI', renderer,text=2)
+        column.set_sort_column_id(3)
+        # FIXME Need to set min width in percent    
+        column.set_min_width(200)
         column.set_resizable(True)
         treeview.append_column(column)
-        # column for Code
+        # Column for Code
         column = gtk.TreeViewColumn(_('Code'), gtk.CellRendererText(),text=3)
         column.set_sort_column_id(3)
         treeview.append_column(column)
-        # column for response message
+        # Column for response message
         column = gtk.TreeViewColumn(_('Message'), gtk.CellRendererText(),text=4)
         column.set_sort_column_id(4)
         column.set_resizable(True)
         treeview.append_column(column)
-        # column for content-length
+        # Column for content-length
         column = gtk.TreeViewColumn(_('Content-Length'), gtk.CellRendererText(),text=5)
         column.set_sort_column_id(5)
         treeview.append_column(column)
-        # column for response time
+        # Column for response time
         column = gtk.TreeViewColumn(_('Time (ms)'), gtk.CellRendererText(),text=6)
         column.set_sort_column_id(6)
         treeview.append_column(column)
+
+    def toggleBookmark(self, cell, path, model):
+        """Toggle bookmark."""
+        model[path][1] = not model[path][1]
+        return
 
     def _showHideAdvancedBox(self, widget):
         """Show/hide advanced options."""
@@ -176,14 +293,20 @@ class httpLogTab(entries.RememberingHPaned):
         """Show all results."""
         self._searchText.set_text("")
         self._codeEntry.set_text("")
+        self._codeCombo.set_active(0)
         self._idEntry.set_text("")
+        self._idCombo.set_active(0)
         try:
             self._findRequestResponse()
         except w3afException, w3:
             self._emptyResults()
-            return
+        return
 
-    def _findRequestResponse(self, widget=None):
+    def refreshResults(self):
+        self._findRequestResponse(refresh=True)
+        return True
+
+    def _findRequestResponse(self, widget=None, refresh=False):
         """Find entries (req/res)."""
         searchText = self._searchText.get_text()
         searchText = searchText.strip()
@@ -197,36 +320,51 @@ class httpLogTab(entries.RememberingHPaned):
 
         if searchText:
             searchData.append(('url', "%"+searchText+"%", 'like'))
+
         if entryId:
-            searchData.append(('id', int(entryId), idOper))
+            if idOper == ">" and refresh:
+                searchData.append(('id', int(self._lastId), ">"))
+            elif refresh:
+                # We don't need to execute SQL request for refresh if searching for
+                # rows with id <= something
+                return
+            else:
+                searchData.append(('id', int(entryId), idOper))
+        elif refresh:
+            searchData.append(('id', int(self._lastId), ">"))
+
         if code:
             searchData.append(('code', int(code), codeOper))
 
         try:
             # Please see the 5000 below
-            searchResultObjects = self._dbHandler.search(searchData, result_limit=5001)
+            searchResultObjects = self._dbHandler.search(searchData,
+                    result_limit=5001, order_data=[("id","")])
         except w3afException, w3:
             self._emptyResults()
             return
-
-        # no results ?
         if len(searchResultObjects) == 0:
-            self._emptyResults()
+            if not refresh:
+                self._emptyResults()
             return
         # Please see the 5001 above
         elif len(searchResultObjects) > 5000:
             self._emptyResults()
-            msg = _('The search you performed returned too many results (') + str(len(searchResultObjects)) + ').\n'
+            msg = _('The search you performed returned too many results (') +\
+                    str(len(searchResultObjects)) + ').\n'
             msg += _('Please refine your search and try again.')
             self._showMessage('Too many results', msg)
             return
         else:
-            # show the results in the list view (when first row is selected that just triggers
-            # the req/resp filling.
-            self._sw.set_sensitive(True)
-            self._reqResViewer.set_sensitive(True)
-            self._showListView(searchResultObjects)
-            self._lstoreTreeview.set_cursor((0,))
+            # show the results in the list view (when first row is selected 
+            # that just triggers the req/resp filling.
+            request, response = searchResultObjects[-1]
+            self._lastId = response.getId()
+            self._showListView(searchResultObjects, appendMode=refresh)
+            if not refresh:
+                self._sw.set_sensitive(True)
+                self._reqResViewer.set_sensitive(True)
+                self._lstoreTreeview.set_cursor((0,))
             return
 
     def _showMessage(self, title, msg, gtkLook=gtk.MESSAGE_INFO):
@@ -256,7 +394,8 @@ class httpLogTab(entries.RememberingHPaned):
             self._reqResViewer.request.showObject(request)
             self._reqResViewer.response.showObject(response)
         else:
-            self._showMessage(_('Error'), _('The id ') + str(search_id) + _('is not inside the database.'))
+            self._showMessage(_('Error'), _('The id ') + str(search_id) +\
+                    _('is not inside the database.'))
 
     def _emptyResults(self):
         """Empty all panes."""
@@ -266,10 +405,11 @@ class httpLogTab(entries.RememberingHPaned):
         self._sw.set_sensitive(False)
         self._lstore.clear()
 
-    def _showListView(self, results):
+    def _showListView(self, results, appendMode=False):
         """Show the results of the search in a listview."""
         # First I clear all old results...
-        self._lstore.clear()
+        if not appendMode:
+            self._lstore.clear()
         for item in results:
             request, response = item
             self._lstore.append([response.getId(), request.getMethod(), request.getURI(),
@@ -281,4 +421,5 @@ class httpLogTab(entries.RememberingHPaned):
         else:
             position = 13 + 120
         #self._vpan.set_position(position)
-        self._sw.show_all()
+        if not appendMode:
+            self._sw.show_all()

@@ -123,7 +123,7 @@ class ProxiedRequests(entries.RememberingWindow):
         tmp.set_use_underline(True)
         self.nb.append_page(vbox, tmp)
         # History
-        self.httplog = httpLogTab.httpLogTab(w3af)
+        self.httplog = httpLogTab.httpLogTab(w3af, time_refresh=True)
         tmp = gtk.Label(_("_History"))
         tmp.set_use_underline(True)
         self.nb.append_page(self.httplog, tmp)

@@ -179,6 +179,7 @@ class requestResponsePart(gtk.Notebook):
         # Column for Value
         renderer = gtk.CellRendererText()
         renderer.set_property('editable', editable)
+        renderer.set_property('ellipsize', pango.ELLIPSIZE_END)
         renderer.connect('edited', self._headerValueEdited, self._headersStore)
         column = gtk.TreeViewColumn(_('Value'), renderer, text=1)
         column.set_resizable(True)
@@ -405,6 +406,7 @@ class requestPart(requestResponsePart):
         # Column for Value
         renderer = gtk.CellRendererText()
         renderer.set_property('editable', editable)
+        renderer.set_property('ellipsize', pango.ELLIPSIZE_END)
         renderer.connect('edited', self._paramValueEdited, self._paramsStore)
         column = gtk.TreeViewColumn(_('Value'), renderer, text=1)
         column.set_resizable(True)
