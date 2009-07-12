@@ -70,7 +70,7 @@ class reqResDBHandler:
         else:
             return False
 
-    def search(self, search_data, result_limit=-1 ):
+    def search(self, search_data, result_limit=-1, order_data=[]):
         '''Make complex search.
         search_data = [(name, value, operator), ...]
         '''
@@ -89,8 +89,15 @@ class reqResDBHandler:
             else:
                 value = str(value)
             where += " AND (" + item[0] + " " + oper + " " + value + ")"
+
+        orderby = ""
+        for item in order_data:
+            orderby += item[0] + " " + item[1] + ","
+        orderby = orderby[:-1]
+
         try:
-            result = self._db.retrieve_all(where, result_limit=result_limit)
+            result = self._db.retrieve_all(where, result_limit=result_limit,
+                    orderby=orderby)
             return result
         except w3afException:
             raise w3afException('You performed an invalid search. Please verify your syntax.')
