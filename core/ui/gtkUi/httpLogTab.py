@@ -115,9 +115,7 @@ class httpLogTab(entries.RememberingHPaned):
             e = gtk.MenuItem(pluginName)
             e.connect('activate', self._auditRequest, requestId, pluginName,
                     pluginType)
-            # FIXME need submenu activate!
-            #sm.append(e)
-            gm.append(e)
+            sm.append(e)
         sm.show_all()
         gm.show_all()
         gm.popup(None, None, None, event.button, _time)
@@ -253,10 +251,9 @@ class httpLogTab(entries.RememberingHPaned):
         # Column for URI
         renderer = gtk.CellRendererText()
         renderer.set_property('ellipsize', pango.ELLIPSIZE_END)
-        column = gtk.TreeViewColumn('URI', renderer,text=2)
+        column = gtk.TreeViewColumn('URI', renderer, text=2)
         column.set_sort_column_id(3)
-        # FIXME Need to set min width in percent    
-        column.set_min_width(200)
+        column.set_expand(True)
         column.set_resizable(True)
         treeview.append_column(column)
         # Column for Code
