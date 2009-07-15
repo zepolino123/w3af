@@ -26,6 +26,8 @@ import thread
 
 import core.controllers.outputManager as om
 import core.data.request.fuzzableRequest as fuzzableRequest
+from core.data.request.httpQsRequest import httpQsRequest
+from core.data.request.httpPostDataRequest import httpPostDataRequest
 import core.data.url.httpResponse as httpResponse
 import core.data.kb.knowledgeBase as kb
 import core.data.parsers.urlParser as urlParser
@@ -133,7 +135,11 @@ class logHandler(urllib2.BaseHandler, urllib2.HTTPDefaultErrorHandler, urllib2.H
         '''
         Send the request and the response to the output manager.
         '''
-        fr = fuzzableRequest.fuzzableRequest()
+        method = request.get_method()
+        if method.lower() == 'get':
+            fr = httpQsRequest()
+        else:
+            fr = httpPostDataRequest()
         fr.setURI( request.get_full_url() )
         fr.setMethod( request.get_method() )
         
