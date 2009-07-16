@@ -138,8 +138,11 @@ class logHandler(urllib2.BaseHandler, urllib2.HTTPDefaultErrorHandler, urllib2.H
         method = request.get_method()
         if method.lower() == 'get':
             fr = httpQsRequest()
-        else:
+        elif method.lower() == 'post':
             fr = httpPostDataRequest()
+        else:
+            fr = fuzzableRequest.fuzzableRequest()
+
         fr.setURI( request.get_full_url() )
         fr.setMethod( request.get_method() )
         
