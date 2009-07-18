@@ -72,7 +72,7 @@ class reqResViewer(gtk.VBox):
             withCompare=True, editableRequest=False, editableResponse=False, widgname="default"):
         super(reqResViewer,self).__init__()
         self.w3af = w3af
-
+        withAudit = True
         nb = gtk.Notebook()
         self.pack_start(nb, True, True)
         nb.show()
@@ -109,10 +109,43 @@ class reqResViewer(gtk.VBox):
                 self.response.childButtons.append(b)
                 b.show()
                 hbox.pack_start(b, False, False, padding=2)
+            if withAudit:
+                b = entries.SemiStockButton("", gtk.STOCK_EXECUTE, _("Audit Request with..."))
+                b.connect("button-release-event", self._popupMenu)
+                self.response.childButtons.append(b)
+                b.show()
+                hbox.pack_start(b, False, False, padding=2)
             self.pack_start(hbox, False, False, padding=5)
             hbox.show()
 
         self.show()
+
+    def _popupMenu(self, widget, event):
+        '''Show a Audit popup menu.'''
+        _time = event.time
+        # Get the information about the click
+        #requestId = self._lstore[path][0]
+        # Create the popup menu
+        gm = gtk.Menu()
+        pluginType = "audit"
+        for pluginName in sorted(self.w3af.getPluginList(pluginType)):
+            e = gtk.MenuItem(pluginName)
+            e.connect('activate', self._auditRequest, pluginName, pluginType)
+            gm.append(e)
+        gm.show_all()
+        gm.popup(None, None, None, event.button, _time)
+
+    def _auditRequest(self, menuItem, pluginName, pluginType):
+        """SoC of audit custom request."""
+        request = self.request.getObject()
+        plugin = self.w3af.getPluginInstance(pluginName, pluginType)
+        result = plugin.audit_wrapper(request)
+        print result
+        try:
+            plugin.end()
+        except w3afException, e:
+            om.out.error(str(e))
+
 
     def _sendRequest(self, widg, func):
         """Sends the texts to the manual or fuzzy request.
