@@ -36,6 +36,10 @@ ui_proxy_menu = """
   <toolbar name="Toolbar">
     <toolitem action="Active"/>
     <toolitem action="TrapReq"/>
+    <separator name="sep1"/>
+    <toolitem action="Drop"/>
+    <toolitem action="Send"/>
+    <toolitem action="Next"/>
     <separator name="sep2"/>
     <toolitem action="Help"/>
   </toolbar>
@@ -71,40 +75,30 @@ class ProxiedRequests(entries.RememberingWindow):
         actiongroup = gtk.ActionGroup('UIManager')
         actiongroup.add_actions([
             ('Help', gtk.STOCK_HELP, _('_Help'), None, _('Help regarding this window'), self._help),
+            ('Drop', gtk.STOCK_CANCEL, _('_Drop Request'), None, _('Drop request'), self._drop),
+            ('Send', gtk.STOCK_YES, _('_Send Request'), None, _('Send request'), self._send),
+            ('Next', gtk.STOCK_GO_FORWARD, _('_Next Request'), None, _('Move to the next request'), self._next),
         ])
         actiongroup.add_toggle_actions([
             # xml_name, icon, real_menu_text, accelerator, tooltip, callback, initial_flag
             ('Active', gtk.STOCK_EXECUTE,  _('_Activate'), None, _('Activate/Deactivate the Proxy'), self._toggle_active, True),
-            ('TrapReq', gtk.STOCK_JUMP_TO, _('_Trap Requests'),    None, _('Trap the requests or not'),    self._toggle_trap, True),
+            ('TrapReq', gtk.STOCK_JUMP_TO, _('_Trap Requests'), None, _('Trap the requests or not'), self._toggle_trap, True),
         ])
 
         # Finish the toolbar
         uimanager.insert_action_group(actiongroup, 0)
         uimanager.add_ui_from_string(ui_proxy_menu)
         toolbar = uimanager.get_widget('/Toolbar')
-        assert toolbar.get_n_items() == 4
-        separat = toolbar.get_nth_item(2)
+        self.bt_drop = toolbar.get_nth_item(3)
+        self.bt_send = toolbar.get_nth_item(4)
+        self.bt_next = toolbar.get_nth_item(5)
+        separat = toolbar.get_nth_item(6)
+        #assert toolbar.get_n_items() == 4
         separat.set_draw(False)
         separat.set_expand(True)
         self.vbox.pack_start(toolbar, False)
         self.vbox.show()
         toolbar.show()
-
-        # Buttons
-        buttonBox = gtk.HBox()
-        self.bt_drop = gtk.Button(_("_Drop"))
-        self.bt_drop.set_sensitive(False)
-        self.bt_drop.connect("clicked", self._drop)
-        buttonBox.pack_start(self.bt_drop, False, False, padding=self.def_padding)
-        self.bt_send = gtk.Button(_("_Send"))
-        self.bt_send.connect("clicked", self._send)
-        buttonBox.pack_start(self.bt_send, False, False, padding=self.def_padding)
-        self.bt_next = gtk.Button(_("_Next"))
-        self.bt_next.set_sensitive(False)
-        self.bt_next.connect("clicked", self._next)
-        buttonBox.pack_start(self.bt_next, False, False, padding=self.def_padding)
-        buttonBox.show_all()
-
         # Request-response viewer
         self.reqresp = reqResViewer.reqResViewer(w3af, \
                 [self.bt_drop.set_sensitive, self.bt_send.set_sensitive], \
@@ -112,7 +106,6 @@ class ProxiedRequests(entries.RememberingWindow):
         self.reqresp.set_sensitive(False)
 
         vbox = gtk.VBox()
-        vbox.pack_start(buttonBox, False, False, padding=self.def_padding)
         vbox.pack_start(self.reqresp, True, True)
         vbox.show()
 
