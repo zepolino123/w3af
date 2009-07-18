@@ -77,7 +77,6 @@ class httpLogTab(entries.RememberingHPaned):
         self.__add_columns( self._lstoreTreeview )
         self._lstoreTreeview.show()
         self._lstoreTreeview.connect('cursor-changed', self._viewInReqResViewer)
-        self._lstoreTreeview.connect('button-release-event', self._popupMenu)
         self._sw.add(self._lstoreTreeview)
         #self._sw.set_sensitive(False)
         self._sw.show_all()
@@ -87,51 +86,6 @@ class httpLogTab(entries.RememberingHPaned):
         self._vpan.pack2(self._reqResViewer)
         self._vpan.show()
         mainvbox.pack_start(self._vpan)
-
-    def _popupMenu(self, tv, event):
-        '''Shows a menu when you right click on a Req/Res row.
-
-        @param tv: the treeview.
-        @parameter event: The GTK event
-        '''
-        # It's a right click !
-        if event.button != 3:
-            return
-        _time = event.time
-        (path, column) = tv.get_cursor()
-
-        if not path:
-            return
-        # Get the information about the click
-        requestId = self._lstore[path][0]
-        # Create the popup menu
-        gm = gtk.Menu()
-        e = gtk.MenuItem(_("Audit it with..."))
-        sm = gtk.Menu()
-        e.set_submenu(sm)
-        gm.append(e)
-        pluginType = "audit"
-        for pluginName in sorted(self.w3af.getPluginList(pluginType)):
-            e = gtk.MenuItem(pluginName)
-            e.connect('activate', self._auditRequest, requestId, pluginName,
-                    pluginType)
-            sm.append(e)
-        sm.show_all()
-        gm.show_all()
-        gm.popup(None, None, None, event.button, _time)
-
-    def _auditRequest(self, menuItem, requestId, pluginName, pluginType):
-        """SoC of audit custom request."""
-        searchResult = self._dbHandler.searchById(requestId)
-        if len(searchResult) != 1:
-            return
-        request, response = searchResult[0]
-        plugin = self.w3af.getPluginInstance(pluginName, pluginType)
-        plugin.audit_wrapper(request)
-        try:
-            plugin.end()
-        except w3afException, e:
-            om.out.error(str(e))
 
     def _initSearchBox(self, mainvbox):
         """Init Search box."""
@@ -390,6 +344,7 @@ class httpLogTab(entries.RememberingHPaned):
             request, response = search_result[0]
             self._reqResViewer.request.showObject(request)
             self._reqResViewer.response.showObject(response)
+            self._reqResViewer.set_sensitive(True)
         else:
             self._showMessage(_('Error'), _('The id ') + str(search_id) +\
                     _('is not inside the database.'))
