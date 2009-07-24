@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Tasks SYSTEM "Tasks-4.1.dtd">
 <!-- eric4 tasks file for project w3af -->
-<!-- Saved: 2009-04-25, 17:10:40 -->
+<!-- Saved: 2009-07-23, 21:52:53 -->
 <Tasks version="4.1">
   <Task priority="1" completed="False" bugfix="True">
     <Summary>FIXME: review this, I'm not sure *when* activate this</Summary>
@@ -485,34 +485,6 @@
       <Linenumber>283</Linenumber>
     </Resource>
   </Task>
-  <Task priority="1" completed="False" bugfix="True">
-    <Summary>FIXME: Maybe I should perform some more detailed error handling...</Summary>
-    <Description></Description>
-    <Created>2009-01-21, 18:58:01</Created>
-    <Resource>
-      <Filename>
-        <Dir>core</Dir>
-        <Dir>controllers</Dir>
-        <Dir>daemons</Dir>
-        <Name>proxy.py</Name>
-      </Filename>
-      <Linenumber>204</Linenumber>
-    </Resource>
-  </Task>
-  <Task priority="1" completed="False" bugfix="True">
-    <Summary>FIXME: Make this error look nicer</Summary>
-    <Description></Description>
-    <Created>2009-01-21, 18:58:01</Created>
-    <Resource>
-      <Filename>
-        <Dir>core</Dir>
-        <Dir>controllers</Dir>
-        <Dir>daemons</Dir>
-        <Name>proxy.py</Name>
-      </Filename>
-      <Linenumber>289</Linenumber>
-    </Resource>
-  </Task>
   <Task priority="1" completed="False" bugfix="False">
     <Summary>TODO: Create a proxy instead of a shell</Summary>
     <Description></Description>
@@ -884,34 +856,6 @@
       <Linenumber>133</Linenumber>
     </Resource>
   </Task>
-  <Task priority="1" completed="False" bugfix="True">
-    <Summary>FIXME: This method AIN'T USED. Please deprecate in the future!</Summary>
-    <Description></Description>
-    <Created>2009-03-09, 19:37:56</Created>
-    <Resource>
-      <Filename>
-        <Dir>core</Dir>
-        <Dir>ui</Dir>
-        <Dir>gtkUi</Dir>
-        <Name>reqResViewer.py</Name>
-      </Filename>
-      <Linenumber>242</Linenumber>
-    </Resource>
-  </Task>
-  <Task priority="1" completed="False" bugfix="True">
-    <Summary>FIXME: Show images</Summary>
-    <Description></Description>
-    <Created>2009-03-09, 19:37:56</Created>
-    <Resource>
-      <Filename>
-        <Dir>core</Dir>
-        <Dir>ui</Dir>
-        <Dir>gtkUi</Dir>
-        <Name>reqResViewer.py</Name>
-      </Filename>
-      <Linenumber>367</Linenumber>
-    </Resource>
-  </Task>
   <Task priority="1" completed="False" bugfix="False">
     <Summary>TODO: Code this!</Summary>
     <Description></Description>
@@ -1078,34 +1022,6 @@
       <Linenumber>52</Linenumber>
     </Resource>
   </Task>
-  <Task priority="1" completed="False" bugfix="False">
-    <Summary>TODO: THIS SUCKS</Summary>
-    <Description></Description>
-    <Created>2009-03-31, 09:11:01</Created>
-    <Resource>
-      <Filename>
-        <Dir>core</Dir>
-        <Dir>data</Dir>
-        <Dir>url</Dir>
-        <Name>xUrllib.py</Name>
-      </Filename>
-      <Linenumber>141</Linenumber>
-    </Resource>
-  </Task>
-  <Task priority="1" completed="False" bugfix="False">
-    <Summary>TODO: The problem is that the urllib2 library fails even if i do this tests, it fails if it finds javascript: in some part of the URL</Summary>
-    <Description></Description>
-    <Created>2009-03-31, 09:11:01</Created>
-    <Resource>
-      <Filename>
-        <Dir>core</Dir>
-        <Dir>data</Dir>
-        <Dir>url</Dir>
-        <Name>xUrllib.py</Name>
-      </Filename>
-      <Linenumber>423</Linenumber>
-    </Resource>
-  </Task>
   <Task priority="1" completed="False" bugfix="True">
     <Summary>FIXME: Not 100% sure about this...</Summary>
     <Description></Description>
@@ -1118,20 +1034,6 @@
         <Name>option.py</Name>
       </Filename>
       <Linenumber>137</Linenumber>
-    </Resource>
-  </Task>
-  <Task priority="1" completed="False" bugfix="False">
-    <Summary>TODO: Investigate this further...</Summary>
-    <Description></Description>
-    <Created>2009-03-31, 09:23:41</Created>
-    <Resource>
-      <Filename>
-        <Dir>core</Dir>
-        <Dir>ui</Dir>
-        <Dir>gtkUi</Dir>
-        <Name>craftedRequests.py</Name>
-      </Filename>
-      <Linenumber>575</Linenumber>
     </Resource>
   </Task>
   <Task priority="1" completed="False" bugfix="False">
@@ -1304,6 +1206,90 @@
         <Name>exploit.py</Name>
       </Filename>
       <Linenumber>262</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="True">
+    <Summary>FIXME: Maybe I should perform some more detailed error handling...</Summary>
+    <Description></Description>
+    <Created>2009-07-23, 19:03:32</Created>
+    <Resource>
+      <Filename>
+        <Dir>core</Dir>
+        <Dir>controllers</Dir>
+        <Dir>daemons</Dir>
+        <Name>proxy.py</Name>
+      </Filename>
+      <Linenumber>204</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="True">
+    <Summary>FIXME: Make this error look nicer</Summary>
+    <Description></Description>
+    <Created>2009-07-23, 19:03:32</Created>
+    <Resource>
+      <Filename>
+        <Dir>core</Dir>
+        <Dir>controllers</Dir>
+        <Dir>daemons</Dir>
+        <Name>proxy.py</Name>
+      </Filename>
+      <Linenumber>289</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Summary>TODO: Investigate this further...</Summary>
+    <Description></Description>
+    <Created>2009-07-23, 20:43:49</Created>
+    <Resource>
+      <Filename>
+        <Dir>core</Dir>
+        <Dir>ui</Dir>
+        <Dir>gtkUi</Dir>
+        <Name>craftedRequests.py</Name>
+      </Filename>
+      <Linenumber>578</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Summary>TODO: THIS SUCKS</Summary>
+    <Description></Description>
+    <Created>2009-07-23, 21:47:52</Created>
+    <Resource>
+      <Filename>
+        <Dir>core</Dir>
+        <Dir>data</Dir>
+        <Dir>url</Dir>
+        <Name>xUrllib.py</Name>
+      </Filename>
+      <Linenumber>141</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Summary>TODO: The problem is that the urllib2 library fails even if i do this tests, it fails if it finds javascript: in some part of the URL</Summary>
+    <Description></Description>
+    <Created>2009-07-23, 21:47:52</Created>
+    <Resource>
+      <Filename>
+        <Dir>core</Dir>
+        <Dir>data</Dir>
+        <Dir>url</Dir>
+        <Name>xUrllib.py</Name>
+      </Filename>
+      <Linenumber>423</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="True">
+    <Summary>FIXME: Show images</Summary>
+    <Description></Description>
+    <Created>2009-07-23, 21:52:39</Created>
+    <Resource>
+      <Filename>
+        <Dir>core</Dir>
+        <Dir>ui</Dir>
+        <Dir>gtkUi</Dir>
+        <Name>reqResViewer.py</Name>
+      </Filename>
+      <Linenumber>781</Linenumber>
     </Resource>
   </Task>
 </Tasks>
