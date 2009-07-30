@@ -28,7 +28,7 @@ from . import entries
 # To show request and responses
 from core.data.db.reqResDBHandler import reqResDBHandler
 from core.data.constants import severity
-from core.controllers.w3afException import w3afException
+from core.controllers.w3afException import w3afException, w3afMustStopException
 from core.data.parsers.httpRequestParser import httpRequestParser
 from core.data.parsers.urlParser import getQueryString
 from core.data.dc.queryString import queryString
@@ -206,7 +206,8 @@ class reqResViewer(gtk.VBox):
                             result = plugin.audit_wrapper(self.request)
                             plugin.end()
                         except w3afException, e:
-                            om.out.error(str(e))
+                            #om.out.error(str(e))
+                            print str(e)
                         else:
                             print result
                     self.ok = True
