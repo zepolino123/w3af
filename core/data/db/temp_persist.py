@@ -68,7 +68,11 @@ class temp_shelve(object):
             tempdir = get_temp_dir()
             filename = ''.join([choice(string.letters) for i in range(8)]) + '.w3af.temp_shelve'
             self._filename = os.path.join(tempdir, filename)
-            
+
+            # https://sourceforge.net/tracker/?func=detail&aid=2828136&group_id=170274&atid=853652
+            if (sys.platform=='win32') or (sys.platform=='cygwin'):
+                self._filename = self._filename.decode( "MBCS" ).encode("utf-8" )
+
             try:
                 # Create the shelve
                 self._shelve = shelve.open(self._filename, flag='c')
