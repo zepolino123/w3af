@@ -31,6 +31,7 @@ class DB:
     """Simple W3AF DB interface"""
 
     def __init__(self):
+        '''Construct object.'''
         self._filename = None
         self._db = None
         self._insertionCount = 0
@@ -38,11 +39,7 @@ class DB:
         self._dbLock = thread.allocate_lock()
 
     def open(self, filename):
-        '''
-        Open database.
-
-        @parameter filename: The filename where the database is.
-        '''
+        '''Open database file.'''
         # Convert the filename to UTF-8
         # this is needed for windows, and special characters
         #
@@ -62,9 +59,7 @@ class DB:
                     + filenameUtf8 +'". Exception: ' + str(e) )
 
     def _commitIfNeeded( self ):
-        '''
-        Once every 50 calls to this method, the data is commited to disk.
-        '''
+        '''Once every N calls to this method, the data is commited to disk.'''
         self._insertionCount += 1
         if self._insertionCount > self._commitNumber:
             try:
@@ -76,12 +71,7 @@ class DB:
                 self._insertionCount = 0
 
     def retrieveAll(self, sql, parameters=[]):
-        '''
-        Executes a select to the underlaying database. Only used for debugging.
-
-        @parameter sql: The statement to execute.
-        @parameter parameters: subj.
-        '''
+        '''Execute SQL and retrieve all raw.'''
         c = self._db.cursor()
         rows = []
         with self._dbLock:
@@ -93,12 +83,7 @@ class DB:
             return rows
 
     def retrieve(self, sql, parameters=[]):
-        '''
-        Executes a select to the underlaying database. Only used for debugging.
-
-        @parameter sql: The statement to execute.
-        @parameter parameters: subj.
-        '''
+        '''Execute SQL and retrieve one raw.'''
         c = self._db.cursor()
         row = None
         with self._dbLock:
@@ -110,12 +95,7 @@ class DB:
             return row
 
     def execute(self, sql, parameters=[]):
-        '''
-        Executes a select to the underlaying database. Only used for debugging.
-
-        @parameter sql: The statement to execute.
-        @parameter parameters: subj.
-        '''
+        '''Execute SQL statement.'''
         c = self._db.cursor()
         with self._dbLock:
             try:
@@ -126,7 +106,6 @@ class DB:
 
     def createTable(self, name, columns=[], primaryKeyColumns=[]):
         '''Create table in convenient way.'''
-
         sql = 'CREATE TABLE ' + name + '('
         for columnData in columns:
             columnName, columnType = columnData
@@ -139,11 +118,10 @@ class DB:
         self._db.commit()
 
     def cursor(self):
+        '''Simple return cursor object.'''
         return self._db.cursor()
 
     def close(self):
-        '''
-        Commits changes and closes the connection to the underlaying db.
-        '''
+        '''Commit changes and close the connection to the underlaying db.'''
         self._db.close()
         self._filename = None
