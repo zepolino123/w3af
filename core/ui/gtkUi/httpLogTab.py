@@ -26,7 +26,7 @@ import pango
 
 # The elements to create the req/res viewer
 from . import reqResViewer, entries
-from core.data.db.reqResDBHandler import reqResDBHandler
+from core.data.db.history import HistoryItem
 from core.controllers.w3afException import w3afException
 import core.controllers.outputManager as om
 
@@ -40,8 +40,7 @@ class httpLogTab(entries.RememberingHPaned):
         self.w3af = w3af
         self._padding = padding
         self._lastId = 0
-        # Create the database handler
-        self._dbHandler = reqResDBHandler()
+        self._historyItem = HistoryItem()
         if time_refresh:
             gobject.timeout_add(1000, self.refreshResults)
         # Create the main container
@@ -289,8 +288,8 @@ class httpLogTab(entries.RememberingHPaned):
 
         try:
             # Please see the 5000 below
-            searchResultObjects = self._dbHandler.search(searchData,
-                    result_limit=5001, order_data=[("id","")])
+            searchResultObjects = self._historyItem.find(searchData,
+                    resultLimit=5001, orderData=[("id","")])
         except w3afException, w3:
             self._emptyResults()
             return
@@ -309,8 +308,8 @@ class httpLogTab(entries.RememberingHPaned):
         else:
             # show the results in the list view (when first row is selected 
             # that just triggers the req/resp filling.
-            request, response = searchResultObjects[-1]
-            self._lastId = response.getId()
+            lastItem = searchResultObjects[-1]
+            self._lastId = lastItem.id
             self._showListView(searchResultObjects, appendMode=refresh)
             if not refresh:
                 self._sw.set_sensitive(True)
@@ -339,11 +338,10 @@ class httpLogTab(entries.RememberingHPaned):
         they want to show what request/response pair
         is related to the vulnerability.
         """
-        search_result = self._dbHandler.searchById(search_id)
-        if len(search_result) == 1:
-            request, response = search_result[0]
-            self._reqResViewer.request.showObject(request)
-            self._reqResViewer.response.showObject(response)
+        historyItem = self._historyItem.read(search_id)
+        if historyItem:
+            self._reqResViewer.request.showObject(historyItem.request)
+            self._reqResViewer.response.showObject(historyItem.response)
             self._reqResViewer.set_sensitive(True)
         else:
             self._showMessage(_('Error'), _('The id ') + str(search_id) +\
@@ -363,10 +361,9 @@ class httpLogTab(entries.RememberingHPaned):
         if not appendMode:
             self._lstore.clear()
         for item in results:
-            request, response = item
-            self._lstore.append([response.getId(), request.getMethod(), request.getURI(),
-                response.getCode(), response.getMsg(), len(response.getBody()),
-                response.getWaitTime()] )
+            self._lstore.append([item.id, item.request.getMethod(), item.request.getURI(),
+                item.response.getCode(), item.response.getMsg(), len(item.response.getBody()),
+                item.response.getWaitTime()] )
         # Size search results
         if len(results) < 10:
             position = 13 + 48 * len(results)
