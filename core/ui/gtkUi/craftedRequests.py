@@ -34,7 +34,7 @@ from .clusterGraph import distance_function_selector
 # Generators
 from .payload_generators import create_generator_menu
 
-from core.data.db.reqResDBHandler import reqResDBHandler
+from core.data.db.history import HistoryItem
 from core.controllers.w3afException import w3afException, w3afMustStopException
 
 manual_request_example = """\
@@ -258,7 +258,7 @@ class FuzzyRequests(entries.RememberingWindow):
             w3af, "fuzzyreq", "w3af - Fuzzy Requests", "Fuzzy_Requests")
         self.set_icon_from_file('core/ui/gtkUi/data/w3af_icon.png')
         self.w3af = w3af
-        self.dbh = reqResDBHandler()
+        self.historyItem = HistoryItem()
         mainhbox = gtk.HBox()
 
         # To store the responses
@@ -408,8 +408,8 @@ class FuzzyRequests(entries.RememberingWindow):
         for resp in self.responses:
             if resp[0]:
                 reqid = resp[1]
-                request, response = self.dbh.searchById( reqid )[0]
-                data.append( response )
+                historyItem = self.historyItem.read(reqid)
+                data.append(historyItem.response)
 
         if data:
             distance_function_selector(self.w3af, data)
@@ -570,7 +570,7 @@ class FuzzyRequests(entries.RememberingWindow):
             # no need to verify if it was ok: the request was succesful and
             # surely existant
             try:
-                request, response = self.dbh.searchById( reqid )[0]
+                historyItem = self.historyItem.read(reqid)
             except IndexError:
                 #
                 # This catches a strange error 
@@ -582,8 +582,8 @@ class FuzzyRequests(entries.RememberingWindow):
                 self.resultReqResp.response.showError( error_msg )
                 self.title0.set_markup( "<b>Error</b>")
             else:
-                self.resultReqResp.request.showObject( request )
-                self.resultReqResp.response.showObject( response )
+                self.resultReqResp.request.showObject( historyItem.request )
+                self.resultReqResp.response.showObject( historyItem.response )
                 self.title0.set_markup( "<b>Id: %d</b>" % reqid )
         else:
             # the request brought problems
