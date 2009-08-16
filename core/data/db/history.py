@@ -83,7 +83,7 @@ class HistoryItem:
             else:
                 value = str(value)
             where += " AND (" + item[0] + " " + oper + " " + value + ")"
-
+        sql += where
         orderby = ""
         for item in orderData:
             orderby += item[0] + " " + item[1] + ","
@@ -93,7 +93,6 @@ class HistoryItem:
             sql += " ORDER BY " + orderby
 
         sql += ' LIMIT '  + str(resultLimit)
-
         try:
             rawResult = self._db.retrieveAll(sql)
             for row in rawResult:
@@ -152,8 +151,7 @@ class HistoryItem:
             self._db.execute(sql, values)
             self.id = self.response.getId()
         else:
-            # Update
-            pass
+            raise w3afException('Update historyitem is not implemented yet!')
         return True
 
     def getColumns(self):
