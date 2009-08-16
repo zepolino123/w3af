@@ -18,9 +18,10 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 from __future__ import with_statement
-import sqlite3
 import thread
 import sys
+import re
+import os
 
 try:
     from cPickle import Pickler, Unpickler
@@ -34,24 +35,24 @@ except ImportError:
 
 import core.data.kb.knowledgeBase as kb
 import core.controllers.outputManager as om
-import re
-import os
-from core.controllers.w3afException import w3afException
-from core.data.db.db import DB
-from core.controllers.misc.homeDir import get_home_dir
 import core.data.kb.config as cf
+from core.controllers.w3afException import w3afException
+from core.controllers.misc.homeDir import get_home_dir
+from core.data.db.db import DB
 
 class HistoryItem:
+    '''Represents history item.'''
+
     _db = None
     _dataTable = 'data_table'
     _columns = [('id','integer'), ('url', 'text'), ('code', 'text'),
             ('raw_pickled_data', 'blob')]
+    _primaryKeyColumns = ['id',]
     id = None
     request = None
     response = None
     info = None
     mark = False
-    _primaryKeyColumns = ['id',]
 
     def __init__(self, db=None):
         '''Construct object.'''
@@ -66,23 +67,23 @@ class HistoryItem:
     def find(self, searchData, resultLimit=-1, orderData=[]):
         '''Make complex search.
         search_data = [(name, value, operator), ...]
+        orderData = [(name, direction)]
         '''
         if not self._db:
             raise w3afException('The database is not initialized yet.')
+
         sql = 'SELECT * FROM ' + self._dataTable
         where = ' WHERE 1=1 '
         result = []
-        # FIXME add prepared statements!
+        values = []
+
         for item in searchData:
             oper = "="
             value = item[1]
             if len(item) > 2:
                 oper = item[2]
-            if isinstance(value, str):
-                value = "'" + value + "'"
-            else:
-                value = str(value)
-            where += " AND (" + item[0] + " " + oper + " " + value + ")"
+            values.append(value)
+            where += " AND (" + item[0] + " " + oper + " ? )"
         sql += where
         orderby = ""
         for item in orderData:
@@ -94,7 +95,7 @@ class HistoryItem:
 
         sql += ' LIMIT '  + str(resultLimit)
         try:
-            rawResult = self._db.retrieveAll(sql)
+            rawResult = self._db.retrieveAll(sql, values)
             for row in rawResult:
                 item = self.__class__(self._db)
                 f = StringIO(str(row[-1]))
@@ -137,21 +138,25 @@ class HistoryItem:
 
     def save(self):
         '''Save object into DB.'''
+        values = []
+        values.append(self.response.getId())
+        values.append(self.request.getURI())
+        values.append(self.response.getCode())
+        f = StringIO()
+        p = Pickler(f)
+        p.dump((self.request, self.response))
+        values.append(f.getvalue())
         if not self.id:
-            values = []
-            values.append(self.response.getId())
-            values.append(self.request.getURI())
-            values.append(self.response.getCode())
-            f = StringIO()
-            p = Pickler(f)
-            p.dump((self.request, self.response))
-            values.append(f.getvalue())
             sql = 'INSERT INTO ' + self._dataTable + ' (id, url, code, raw_pickled_data)'
             sql += ' VALUES (?,?,?,?)'
             self._db.execute(sql, values)
             self.id = self.response.getId()
         else:
-            raise w3afException('Update historyitem is not implemented yet!')
+            values.append(self.id)
+            sql = 'UPDATE ' + self._dataTable
+            sql += ' SET id = ?, url = ?, code = ?, raw_pickled_data = ? '
+            sql += ' WHERE id = ?'
+            self._db.execute(sql, values)
         return True
 
     def getColumns(self):
@@ -163,3 +168,15 @@ class HistoryItem:
     def getPrimaryKeyColumns(self):
         return self._primaryKeyColumns
 
+    def _updateField(self, name, value):
+        '''Update custom field in DB.'''
+        sql = 'UPDATE ' + self._dataTable
+        sql += ' SET ' + name + ' = ? '
+        sql += ' WHERE id = ?'
+        self._db.execute(sql, (value, self.id))
+
+    def toggleMark(self, forceDb=False):
+        '''Toggle mark state.'''
+        self.mark = not self.mark
+        if forceDb:
+            self._updateField('mark', int(self.mark))
