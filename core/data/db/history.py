@@ -41,63 +41,27 @@ from core.data.db.db import DB
 from core.controllers.misc.homeDir import get_home_dir
 import core.data.kb.config as cf
 
-class History:
-    '''Provides convinient way to access history.'''
-
-    def __init__(self):
-        '''Construct object.'''
-        self._db = None
-
-    def begin(self):
-        '''Create DB and add tables.'''
-        sessionName = cf.cf.getData('sessionName')
-        dbName = os.path.join(get_home_dir(), 'sessions', 'db_' + sessionName)
-        # Just in case the directory doesn't exist...
-        try:
-            os.mkdir(os.path.join(get_home_dir() , 'sessions'))
-        except OSError, oe:
-            # [Errno 17] File exists
-            if oe.errno != 17:
-                msg = 'Unable to write to the user home directory: ' + get_home_dir()
-                raise w3afException( msg )
-
-        self._db = DB()
-        # Check if the database already exists
-        if os.path.exists(dbName):
-            # Find one that doesn't exist
-            for i in xrange(100):
-                newDbName = dbName + '-' + str(i)
-                if not os.path.exists(newDbName):
-                    dbName = newDbName
-                    break
-        # Create DB!
-        self._db.open(dbName)
-        # Create table
-        self._db.createTable('data_table', [('id','integer'), ('url', 'text'),
-            ('code', 'text'), 'raw_pickled_data', 'blob'], ['id',])
-
-    def end(self):
-        '''End history.'''
-        self._db.close()
-
-    def getNewItem(self):
-        '''Factory for new items.'''
-        newItem = HistoryItem(self._db)
-        return newItem
-
 class HistoryItem:
     _db = None
     _dataTable = 'data_table'
+    _columns = [('id','integer'), ('url', 'text'), ('code', 'text'),
+            ('raw_pickled_data', 'blob')]
     id = None
     request = None
     response = None
     info = None
     mark = False
+    _primaryKeyColumns = ['id',]
 
     def __init__(self, db=None):
         '''Construct object.'''
         if db:
             self._db = db
+        elif not kb.kb.getData('gtkOutput', 'db') == []:
+            # Restore it from the kb
+            self._db = kb.kb.getData('gtkOutput', 'db')
+        else:
+            raise w3afException('The database is not initialized yet.')
 
     def find(self, searchData, resultLimit=-1, orderData=[]):
         '''Make complex search.
@@ -133,7 +97,7 @@ class HistoryItem:
         try:
             rawResult = self._db.retrieveAll(sql)
             for row in rawResult:
-                item = self._db.getNewItem()
+                item = self.__class__(self._db)
                 f = StringIO(str(row[-1]))
                 req, res = Unpickler(f).load()
                 item.id = res.getId()
@@ -159,17 +123,26 @@ class HistoryItem:
             req, res = Unpickler(f).load()
             self.request = req
             self.response = res
+            self.id = self.response.getId()
         except w3afException:
             raise w3afException('You performed an invalid search. Please verify your syntax.')
         return True
 
+    def read(self, id):
+        '''Return item by ID.'''
+        if not self._db:
+            raise w3afException('The database is not initialized yet.')
+        resultItem = self.__class__(self._db)
+        resultItem.load(id)
+        return resultItem
+
     def save(self):
-        # Insert 
+        '''Save object into DB.'''
         if not self.id:
             values = []
             values.append(self.response.getId())
             values.append(self.request.getURI())
-            values.append(self.request.getCode())
+            values.append(self.response.getCode())
             f = StringIO()
             p = Pickler(f)
             p.dump((self.request, self.response))
@@ -182,3 +155,13 @@ class HistoryItem:
             # Update
             pass
         return True
+
+    def getColumns(self):
+        return self._columns
+
+    def getTableName(self):
+        return self._dataTable
+
+    def getPrimaryKeyColumns(self):
+        return self._primaryKeyColumns
+
