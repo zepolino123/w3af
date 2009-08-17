@@ -113,7 +113,6 @@ class DB:
         # Finally the PK
         sql += 'PRIMARY KEY (' + ','.join(primaryKeyColumns) + '))'
         c = self._db.cursor()
-        print "SQL: ", sql
         c.execute(sql)
         self._db.commit()
 
