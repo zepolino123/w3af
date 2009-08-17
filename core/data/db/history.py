@@ -46,7 +46,7 @@ class HistoryItem:
     _db = None
     _dataTable = 'data_table'
     _columns = [('id','integer'), ('url', 'text'), ('code', 'text'),
-            ('raw_pickled_data', 'blob')]
+            ('mark', 'integer'), ('info', 'text'), ('raw_pickled_data', 'blob')]
     _primaryKeyColumns = ['id',]
     id = None
     request = None
@@ -98,15 +98,21 @@ class HistoryItem:
             rawResult = self._db.retrieveAll(sql, values)
             for row in rawResult:
                 item = self.__class__(self._db)
-                f = StringIO(str(row[-1]))
-                req, res = Unpickler(f).load()
-                item.id = res.getId()
-                item.request = req
-                item.response = res
+                item._loadFromRow(row)
                 result.append(item)
         except w3afException:
             raise w3afException('You performed an invalid search. Please verify your syntax.')
         return result
+
+    def _loadFromRow(self, row):
+        '''Load data from row with all columns.'''
+        f = StringIO(str(row[-1]))
+        req, res = Unpickler(f).load()
+        self.id = res.getId()
+        self.request = req
+        self.response = res
+        self.info = row[-2]
+        self.mark = bool(row[-3])
 
     def load(self, id=None):
         '''Load data from DB by ID.'''
@@ -119,11 +125,7 @@ class HistoryItem:
         sql = 'SELECT * FROM ' + self._dataTable + ' WHERE id = ? '
         try:
             row = self._db.retrieve(sql, (id,))
-            f = StringIO(str(row[-1]))
-            req, res = Unpickler(f).load()
-            self.request = req
-            self.response = res
-            self.id = self.response.getId()
+            self._loadFromRow(row)
         except w3afException:
             raise w3afException('You performed an invalid search. Please verify your syntax.')
         return True
@@ -142,19 +144,21 @@ class HistoryItem:
         values.append(self.response.getId())
         values.append(self.request.getURI())
         values.append(self.response.getCode())
+        values.append(int(self.mark))
+        values.append(self.info)
         f = StringIO()
         p = Pickler(f)
         p.dump((self.request, self.response))
         values.append(f.getvalue())
         if not self.id:
-            sql = 'INSERT INTO ' + self._dataTable + ' (id, url, code, raw_pickled_data)'
-            sql += ' VALUES (?,?,?,?)'
+            sql = 'INSERT INTO ' + self._dataTable + ' (id, url, code, mark, info, raw_pickled_data)'
+            sql += ' VALUES (?,?,?,?,?,?)'
             self._db.execute(sql, values)
             self.id = self.response.getId()
         else:
             values.append(self.id)
             sql = 'UPDATE ' + self._dataTable
-            sql += ' SET id = ?, url = ?, code = ?, raw_pickled_data = ? '
+            sql += ' SET id = ?, url = ?, code = ?, mark = ?, info = ?, raw_pickled_data = ? '
             sql += ' WHERE id = ?'
             self._db.execute(sql, values)
         return True
