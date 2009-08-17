@@ -31,7 +31,7 @@ import pango
 from . import entries
 
 # To show request and responses
-from core.data.db.reqResDBHandler import reqResDBHandler
+from core.data.db.history import HistoryItem
 from core.data.constants import severity
 from core.controllers.w3afException import w3afException, w3afMustStopException
 from core.data.parsers.httpRequestParser import httpRequestParser
@@ -90,6 +90,13 @@ class reqResViewer(gtk.VBox):
         self.response = responsePart(w3af, editable=editableResponse, widgname=widgname)
         self.response.show()
         nb.append_page(self.response, gtk.Label(_("Response")))
+
+        # Info
+        self.info = searchableTextView()
+        self.info.set_editable(False)
+        self.info.set_border_width(5)
+        self.info.show()
+        nb.append_page(self.info, gtk.Label(_("Info")))
 
         # Buttons
         hbox = gtk.HBox()
@@ -151,7 +158,8 @@ class reqResViewer(gtk.VBox):
         
         # Add a special item
         e = gtk.MenuItem('All audit plugins')
-        e.connect('activate', self._auditRequest, 'All audit plugins', 'audit')
+        e.connect('activate', self._auditRequest, 'All audit plugins',
+                'audit_all')
         gm.append(e)
         
         # show
@@ -174,8 +182,7 @@ class reqResViewer(gtk.VBox):
         # Now I start the analysis of this request in a new thread,
         # threading game (copied from craftedRequests)
         event = threading.Event()
-        impact = ThreadedURLImpact(self.w3af, request, menuItem, pluginName,
-                pluginType, event)
+        impact = ThreadedURLImpact(self.w3af, request, pluginName, pluginType, event)
         impact.start()
         gobject.timeout_add(200, self._impactDone, event, impact)
 
@@ -188,7 +195,12 @@ class reqResViewer(gtk.VBox):
         self.throbber.running(False)
         # Analyzee the impact
         if impact.ok:
-            print 'Finished Ok!'
+            for result in impact.result:
+                for itemId in result.getId():
+                    historyItem = HistoryItem()
+                    historyItem.load(itemId)
+                    historyItem.info = result.getDesc()
+                    historyItem.save()
         else:
             if impact.exception.__class__ == w3afException:
                 msg = str(impact.exception)
@@ -816,14 +828,11 @@ class reqResWindow(entries.RememberingWindow):
         rrViewer = reqResViewer(w3af, enableWidget, withManual, withFuzzy, withCompare, editableRequest, editableResponse, widgname)
 
         # Search the id in the DB
-        dbh = reqResDBHandler()
-        search_result = dbh.searchById( request_id )
-        if len(search_result) == 1:
-            request, response = search_result[0]
-
+        historyItem = HistoryItem()
+        historyItem.load(request_id)
         # Set
-        rrViewer.request.showObject( request )
-        rrViewer.response.showObject( response )
+        rrViewer.request.showObject( historyItem.request )
+        rrViewer.response.showObject( historyItem.response )
         rrViewer.show()
         self.vbox.pack_start(rrViewer)
 
@@ -832,33 +841,32 @@ class reqResWindow(entries.RememberingWindow):
 
 class ThreadedURLImpact(threading.Thread):
     '''Impacts an URL in a different thread.'''
-    def __init__(self, w3af, request, menuItem, pluginName, pluginType, event):
+    def __init__(self, w3af, request, pluginName, pluginType, event):
+        '''Init ThreadedURLImpact.'''
         self.w3af = w3af
         self.request = request
-        self.menuItem = menuItem
         self.pluginName = pluginName
         self.pluginType = pluginType
         self.event = event
+        self.result = None
         self.ok = False
         threading.Thread.__init__(self)
 
     def run(self):
-        '''Starts the thread.'''
+        '''Start the thread.'''
         try:
             # First, we check if the user choosed 'All audit plugins'
-            if self.menuItem == 'All audit plugins':
+            if self.pluginType == 'audit_all':
                 all_plugins = True
                 print all_plugins
             else:
                 plugin = self.w3af.getPluginInstance(self.pluginName, self.pluginType)
                 try:
-                    result = plugin.audit_wrapper(self.request)
+                    self.result = plugin.audit_wrapper(self.request)
                     plugin.end()
                 except w3afException, e:
                     #om.out.error(str(e))
                     print str(e)
-                else:
-                    print result
             self.ok = True
         except Exception, e:
             self.exception = e
