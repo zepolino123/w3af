@@ -65,7 +65,7 @@ class httpLogTab(entries.RememberingHPaned):
         self._sw = gtk.ScrolledWindow()
         self._sw.set_shadow_type(gtk.SHADOW_ETCHED_IN)
         self._sw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-        self._lstore = gtk.ListStore(gobject.TYPE_UINT,
+        self._lstore = gtk.ListStore(gobject.TYPE_UINT,gobject.TYPE_BOOLEAN,
                 gobject.TYPE_STRING,gobject.TYPE_STRING,
                 gobject.TYPE_UINT, gobject.TYPE_STRING,
                 gobject.TYPE_UINT, gobject.TYPE_FLOAT)
@@ -185,51 +185,50 @@ class httpLogTab(entries.RememberingHPaned):
         column = gtk.TreeViewColumn(_('ID'), gtk.CellRendererText(),text=0)
         column.set_sort_column_id(0)
         treeview.append_column(column)
-        # TODO
         # Column for bookmark
-        # Problem: need more powerful DB backend, 
-        # e.g. something like ORM
-        #
-        #renderer = gtk.CellRendererToggle()
-        #renderer.set_property('activatable', True)
-        #renderer.connect('toggled', self.toggleBookmark, model)
-        #column = gtk.TreeViewColumn(_('B'), renderer)
-        #column.add_attribute(renderer, "active", 1)
-        #column.set_sort_column_id(1)
-        #treeview.append_column(column)
-        # Column for METHOD
-        column = gtk.TreeViewColumn(_('Method'), gtk.CellRendererText(),text=1)
+        renderer = gtk.CellRendererToggle()
+        renderer.set_property('activatable', True)
+        renderer.connect('toggled', self.toggleBookmark, model)
+        column = gtk.TreeViewColumn(_('B'), renderer)
+        column.add_attribute(renderer, "active", 1)
         column.set_sort_column_id(1)
+        treeview.append_column(column)
+        # Column for METHOD
+        column = gtk.TreeViewColumn(_('Method'), gtk.CellRendererText(),text=2)
+        column.set_sort_column_id(2)
         treeview.append_column(column)
         # Column for URI
         renderer = gtk.CellRendererText()
         renderer.set_property('ellipsize', pango.ELLIPSIZE_END)
-        column = gtk.TreeViewColumn('URI', renderer, text=2)
+        column = gtk.TreeViewColumn('URI', renderer, text=3)
         column.set_sort_column_id(3)
         column.set_expand(True)
         column.set_resizable(True)
         treeview.append_column(column)
         # Column for Code
-        column = gtk.TreeViewColumn(_('Code'), gtk.CellRendererText(),text=3)
-        column.set_sort_column_id(3)
+        column = gtk.TreeViewColumn(_('Code'), gtk.CellRendererText(),text=4)
+        column.set_sort_column_id(4)
         treeview.append_column(column)
         # Column for response message
-        column = gtk.TreeViewColumn(_('Message'), gtk.CellRendererText(),text=4)
-        column.set_sort_column_id(4)
+        column = gtk.TreeViewColumn(_('Message'), gtk.CellRendererText(),text=5)
+        column.set_sort_column_id(5)
         column.set_resizable(True)
         treeview.append_column(column)
         # Column for content-length
-        column = gtk.TreeViewColumn(_('Content-Length'), gtk.CellRendererText(),text=5)
-        column.set_sort_column_id(5)
+        column = gtk.TreeViewColumn(_('Content-Length'), gtk.CellRendererText(),text=6)
+        column.set_sort_column_id(6)
         treeview.append_column(column)
         # Column for response time
-        column = gtk.TreeViewColumn(_('Time (ms)'), gtk.CellRendererText(),text=6)
-        column.set_sort_column_id(6)
+        column = gtk.TreeViewColumn(_('Time (ms)'), gtk.CellRendererText(),text=7)
+        column.set_sort_column_id(7)
         treeview.append_column(column)
 
     def toggleBookmark(self, cell, path, model):
         """Toggle bookmark."""
         model[path][1] = not model[path][1]
+        historyItem = HistoryItem()
+        historyItem.load(model[path][0])
+        historyItem.toggleMark(True)
         return
 
     def _showHideAdvancedBox(self, widget):
@@ -342,6 +341,9 @@ class httpLogTab(entries.RememberingHPaned):
         if historyItem:
             self._reqResViewer.request.showObject(historyItem.request)
             self._reqResViewer.response.showObject(historyItem.response)
+            if historyItem.info:
+                buff = self._reqResViewer.info.get_buffer()
+                buff.set_text(historyItem.info)
             self._reqResViewer.set_sensitive(True)
         else:
             self._showMessage(_('Error'), _('The id ') + str(search_id) +\
@@ -361,9 +363,9 @@ class httpLogTab(entries.RememberingHPaned):
         if not appendMode:
             self._lstore.clear()
         for item in results:
-            self._lstore.append([item.id, item.request.getMethod(), item.request.getURI(),
+            self._lstore.append([item.id, item.mark, item.request.getMethod(), item.request.getURI(),
                 item.response.getCode(), item.response.getMsg(), len(item.response.getBody()),
-                item.response.getWaitTime()] )
+                item.response.getWaitTime()])
         # Size search results
         if len(results) < 10:
             position = 13 + 48 * len(results)
