@@ -256,8 +256,7 @@ class ProxiedRequests(entries.RememberingWindow):
         """
         request = self.reqresp.request.getObject()
         headers = request.dumpRequestHead()
-        data = request.getData()
-
+        data = str(request.getData())
         try:
             httpResp = helpers.coreWrap(self.proxy.sendRawRequest, self.fuzzable, headers, data)
         except w3afException:
