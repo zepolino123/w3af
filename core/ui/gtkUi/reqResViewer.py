@@ -411,9 +411,10 @@ class requestResponsePart(gtk.Notebook):
         data = ""
         tmp = rawText.find("\n\n")
 
+        # It's POST!
         if tmp != -1:
             headers = rawText[0:tmp+1]
-            data = rawText[tmp+2:]
+            data = rawText[tmp+3:]
             if data.strip() == "":
                 data = ""
         return (headers, data)
