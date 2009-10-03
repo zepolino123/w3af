@@ -40,8 +40,6 @@ import time
 import re
 import Queue
 
-IMAGE_EXTENSIONS = ['gif', 'jpg', 'jpeg', 'swf', 'png', 'bmp',  'jpe',  'ico',  'ps',  'ppm',  'tif',  'tiff']
-        
 class w3afLocalProxyHandler(w3afProxyHandler):
     '''
     The handler that traps requests and adds them to the queue.
@@ -153,21 +151,21 @@ class w3afLocalProxyHandler(w3afProxyHandler):
         '''
         Determine, based on the user configured parameters:
             - self._whatToTrap
+            - self._whatNotToTrap
             - self._trap
-            - self._ignoreImages
         
         If the request needs to be trapped or not.
         @parameter fuzzReq: The request to analyze.
         '''
         if not self.server.w3afLayer._trap:
             return False
-            
-        if self.server.w3afLayer._ignoreImages and getExtension( fuzzReq.getURL() ).lower() in IMAGE_EXTENSIONS:
+
+        if self.server.w3afLayer._whatNotToTrap.search(fuzzReq.getURL()):
             return False
-            
-        if not self.server.w3afLayer._whatToTrap.search( fuzzReq.getURL() ):
+
+        if not self.server.w3afLayer._whatToTrap.search(fuzzReq.getURL()):
             return False
-        
+
         return True
         
     def _createFuzzableRequest(self):
@@ -222,9 +220,9 @@ class localproxy(proxy):
         self._editedResponses = {}
         
         # User configured parameters
-        self._whatToTrap= re.compile('.*')
+        self._whatToTrap = re.compile('.*')
+        self._whatNotToTrap = re.compile('.*\.(gif|jpg|png|css|js|ico|swf|axd|tif)$')
         self._trap = True
-        self._ignoreImages = True
         self._fixContentLength = True
 
     def getTrappedRequest(self):
@@ -238,22 +236,21 @@ class localproxy(proxy):
             return None
         else:
             return res
-        
-    def getIgnoreImages(self):
-        return self._ignoreImages
-    
-    def setIgnoreImages(self,  ignore):
-        '''
-        @parameter ignore: True if we want to let requests for images go through.
-        '''
-        self._ignoreImages = ignore
-        
+
     def setWhatToTrap(self,  regex ):
+        '''Set regular expression that indicates what URLs NOT TO trap.'''
         try:
             self._whatToTrap= re.compile(regex)
         except:
             raise w3afException('The regular expression you configured is invalid.')
-        
+
+    def setWhatNotToTrap(self, regex):
+        '''Set regular expression that indicates what URLs TO trap.'''
+        try:
+            self._whatNotToTrap= re.compile(regex)
+        except:
+            raise w3afException('The regular expression you configured is invalid.')
+
     def setTrap(self,  trap):
         '''
         @parameter trap: True if we want to trap requests.
@@ -264,15 +261,15 @@ class localproxy(proxy):
         return self._trap
         
     def setFixContentLength(self,  fix):
+        '''Set Fix Content Length flag.'''
         self._fixContentLength = fix
         
     def getFixContentLength(self):
+        '''Get Fix Content Length flag.'''
         return self._fixContentLength
     
     def dropRequest(self,  originalFuzzableRequest):
-        '''
-        Let the handler know that the request was dropped.
-        '''
+        '''Let the handler know that the request was dropped.'''
         self._editedRequests[ id(originalFuzzableRequest) ] = (None,  None)
     
     def sendRawRequest( self, originalFuzzableRequest, head, postdata):
