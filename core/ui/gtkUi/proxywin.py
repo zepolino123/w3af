@@ -61,6 +61,7 @@ class ProxiedRequests(entries.RememberingWindow):
     @author: Facundo Batista <facundobatista =at= taniquetil.com.ar>
     """
     def __init__(self, w3af):
+        '''Constructor.'''
         super(ProxiedRequests,self).__init__(
             w3af, "proxytool", _("w3af - Proxy"), "Using_the_Proxy",
             onDestroy=self._close)
@@ -143,6 +144,7 @@ class ProxiedRequests(entries.RememberingWindow):
             self.show()
 
     def _initOptions(self):
+        '''Init options.'''
         self.like_initial = True
         # Config options
         self.proxyoptions = ProxyOptions()
@@ -256,7 +258,9 @@ class ProxiedRequests(entries.RememberingWindow):
         """
         request = self.reqresp.request.getObject()
         headers = request.dumpRequestHead()
-        data = str(request.getData())
+        data = request.getData()
+        if data:
+            data = str(data)
         try:
             httpResp = helpers.coreWrap(self.proxy.sendRawRequest, self.fuzzable, headers, data)
         except w3afException:
