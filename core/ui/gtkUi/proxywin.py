@@ -70,8 +70,8 @@ class ProxiedRequests(entries.RememberingWindow):
         self.def_padding = 5
 
         # Toolbar elements
-        uimanager = gtk.UIManager()
-        accelgroup = uimanager.get_accel_group()
+        self._uimanager = gtk.UIManager()
+        accelgroup = self._uimanager.get_accel_group()
         self.add_accel_group(accelgroup)
         actiongroup = gtk.ActionGroup('UIManager')
         actiongroup.add_actions([
@@ -87,9 +87,9 @@ class ProxiedRequests(entries.RememberingWindow):
         ])
 
         # Finish the toolbar
-        uimanager.insert_action_group(actiongroup, 0)
-        uimanager.add_ui_from_string(ui_proxy_menu)
-        toolbar = uimanager.get_widget('/Toolbar')
+        self._uimanager.insert_action_group(actiongroup, 0)
+        self._uimanager.add_ui_from_string(ui_proxy_menu)
+        toolbar = self._uimanager.get_widget('/Toolbar')
         self.bt_drop = toolbar.get_nth_item(3)
         self.bt_send = toolbar.get_nth_item(4)
         self.bt_next = toolbar.get_nth_item(5)
@@ -109,7 +109,6 @@ class ProxiedRequests(entries.RememberingWindow):
         vbox = gtk.VBox()
         vbox.pack_start(self.reqresp, True, True)
         vbox.show()
-
         # Notebook
         self.nb = gtk.Notebook()
         # Intercept
@@ -125,15 +124,25 @@ class ProxiedRequests(entries.RememberingWindow):
         self._initOptions()
         self.vbox.pack_start(self.nb, True, True, padding=self.def_padding)
         self.nb.show()
-
         # Status bar for messages
         self.status_bar = gtk.Statusbar()
         self.vbox.pack_start(self.status_bar, False, False)
         self.status_bar.show()
-
+        self.proxy = None
         # Finish it
         try:
-            self._startProxy()
+            ipport = self.proxyoptions.ipport.getValue()
+            ip, port = ipport.split(":")
+            for iport in range(int(port), 65535):
+                try:
+                    self._startProxy(ip, iport, True)
+                    break
+                except:
+                    pass
+            ipport = ip + ':' + str(iport)
+            self.proxyoptions.ipport.setValue(ipport)
+            self.proxyoptions.ipport.widg.set_text(ipport)
+            self._previous_ipport = ipport
         except w3afException:
             self.w3af.mainwin.sb(_("Failed to start local proxy"))
         else:
@@ -161,7 +170,6 @@ class ProxiedRequests(entries.RememberingWindow):
                 Option("Fix content length", False, "Fix content length", "boolean"))
 
         self._previous_ipport = self.proxyoptions.ipport.getValue()
-
         optionBox = gtk.VBox()
         optionBox.show()
         # buttons and config panel
@@ -188,8 +196,8 @@ class ProxiedRequests(entries.RememberingWindow):
         self.like_initial = like_initial
 
     def reloadOptions(self):
-        # shutdown/restart if needed
-        new_ipport = self.proxyoptions.ipport.getValue() 
+        """Shutdown/Restart if needed."""
+        new_ipport = self.proxyoptions.ipport.getValue()
         if new_ipport != self._previous_ipport:
             self.w3af.mainwin.sb(_("Stopping local proxy"))
             self.proxy.stop()
@@ -197,7 +205,8 @@ class ProxiedRequests(entries.RememberingWindow):
                 self._startProxy()
             except:
                 self.w3af.mainwin.sb(_("Failed to start local proxy"))
-
+                # TODO show alert
+                return
         # rest of config
         try:
             self.proxy.setWhatToTrap(self.proxyoptions.trap.getValue())
@@ -209,19 +218,25 @@ class ProxiedRequests(entries.RememberingWindow):
             opt = dlg.run()
             dlg.destroy()
         self._previous_ipport = new_ipport
+        toolbar = self._uimanager.get_widget('/Toolbar')
+        activeAction = toolbar.get_nth_item(0)
+        activeAction.set_active(True)
 
-    def _startProxy(self):
+    def _startProxy(self, ip=None, port=None, silent=False):
         """Starts the proxy."""
-        ipport = self.proxyoptions.ipport.getValue()
-        ip, port = ipport.split(":")
+        if not ip:
+            ipport = self.proxyoptions.ipport.getValue()
+            ip, port = ipport.split(":")
         self.w3af.mainwin.sb(_("Starting local proxy"))
+
         try:
             self.proxy = localproxy.localproxy(ip, int(port))
         except w3afException, w3:
-            msg = _(str(w3))
-            dlg = gtk.MessageDialog(None, gtk.DIALOG_MODAL, gtk.MESSAGE_WARNING, gtk.BUTTONS_OK, msg)
-            opt = dlg.run()
-            dlg.destroy()
+            if not silent:
+                msg = _(str(w3))
+                dlg = gtk.MessageDialog(None, gtk.DIALOG_MODAL, gtk.MESSAGE_WARNING, gtk.BUTTONS_OK, msg)
+                opt = dlg.run()
+                dlg.destroy()
             raise w3
         else:
             self.proxy.start2()
@@ -301,10 +316,11 @@ class ProxiedRequests(entries.RememberingWindow):
         """Start/stops the proxy."""
         proxyactive = widget.get_active()
         if proxyactive:
-            try:
-                self._startProxy()
-            except:
-                self.w3af.mainwin.sb(_("Failed to start local proxy"))
+            if not self.proxy.isRunning():
+                try:
+                    self._startProxy()
+                except:
+                    self.w3af.mainwin.sb(_("Failed to start local proxy"))
         else:
             self.w3af.mainwin.sb(_("Stopping local proxy"))
             self.proxy.stop()
