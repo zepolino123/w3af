@@ -157,16 +157,19 @@ class ProxiedRequests(entries.RememberingWindow):
         self.like_initial = True
         # Config options
         self.proxyoptions = ProxyOptions()
-        self.proxyoptions.append("ipport",\
-                Option(_("Where to listen"), "localhost:8080", "IP:port",\
+        self.proxyoptions.append("ipport",
+                Option(_("Where to listen"), "localhost:8080", "IP:port",
                 "ipport", _("IP and port where to listen")))
-        self.proxyoptions.append("trap",\
-                Option(_("What to trap"), ".*", _("URLs to trap"), "regex",\
+        self.proxyoptions.append("trap",
+                Option(_("What to trap"), ".*", _("URLs to trap"), "regex",
                 _("Regular expression that indicates what URLs to trap")))
-        self.proxyoptions.append("notrap",\
-                Option(_("What not to trap"), ".*\.(gif|jpg|png|css|js|ico|swf|axd|tif)$", _("URLs not to trap"), "regex",\
+        self.proxyoptions.append("methodtrap",
+                Option(_("What methods to trap"), "GET,POST",
+                    _("Methods to trap"), "list", _("Common separated methods. Left this field empty to trap all methods.")))
+        self.proxyoptions.append("notrap",
+                Option(_("What not to trap"), ".*\.(gif|jpg|png|css|js|ico|swf|axd|tif)$", _("URLs not to trap"), "regex",
                 _("Regular expression that indicates what URLs not to trap")))
-        self.proxyoptions.append("fixlength",\
+        self.proxyoptions.append("fixlength",
                 Option("Fix content length", False, "Fix content length", "boolean"))
 
         self._previous_ipport = self.proxyoptions.ipport.getValue()
@@ -211,6 +214,7 @@ class ProxiedRequests(entries.RememberingWindow):
         try:
             self.proxy.setWhatToTrap(self.proxyoptions.trap.getValue())
             self.proxy.setWhatNotToTrap(self.proxyoptions.notrap.getValue())
+            self.proxy.setMethodsToTrap(self.proxyoptions.methodtrap.getValue())
             self.proxy.setFixContentLength(self.proxyoptions.fixlength.getValue())
         except w3afException, w3:
             msg = _("Invalid configuration!\n" + str(w3))
