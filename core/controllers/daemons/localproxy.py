@@ -151,13 +151,19 @@ class w3afLocalProxyHandler(w3afProxyHandler):
         '''
         Determine, based on the user configured parameters:
             - self._whatToTrap
+            - self._methodsToTrap
             - self._whatNotToTrap
             - self._trap
         
         If the request needs to be trapped or not.
         @parameter fuzzReq: The request to analyze.
         '''
+
         if not self.server.w3afLayer._trap:
+            return False
+
+        if len(self.server.w3afLayer._methodsToTrap) and \
+                fuzzReq.getMethod() not in self.server.w3afLayer._methodsToTrap:
             return False
 
         if self.server.w3afLayer._whatNotToTrap.search(fuzzReq.getURL()):
@@ -167,7 +173,7 @@ class w3afLocalProxyHandler(w3afProxyHandler):
             return False
 
         return True
-        
+
     def _createFuzzableRequest(self):
         '''
         Based on the attributes, return a fuzzable request object.
@@ -220,6 +226,7 @@ class localproxy(proxy):
         self._editedResponses = {}
         
         # User configured parameters
+        self._methodsToTrap = []
         self._whatToTrap = re.compile('.*')
         self._whatNotToTrap = re.compile('.*\.(gif|jpg|png|css|js|ico|swf|axd|tif)$')
         self._trap = True
@@ -240,9 +247,16 @@ class localproxy(proxy):
     def setWhatToTrap(self,  regex ):
         '''Set regular expression that indicates what URLs NOT TO trap.'''
         try:
-            self._whatToTrap= re.compile(regex)
+            self._whatToTrap = re.compile(regex)
         except:
             raise w3afException('The regular expression you configured is invalid.')
+
+    def setMethodsToTrap(self, methods):
+        '''Set list that indicates what METHODS TO trap.
+
+           If list is empty then we will trap all methods
+        '''
+        self._methodsToTrap = [i.upper() for i in methods]
 
     def setWhatNotToTrap(self, regex):
         '''Set regular expression that indicates what URLs TO trap.'''
