@@ -26,7 +26,7 @@ import os
 import webbrowser
 
 from . import reqResViewer, helpers, entries, httpLogTab
-from core.controllers.w3afException import w3afException
+from core.controllers.w3afException import w3afException, w3afProxyException
 from core.data.options.option import option as Option
 from core.controllers.daemons import localproxy
 import core.controllers.outputManager as om
@@ -101,8 +101,8 @@ class ProxiedRequests(entries.RememberingWindow):
         self.vbox.show()
         toolbar.show()
         # Request-response viewer
-        self.reqresp = reqResViewer.reqResViewer(w3af, \
-                [self.bt_drop.set_sensitive, self.bt_send.set_sensitive], \
+        self.reqresp = reqResViewer.reqResViewer(w3af,
+                [self.bt_drop.set_sensitive, self.bt_send.set_sensitive],
                 editableRequest=True)
         self.reqresp.set_sensitive(False)
 
@@ -133,24 +133,21 @@ class ProxiedRequests(entries.RememberingWindow):
         try:
             ipport = self.proxyoptions.ipport.getValue()
             ip, port = ipport.split(":")
-            for iport in range(int(port), 65535):
-                try:
-                    self._startProxy(ip, iport, True)
-                    break
-                except:
-                    pass
-            ipport = ip + ':' + str(iport)
-            self.proxyoptions.ipport.setValue(ipport)
-            self.proxyoptions.ipport.widg.set_text(ipport)
-            self._previous_ipport = ipport
-        except w3afException:
+            self._startProxy(ip, port)
+        except w3afProxyException:
+            # Ups, port looks already used..:(
+            # Let's show alert and focus Options tab
             self.w3af.mainwin.sb(_("Failed to start local proxy"))
+            self.fuzzable = None
+            self.waitingRequests = False
+            self.keepChecking = False
+            self.nb.set_current_page(2)
         else:
             self.fuzzable = None
             self.waitingRequests = True
             self.keepChecking = True
-            gobject.timeout_add(200, self._superviseRequests)
-            self.show()
+        gobject.timeout_add(200, self._superviseRequests)
+        self.show()
 
     def _initOptions(self):
         '''Init options.'''
@@ -203,12 +200,12 @@ class ProxiedRequests(entries.RememberingWindow):
         new_ipport = self.proxyoptions.ipport.getValue()
         if new_ipport != self._previous_ipport:
             self.w3af.mainwin.sb(_("Stopping local proxy"))
-            self.proxy.stop()
+            if self.proxy:
+                self.proxy.stop()
             try:
                 self._startProxy()
-            except:
+            except w3afProxyException:
                 self.w3af.mainwin.sb(_("Failed to start local proxy"))
-                # TODO show alert
                 return
         # rest of config
         try:
@@ -235,7 +232,7 @@ class ProxiedRequests(entries.RememberingWindow):
 
         try:
             self.proxy = localproxy.localproxy(ip, int(port))
-        except w3afException, w3:
+        except w3afProxyException, w3:
             if not silent:
                 msg = _(str(w3))
                 dlg = gtk.MessageDialog(None, gtk.DIALOG_MODAL, gtk.MESSAGE_WARNING, gtk.BUTTONS_OK, msg)
@@ -323,7 +320,7 @@ class ProxiedRequests(entries.RememberingWindow):
             if not self.proxy.isRunning():
                 try:
                     self._startProxy()
-                except:
+                except w3afProxyException:
                     self.w3af.mainwin.sb(_("Failed to start local proxy"))
         else:
             self.w3af.mainwin.sb(_("Stopping local proxy"))
