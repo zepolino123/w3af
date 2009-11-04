@@ -809,7 +809,7 @@ class searchableTextView(gtk.VBox, entries.Searchable):
         self.textView.modify_base(gtk.STATE_NORMAL, color)
 
     def reset_bg_color(self):
-        self.textView.modify_base(gtk.STATE_NORMAL, gtk.gdk.color_parse("#E4E4E4"))
+        self.textView.modify_base(gtk.STATE_NORMAL, gtk.gdk.color_parse("#FFFFFF"))
 
     def get_buffer(self):
         return self.textView.get_buffer()
