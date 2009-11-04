@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Tasks SYSTEM "Tasks-4.1.dtd">
 <!-- eric4 tasks file for project w3af -->
-<!-- Saved: 2009-07-23, 21:52:53 -->
+<!-- Saved: 2009-10-14, 13:16:13 -->
 <Tasks version="4.1">
   <Task priority="1" completed="False" bugfix="True">
     <Summary>FIXME: review this, I'm not sure *when* activate this</Summary>
@@ -896,20 +896,6 @@
       <Linenumber>65</Linenumber>
     </Resource>
   </Task>
-  <Task priority="1" completed="False" bugfix="True">
-    <Summary>FIXME: What about repeated parameter names?!</Summary>
-    <Description></Description>
-    <Created>2009-03-11, 08:30:02</Created>
-    <Resource>
-      <Filename>
-        <Dir>core</Dir>
-        <Dir>data</Dir>
-        <Dir>request</Dir>
-        <Name>fuzzableRequest.py</Name>
-      </Filename>
-      <Linenumber>98</Linenumber>
-    </Resource>
-  </Task>
   <Task priority="1" completed="False" bugfix="False">
     <Summary>TODO: Update this, it changes</Summary>
     <Description></Description>
@@ -1237,20 +1223,6 @@
     </Resource>
   </Task>
   <Task priority="1" completed="False" bugfix="False">
-    <Summary>TODO: Investigate this further...</Summary>
-    <Description></Description>
-    <Created>2009-07-23, 20:43:49</Created>
-    <Resource>
-      <Filename>
-        <Dir>core</Dir>
-        <Dir>ui</Dir>
-        <Dir>gtkUi</Dir>
-        <Name>craftedRequests.py</Name>
-      </Filename>
-      <Linenumber>578</Linenumber>
-    </Resource>
-  </Task>
-  <Task priority="1" completed="False" bugfix="False">
     <Summary>TODO: THIS SUCKS</Summary>
     <Description></Description>
     <Created>2009-07-23, 21:47:52</Created>
@@ -1279,9 +1251,65 @@
     </Resource>
   </Task>
   <Task priority="1" completed="False" bugfix="True">
+    <Summary>FIXME: What about repeated parameter names?!</Summary>
+    <Description></Description>
+    <Created>2009-07-23, 23:24:23</Created>
+    <Resource>
+      <Filename>
+        <Dir>core</Dir>
+        <Dir>data</Dir>
+        <Dir>request</Dir>
+        <Name>fuzzableRequest.py</Name>
+      </Filename>
+      <Linenumber>99</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="True">
+    <Summary>FIXME: Should I encode here?</Summary>
+    <Description></Description>
+    <Created>2009-07-23, 23:28:49</Created>
+    <Resource>
+      <Filename>
+        <Dir>core</Dir>
+        <Dir>data</Dir>
+        <Dir>parsers</Dir>
+        <Name>httpRequestParser.py</Name>
+      </Filename>
+      <Linenumber>93</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="True">
+    <Summary>FIXME: Should the uri be http://host + uri ?</Summary>
+    <Description></Description>
+    <Created>2009-07-23, 23:28:49</Created>
+    <Resource>
+      <Filename>
+        <Dir>core</Dir>
+        <Dir>data</Dir>
+        <Dir>parsers</Dir>
+        <Name>httpRequestParser.py</Name>
+      </Filename>
+      <Linenumber>94</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Summary>TODO: Investigate this further...</Summary>
+    <Description></Description>
+    <Created>2009-07-29, 12:15:49</Created>
+    <Resource>
+      <Filename>
+        <Dir>core</Dir>
+        <Dir>ui</Dir>
+        <Dir>gtkUi</Dir>
+        <Name>craftedRequests.py</Name>
+      </Filename>
+      <Linenumber>578</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="True">
     <Summary>FIXME: Show images</Summary>
     <Description></Description>
-    <Created>2009-07-23, 21:52:39</Created>
+    <Created>2009-08-08, 21:58:29</Created>
     <Resource>
       <Filename>
         <Dir>core</Dir>
@@ -1289,7 +1317,7 @@
         <Dir>gtkUi</Dir>
         <Name>reqResViewer.py</Name>
       </Filename>
-      <Linenumber>781</Linenumber>
+      <Linenumber>731</Linenumber>
     </Resource>
   </Task>
 </Tasks>
