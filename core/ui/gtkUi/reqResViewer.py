@@ -80,6 +80,7 @@ class reqResViewer(gtk.VBox):
         nb = gtk.Notebook()
         self.pack_start(nb, True, True)
         nb.show()
+        self.nb = nb
 
         # Request
         self.request = requestPart(w3af, enableWidget, editable=editableRequest, widgname=widgname)

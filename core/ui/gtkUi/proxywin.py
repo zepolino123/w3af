@@ -285,6 +285,7 @@ class ProxiedRequests(entries.RememberingWindow):
             self.fuzzable = None
             self.reqresp.response.set_sensitive(True)
             self.reqresp.response.showObject(httpResp)
+            self.reqresp.nb.next_page()
             self.bt_next.set_sensitive(True)
             self.bt_drop.set_sensitive(False)
             self.bt_send.set_sensitive(False)
