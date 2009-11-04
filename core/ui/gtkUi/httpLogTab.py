@@ -66,7 +66,7 @@ class httpLogTab(entries.RememberingHPaned):
         self._sw.set_shadow_type(gtk.SHADOW_ETCHED_IN)
         self._sw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
         self._lstore = gtk.ListStore(gobject.TYPE_UINT,gobject.TYPE_BOOLEAN,
-                gobject.TYPE_STRING,gobject.TYPE_STRING,
+                gobject.TYPE_STRING,gobject.TYPE_STRING,gobject.TYPE_STRING,
                 gobject.TYPE_UINT, gobject.TYPE_STRING,
                 gobject.TYPE_UINT, gobject.TYPE_FLOAT)
         # Create tree view
@@ -205,22 +205,31 @@ class httpLogTab(entries.RememberingHPaned):
         column.set_expand(True)
         column.set_resizable(True)
         treeview.append_column(column)
-        # Column for Code
-        column = gtk.TreeViewColumn(_('Code'), gtk.CellRendererText(),text=4)
+        # Column for Tag
+        renderer = gtk.CellRendererText()
+        renderer.set_property('ellipsize', pango.ELLIPSIZE_END)
+        renderer.set_property('editable', True)
+        renderer.connect('edited', self.editTag, model)
+        column = gtk.TreeViewColumn(_('Tag'), renderer, text=4)
         column.set_sort_column_id(4)
+        column.set_resizable(True)
+        treeview.append_column(column)
+        # Column for Code
+        column = gtk.TreeViewColumn(_('Code'), gtk.CellRendererText(),text=5)
+        column.set_sort_column_id(5)
         treeview.append_column(column)
         # Column for response message
-        column = gtk.TreeViewColumn(_('Message'), gtk.CellRendererText(),text=5)
-        column.set_sort_column_id(5)
+        column = gtk.TreeViewColumn(_('Message'), gtk.CellRendererText(),text=6)
+        column.set_sort_column_id(6)
         column.set_resizable(True)
         treeview.append_column(column)
         # Column for content-length
-        column = gtk.TreeViewColumn(_('Content-Length'), gtk.CellRendererText(),text=6)
-        column.set_sort_column_id(6)
+        column = gtk.TreeViewColumn(_('Content-Length'), gtk.CellRendererText(),text=7)
+        column.set_sort_column_id(7)
         treeview.append_column(column)
         # Column for response time
-        column = gtk.TreeViewColumn(_('Time (ms)'), gtk.CellRendererText(),text=7)
-        column.set_sort_column_id(7)
+        column = gtk.TreeViewColumn(_('Time (ms)'), gtk.CellRendererText(),text=8)
+        column.set_sort_column_id(8)
         treeview.append_column(column)
 
     def toggleBookmark(self, cell, path, model):
@@ -229,6 +238,14 @@ class httpLogTab(entries.RememberingHPaned):
         historyItem = HistoryItem()
         historyItem.load(model[path][0])
         historyItem.toggleMark(True)
+        return
+
+    def editTag(self, cell, path, new_text, model):
+        """Edit tag."""
+        model[path][4] = new_text
+        historyItem = HistoryItem()
+        historyItem.load(model[path][0])
+        historyItem.updateTag(new_text, True)
         return
 
     def _showHideAdvancedBox(self, widget):
@@ -269,6 +286,7 @@ class httpLogTab(entries.RememberingHPaned):
 
         if searchText:
             searchData.append(('url', "%"+searchText+"%", 'like'))
+            searchData.append(('tag', "%"+searchText+"%", 'like'))
 
         if entryId:
             if idOper == ">" and refresh:
@@ -364,7 +382,7 @@ class httpLogTab(entries.RememberingHPaned):
             self._lstore.clear()
         for item in results:
             self._lstore.append([item.id, item.mark, item.request.getMethod(), item.request.getURI(),
-                item.response.getCode(), item.response.getMsg(), len(item.response.getBody()),
+                item.tag, item.response.getCode(), item.response.getMsg(), len(item.response.getBody()),
                 item.response.getWaitTime()])
         # Size search results
         if len(results) < 10:
