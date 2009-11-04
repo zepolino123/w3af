@@ -193,14 +193,20 @@ class reqResViewer(gtk.VBox):
         # We stop the throbber, and hide it
         self.throbber.hide()
         self.throbber.running(False)
-        # Analyzee the impact
+        # Analyze the impact
         if impact.ok:
+            
+            #
+            #   Lets check if we found any vulnerabilities
+            #
             for result in impact.result:
                 for itemId in result.getId():
                     historyItem = HistoryItem()
                     historyItem.load(itemId)
+                    historyItem.tag = impact.pluginName
                     historyItem.info = result.getDesc()
                     historyItem.save()
+                    
         else:
             if impact.exception.__class__ == w3afException:
                 msg = str(impact.exception)
