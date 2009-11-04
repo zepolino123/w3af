@@ -185,7 +185,11 @@ class httpLogTab(entries.RememberingHPaned):
         column = gtk.TreeViewColumn(_('ID'), gtk.CellRendererText(),text=0)
         column.set_sort_column_id(0)
         treeview.append_column(column)
+        
         # Column for bookmark
+        #TODO: Find a better way to do this. The "B" and the checkbox aren't nice
+        #what we aim for is something like the stars in gmail.
+        '''
         renderer = gtk.CellRendererToggle()
         renderer.set_property('activatable', True)
         renderer.connect('toggled', self.toggleBookmark, model)
@@ -193,6 +197,8 @@ class httpLogTab(entries.RememberingHPaned):
         column.add_attribute(renderer, "active", 1)
         column.set_sort_column_id(1)
         treeview.append_column(column)
+        '''
+        
         # Column for METHOD
         column = gtk.TreeViewColumn(_('Method'), gtk.CellRendererText(),text=2)
         column.set_sort_column_id(2)
@@ -207,12 +213,13 @@ class httpLogTab(entries.RememberingHPaned):
         treeview.append_column(column)
         # Column for Tag
         renderer = gtk.CellRendererText()
-        renderer.set_property('ellipsize', pango.ELLIPSIZE_END)
+        #renderer.set_property('ellipsize', pango.ELLIPSIZE_END)
         renderer.set_property('editable', True)
         renderer.connect('edited', self.editTag, model)
         column = gtk.TreeViewColumn(_('Tag'), renderer, text=4)
         column.set_sort_column_id(4)
         column.set_resizable(True)
+        column.set_sizing(gtk.TREE_VIEW_COLUMN_GROW_ONLY)
         treeview.append_column(column)
         # Column for Code
         column = gtk.TreeViewColumn(_('Code'), gtk.CellRendererText(),text=5)
