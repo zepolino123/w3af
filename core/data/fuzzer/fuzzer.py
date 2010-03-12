@@ -55,6 +55,18 @@ from core.data.fuzzer.mutantFileContent import mutantFileContent
 
 import core.controllers.outputManager as om
 
+from core.data.dc.form import form
+
+
+#
+#   The following is a list of parameter names that will be ignored during the fuzzing process
+#
+IGNORED_PARAMETERS = ['__EVENTTARGET', '__EVENTARGUMENT', '__VIEWSTATE', '__VIEWSTATEENCRYPTED', 
+                                          '__EVENTVALIDATION', '__dnnVariable', 'javax.faces.ViewState',
+                                          'jsf_state_64', 'jsf_sequence', 'jsf_tree', 'jsf_tree_64', 
+                                          'jsf_viewid', 'jsf_state', 'cfid', 'cftoken','ASP.NET_sessionid',
+                                          'ASPSESSIONID', 'PHPSESSID', 'JSESSIONID']
+                                          
 
 def createMutants( freq, mutant_str_list, append=False, fuzzableParamList = [] , oResponse = None ):
     '''
@@ -123,55 +135,76 @@ def _createJSONMutants( freq, mutantClass, mutant_str_list, fuzzableParamList , 
     def _makeMutants( freq, mutantClass, mutant_str_list, fuzzableParamList , append, jsonPostData):
         res = []
         
-        for fuzzed in _fuzzJSON( mutant_str_list, jsonPostData, append ):
+        for fuzzed_json, original_value in _fuzzJSON( mutant_str_list, jsonPostData, append ):
         
             # Create the mutants
             freq_copy = freq.copy()
             m = mutantClass( freq_copy ) 
-            m.setOriginalValue( jsonPostData )
+            m.setOriginalValue( original_value )
             m.setVar( 'JSON data' )
-            m.setDc( fuzzed )
+            m.setDc( fuzzed_json )
             res.append( m )
             
         return res
         
     # Now we define a function that does the work...
     def _fuzzJSON( mutant_str_list, jsonPostData, append ):
+        '''
+        @return: A list with tuples containing
+        (fuzzed list/dict/string/int that represents a JSON object, original value)
+        '''
         res = []
         
         if isinstance(jsonPostData, int):
             for mutant_str in mutant_str_list:
                 if mutant_str.isdigit():
                     # This (a mutant str that really is an integer) will happend once every 100000 years, 
-                    # but I wanted to be sure to cover all cases
+                    # but I wanted to be sure to cover all cases. This will look something like:
+                    #
+                    # 1
+                    #
+                    # In the postdata.
                     if append:
-                        res.append( int(str(jsonPostData) +  str(mutant_str)) )
+                        fuzzed = int(str(jsonPostData) +  str(mutant_str))
+                        res.append( (fuzzed, str(jsonPostData)) )
                     else:
-                        res.append( int(mutant_str) )
+                        fuzzed = int(mutant_str)
+                        res.append( (fuzzed, jsonPostData) )
         
         elif isinstance(jsonPostData, basestring):
+            # This will look something like:
+            #
+            # "abc"
+            #
+            # In the postdata.
             for mutant_str in mutant_str_list:
                 if append:
-                    res.append( jsonPostData +  mutant_str )
+                    fuzzed = jsonPostData +  mutant_str
+                    res.append( (fuzzed, jsonPostData) )
                 else:
-                    res.append( mutant_str )
+                    res.append( (mutant_str, jsonPostData) )
                     
                     
         elif isinstance( jsonPostData, list ):
+            # This will look something like:
+            #
+            # ["abc", "def"]
+            #
+            # In the postdata.
             for item, i in zip( jsonPostData,xrange(len(jsonPostData)) ):
-                fuzzedItemList = _fuzzJSON( mutant_str_list, jsonPostData[i] , append )
-                for fuzzedItem in fuzzedItemList:
+                fuzzed_item_list = _fuzzJSON( mutant_str_list, jsonPostData[i] , append )
+                for fuzzed_item, original_value in fuzzed_item_list:
                     jsonPostDataCopy = copy.deepcopy( jsonPostData )
-                    jsonPostDataCopy[ i ] = fuzzedItem
-                    res.append( jsonPostDataCopy )
+                    jsonPostDataCopy[ i ] = fuzzed_item
+                    res.append( (jsonPostDataCopy, original_value) )
         
         elif isinstance( jsonPostData, dict ):
             for key in jsonPostData:
-                fuzzedItemList = _fuzzJSON( mutant_str_list, jsonPostData[key] , append )
-                for fuzzedItem in fuzzedItemList:
+                fuzzed_item_list = _fuzzJSON( mutant_str_list, jsonPostData[key] , append )
+                for fuzzed_item, original_value in fuzzed_item_list:
                     jsonPostDataCopy = copy.deepcopy( jsonPostData )
-                    jsonPostDataCopy[ key ] = fuzzedItem
-                    res.append( jsonPostDataCopy )
+                    jsonPostDataCopy[ key ] = fuzzed_item
+                    res.append( (jsonPostDataCopy, original_value) )
         
         return res
     
@@ -278,6 +311,12 @@ def _createMutantsWorker( freq, mutantClass, mutant_str_list, fuzzableParamList,
 
     for parameter_name in dataContainer:
         
+        #
+        #   Ignore the banned parameter names
+        #
+        if parameter_name in IGNORED_PARAMETERS:
+            continue
+        
         # This for is to support repeated parameter names
         for element_index, element_value in enumerate(dataContainer[parameter_name]):
             
@@ -303,12 +342,37 @@ def _createMutantsWorker( freq, mutantClass, mutant_str_list, fuzzableParamList,
                 if parameter_name in fuzzableParamList or fuzzableParamList == []:
                     
                     dataContainerCopy = dataContainer.copy()
-                    originalValue = element_value
+                    original_value = element_value
                     
                     if append :
                         dataContainerCopy[parameter_name][element_index] += mutant_str
                     else:
                         dataContainerCopy[parameter_name][element_index] = mutant_str
+
+                    # Ok, now we have a data container with the mutant string, but it's possible that
+                    # all the other fields of the data container are empty (think about a form)
+                    # We need to fill those in, with something *useful* to get around the easiest
+                    # developer checks like: "parameter A was filled".
+                    
+                    # But I only perform this task in HTML forms, everything else is left as it is:
+                    if isinstance( dataContainerCopy, form ):
+                        for var_name_dc in dataContainerCopy:
+                            for element_index_dc, element_value_dc in enumerate(dataContainerCopy[var_name_dc]):
+                                if (var_name_dc, element_index_dc) != (parameter_name, element_index) and\
+                                dataContainerCopy.getType(var_name_dc) not in ['checkbox', 'radio', 'select', 'file' ]:
+                                    
+                                    #   Fill only if the parameter does NOT have a value set.
+                                    #
+                                    #   The reason of having this already set would be that the form
+                                    #   has something like this:
+                                    #
+                                    #   <input type="text" name="p" value="foobar">
+                                    #
+                                    if dataContainerCopy[var_name_dc][element_index_dc] == '':
+                                        #
+                                        #   Fill it smartly
+                                        #
+                                        dataContainerCopy[var_name_dc][element_index_dc] = smartFill(var_name_dc)
 
                     # __HERE__
                     # Please see the comment above for an explanation of what we are doing here:
@@ -325,7 +389,7 @@ def _createMutantsWorker( freq, mutantClass, mutant_str_list, fuzzableParamList,
                     m = mutantClass( freq_copy )
                     m.setVar( parameter_name, index=element_index )
                     m.setDc( dataContainerCopy )
-                    m.setOriginalValue( originalValue )
+                    m.setOriginalValue( original_value )
                     m.setModValue( mutant_str )
                     
                     # Done, add it to the result

@@ -31,6 +31,7 @@ except:
 import StringIO
 import re
 
+
 class pdfParser(abstractParser):
     '''
     This class parses pdf documents to find mails and URLs. It's based in the pyPdf library.
@@ -51,14 +52,23 @@ class pdfParser(abstractParser):
     
     def _parse( self, content_text ):
         # Get the URLs using a regex
-        url_regex = '((http|https):[A-Za-z0-9/](([A-Za-z0-9$_.+!*(),;/?:@&~=-])|%[A-Fa-f0-9]{2})+(#([a-zA-Z0-9][a-zA-Z0-9$_.+!*(),;/?:@&~=%-]*))?)'
+        url_regex = '((http|https):[A-Za-z0-9/](([A-Za-z0-9$_.+!*(),;/?:@&~=-])|'
+        url_regex += '%[A-Fa-f0-9]{2})+(#([a-zA-Z0-9][a-zA-Z0-9$_.+!*(),;/?:@&~=%-]*))?)'
         self._re_URLs = [ x[0] for x in re.findall(url_regex, content_text ) ]
         
         # Get the mail addys
         self.findEmails( content_text )
         
     def getPDFContent( self, documentString ):
+        #   With the objective of avoiding this bug:
+        #   https://sourceforge.net/tracker/?func=detail&atid=853652&aid=2954220&group_id=170274
+        #   I perform this safety check:
+        if documentString == '':
+            return ''
+        
+        #   Perform some real work:
         content = ""
+        
         # Load PDF into pyPDF
         pdf = pyPdf.PdfFileReader( StringIO.StringIO(documentString) )
         try:

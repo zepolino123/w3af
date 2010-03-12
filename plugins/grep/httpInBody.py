@@ -32,6 +32,7 @@ import core.data.kb.info as info
 
 import re
 
+
 class httpInBody (baseGrepPlugin):
     """
     Search for HTTP request/response string in response body.
@@ -55,6 +56,8 @@ class httpInBody (baseGrepPlugin):
         '''
         Plugin entry point.
         
+        @parameter request: The HTTP request object.
+        @parameter response: The HTTP response object
         @return: None, all results are saved in the kb.
         '''
         # 501 Code is "Not Implemented" which in some cases responds with this in the body:

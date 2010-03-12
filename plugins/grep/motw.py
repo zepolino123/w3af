@@ -27,6 +27,7 @@ from core.data.options.optionList import optionList
 
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
 
+from core.controllers.coreHelpers.fingerprint_404 import is_404
 import core.data.kb.knowledgeBase as kb
 import core.data.kb.info as info
 
@@ -54,11 +55,12 @@ class motw (baseGrepPlugin):
     def grep(self, request, response):
         '''
         Plugin entry point, search for motw.
+        
+        @parameter request: The HTTP request object.
+        @parameter response: The HTTP response object
         @return: None
         '''
         if response.is_text_or_html():
-
-            is_404 = kb.kb.getData( 'error404page', '404' )
 
             if not is_404( response ):
                 motw_match = self._motw_re.search(response.getBody())
@@ -69,6 +71,7 @@ class motw (baseGrepPlugin):
                     i.setName('Mark of the web')
                     i.setURL( response.getURL() )
                     i.setId( response.id )
+                    i.addToHighlight(motw_match.group(0))
                 
                 # Act based on finding/non-finding
                 if motw_match:

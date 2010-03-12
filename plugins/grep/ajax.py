@@ -60,6 +60,8 @@ class ajax(baseGrepPlugin):
         '''
         Plugin entry point.
         
+        @parameter request: The HTTP request object.
+        @parameter response: The HTTP response object
         @return: None, all results are saved in the kb.
         '''
         if response.is_text_or_html() and response.getURL() not in self._already_inspected:
@@ -74,8 +76,7 @@ class ajax(baseGrepPlugin):
                 i.setURL( response.getURL() )
                 i.setDesc( 'The URL: "' + i.getURL() + '" has a ajax code.'  )
                 i.setId( response.id )
-                for f in res:
-                    i.addToHighlight(f)
+                i.addToHighlight( res.group(0) )
                 kb.kb.append( self, 'ajax', i )
     
     def setOptions( self, OptionList ):

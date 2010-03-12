@@ -60,6 +60,9 @@ class dotNetEventValidation(baseGrepPlugin):
     def grep(self, request, response):
         '''
         If I find __VIEWSTATE and empty __EVENTVALIDATION => vuln.
+        
+        @parameter request: The HTTP request object.
+        @parameter response: The HTTP response object
         '''
         if response.is_text_or_html():
 
@@ -78,7 +81,7 @@ class dotNetEventValidation(baseGrepPlugin):
                     i.setName('.NET Event Validation is disabled')
                     i.setURL( response.getURL() )
                     i.setId( response.id )
-                    i.addToHighlight(res)
+                    i.addToHighlight(res.group())
                     msg = 'The URL: "' + i.getURL() + '" has .NET Event Validation disabled. '
                     msg += 'This programming/configuration error should be manually verified.'
                     i.setDesc( msg )

@@ -153,6 +153,7 @@ class ManualRequests(entries.RememberingWindow):
             if impact.ok:
                 self.reqresp.response.set_sensitive(True)
                 self.reqresp.response.showObject(impact.httpResp)
+                self.reqresp.nb.next_page()
             else:
                 if impact.exception.__class__ == w3afException:
                     msg = str(impact.exception)
@@ -517,7 +518,7 @@ class FuzzyRequests(entries.RememberingWindow):
             return False
 
         try:
-            httpResp = self.w3af.uriOpener.sendRawRequest(realreq, realbody, fixContentLength, get_size=False)
+            httpResp = self.w3af.uriOpener.sendRawRequest(realreq, realbody, fixContentLength)
             errorMsg = None
             self.result_ok += 1
         except w3afException, e:

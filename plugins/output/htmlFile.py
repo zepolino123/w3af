@@ -27,6 +27,8 @@ import core.data.kb.knowledgeBase as kb
 import core.data.constants.severity as severity
 import core.data.kb.config as cf
 
+import core.data.parsers.urlParser as urlParser
+
 # options
 from core.data.options.option import option
 from core.data.options.optionList import optionList
@@ -69,6 +71,10 @@ class htmlFile(baseOutputPlugin):
         try:
             #self._file = codecs.open( self._file_name, "w", "utf-8", 'replace' )            
             self._file = open( self._file_name, "w" )
+        except IOError, io:
+            msg = 'Can\'t open report file "' + os.path.abspath(self._file_name) + '" for writing'
+            msg += ': "' + io.strerror + '".'
+            raise w3afException( msg )
         except Exception, e:
             msg = 'Cant open report file ' + self._file_name + ' for output.'
             msg += ' Exception: "' + str(e) + '".'
@@ -307,10 +313,16 @@ class htmlFile(baseOutputPlugin):
         # Writes the vulnerability results Table
         vulns = kb.kb.getAllVulns()
         for i in vulns:
+            
+            #
+            #   Get the port
+            #
+            port = str( urlParser.getPort( i.getURL() ) )
+            
             self._write_to_file(
                 '''<tr>
                 <td valign=top class=default width="10%"><font color=red>Vulnerability</font></td>
-                <td valign=top class=default width="10%">tcp/80</td>
+                <td valign=top class=default width="10%">tcp/''' + port + '''</td>
                 <td class=default width="80%">'''
                 )
 
@@ -379,7 +391,7 @@ class htmlFile(baseOutputPlugin):
         return '''
         This plugin writes the framework messages to an HTML report file.
         
-        Four configurable parameters exist:
+        Two configurable parameters exist:
             - fileName
             - verbose
 

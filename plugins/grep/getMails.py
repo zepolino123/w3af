@@ -50,6 +50,7 @@ class getMails(baseGrepPlugin):
     def grep(self, request, response):
         '''
         Plugin entry point, get the emails and save them to the kb.
+        
         @parameter request: The HTTP request
         @parameter request: The HTTP response
         @return: None
@@ -82,38 +83,39 @@ class getMails(baseGrepPlugin):
 
         mails = dp.getEmails(domain)
         
-        for m in mails:
-            # Define some variables to be used later
-            if self._wasSent( request, m ):
+        for mail_address in mails:
+            # Reduce false positives
+            if self._wasSent( request, mail_address ):
                 continue
+                
+            # Email address are case insensitive
+            mail_address = mail_address.lower()
 
             email_map = {}
-            for i in kb.kb.getData( 'getMails', 'mails'):
-                mail_string = i['mail']
-                email_map[ mail_string ] = i
+            for info_obj in kb.kb.getData( 'mails', 'mails'):
+                mail_string = info_obj['mail']
+                email_map[ mail_string ] = info_obj
 
-            if m not in email_map:
+            if mail_address not in email_map:
                 # Create a new info object, and report it
                 i = info.info()
                 i.setURL( response.getURL() )
                 i.setId( response.id )
-                i.setName( m )
-                desc = 'The mail account: "'+ m + '" was found in: '
+                i.setName( mail_address )
+                desc = 'The mail account: "'+ mail_address + '" was found in: '
                 desc += '\n- ' + response.getURL() 
                 desc += ' - In request with id: '+ str(response.id)
                 i.setDesc( desc )
-                i['mail'] = m
+                i['mail'] = mail_address
                 i['url_list'] = [ response.getURL(), ]
-                i['user'] = m.split('@')[0]
-                i.addToHighlight( m )
-             
+                i['user'] = mail_address.split('@')[0]
+                i.addToHighlight( mail_address )
                 
                 kb.kb.append( 'mails', kb_key, i )
-                kb.kb.append( self, 'mails', i )
                 continue
             
             # Get the corresponding info object.
-            i = email_map[ m ]
+            i = email_map[ mail_address ]
             # And work
             if response.getURL() not in i['url_list']:
                 # This email was already found in some other URL

@@ -19,6 +19,7 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
+from __future__ import with_statement
 
 import core.controllers.outputManager as om
 
@@ -46,6 +47,9 @@ class preg_replace(baseAuditPlugin):
     def __init__(self):
         baseAuditPlugin.__init__(self)
         
+        #   Internal variables
+        self._errors = []
+        
     def audit(self, freq ):
         '''
         Tests an URL for unsafe usage of PHP's preg_replace.
@@ -59,26 +63,42 @@ class preg_replace(baseAuditPlugin):
         mutants = createMutants( freq , ['a' + ')/' * 100, ] , oResponse=oResponse )
         
         for mutant in mutants:
-            if self._hasNoBug( 'preg_replace' , 'preg_replace' , \
-                                        mutant.getURL() , mutant.getVar() ):
-                # Only spawn a thread if the mutant has a modified variable
-                # that has no reported bugs in the kb
+
+            # Only spawn a thread if the mutant has a modified variable
+            # that has no reported bugs in the kb
+            if self._hasNoBug( 'preg_replace' , 'preg_replace', mutant.getURL() , mutant.getVar() ):
+                
                 targs = (mutant,)
                 self._tm.startFunction( target=self._sendMutant, args=targs, ownerObj=self )
+                
+        self._tm.join( self )
         
     def _analyzeResult( self, mutant, response ):
         '''
         Analyze results of the _sendMutant method.
         '''
-        preg_error_list = self._find_preg_error( response )
-        for preg_error in preg_error_list:
-            if not re.search( preg_error, mutant.getOriginalResponseBody(), re.IGNORECASE ):
-                v = vuln.vuln( mutant )
-                v.setId( response.id )
-                v.setSeverity(severity.HIGH)
-                v.setName( 'Unsafe usage of preg_replace' )
-                v.setDesc( 'Unsafe usage of preg_replace was found at: ' + mutant.foundAt() )
-                kb.kb.append( self, 'preg_replace', v )
+        #
+        #   Only one thread at the time can enter here. This is because I want to report each
+        #   vulnerability only once, and by only adding the "if self._hasNoBug" statement, that
+        #   could not be done.
+        #
+        with self._plugin_lock:
+            
+            #
+            #   I will only report the vulnerability once.
+            #
+            if self._hasNoBug( 'preg_replace' , 'preg_replace' , mutant.getURL() , mutant.getVar() ):
+                
+                preg_error_list = self._find_preg_error( response )
+                for preg_error_re, preg_error_string in preg_error_list:
+                    if not preg_error_re.search( mutant.getOriginalResponseBody() ):
+                        v = vuln.vuln( mutant )
+                        v.setId( response.id )
+                        v.setSeverity(severity.HIGH)
+                        v.setName( 'Unsafe usage of preg_replace' )
+                        v.setDesc( 'Unsafe usage of preg_replace was found at: ' + mutant.foundAt() )
+                        v.addToHighlight( preg_error_string )
+                        kb.kb.append( self, 'preg_replace', v )
         
     def end(self):
         '''
@@ -95,23 +115,42 @@ class preg_replace(baseAuditPlugin):
         @return: A list of errors found on the page
         '''
         res = []
-        for preg_error in self._get_preg_error():
-            match = re.search( preg_error, response.getBody() , re.IGNORECASE )
+        for preg_error_re in self._get_preg_error():
+            match = preg_error_re.search( response.getBody() )
             if  match:
                 msg = 'An unsafe usage of preg_replace() function was found, the error that was'
                 msg += ' sent by the web application is (only a fragment is shown): "'
-                msg += response.getBody()[match.start():match.end()] + '" ; and was found'
+                msg += match.group(0) + '" ; and was found'
                 msg += ' in the response with id ' + str(response.id) + '.'
                 
                 om.out.information(msg)
-                res.append(preg_error)
+                res.append((preg_error_re, match.group(0)))
         return res
 
     def _get_preg_error(self):
-        errors = []
-        errors.append( 'Compilation failed: unmatched parentheses at offset' )
-        errors.append( '<b>Warning</b>:  preg_replace\\(\\) \\[<a' )
-        return errors
+        if len(self._errors) != 0:
+            #
+            #   This will use a little bit more of memory, but will increase the performance of the
+            #   plugin considerably, because the regular expressions are going to be compiled
+            #   only once, and then used many times.
+            #
+            return self._errors
+            
+        else:
+            #
+            #   Populate the self._errors list with the compiled versions of the regular expressions.
+            #
+            errors = []
+            errors.append( 'Compilation failed: unmatched parentheses at offset' )
+            errors.append( '<b>Warning</b>:  preg_replace\\(\\) \\[<a' )
+            #
+            #   Now that I have the regular expressions in the "errors" list, I will compile them
+            #   and save that into self._errors.
+            #
+            for re_string in errors:
+                self._errors.append(re.compile(re_string, re.IGNORECASE ) )
+                
+            return self._errors
 
     def getOptions( self ):
         '''

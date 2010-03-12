@@ -45,8 +45,12 @@ class svnUsers(baseGrepPlugin):
     def __init__(self):
         baseGrepPlugin.__init__(self)
         
-        # Add the regex
-        regex = '\$.*?: .*? .*? \d{4}[-/]\d{1,2}[-/]\d{1,2}'
+        # Add the regex to match something like this:
+        #
+        #   $Id: lzio.c,v 1.24 2003/03/20 16:00:56 roberto Exp $
+        #   $Id: file name, version, timestamp, creator Exp $
+        #
+        regex = '\$.{1,12}: .*? .*? \d{4}[-/]\d{1,2}[-/]\d{1,2}'
         regex += ' \d{1,2}:\d{1,2}:\d{1,2}.*? (.*?) (Exp )?\$'
         self._regex_list = [ re.compile(regex) ]
         
@@ -54,6 +58,8 @@ class svnUsers(baseGrepPlugin):
         '''
         Plugin entry point.
         
+        @parameter request: The HTTP request object.
+        @parameter response: The HTTP response object
         @return: None, all results are saved in the kb.
         '''
         if response.is_text_or_html():

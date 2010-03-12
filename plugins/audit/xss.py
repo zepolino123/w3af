@@ -19,6 +19,7 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
+from __future__ import with_statement
 
 import core.controllers.outputManager as om
 
@@ -123,11 +124,15 @@ class xss(baseAuditPlugin):
                     mutant.affected_browsers = affected_browsers
 
         for mutant in mutant_list:
+            
             # Only spawn a thread if the mutant has a modified variable
             # that has no reported bugs in the kb
-            if self._hasNoBug( 'xss', 'xss', mutant.getURL() , mutant.getVar() ):
+            if self._hasNoBug( 'xss' , 'xss', mutant.getURL() , mutant.getVar() ):
+                
                 targs = (mutant,)
-                self._tm.startFunction( target=self._sendMutant, args=targs, ownerObj=self )        
+                self._tm.startFunction( target=self._sendMutant, args=targs, ownerObj=self )
+                
+        self._tm.join( self )
     
     def _get_allowed_chars(self, mutant):
         '''
@@ -200,11 +205,10 @@ class xss(baseAuditPlugin):
                     mutant.affected_browsers = affected_browsers
 
         for mutant in mutant_list:
-            # Only spawn a thread if the mutant has a modified variable
-            # that has no reported bugs in the kb
-            if self._hasNoBug( 'xss', 'xss', mutant.getURL() , mutant.getVar() ):
-                targs = (mutant,)
-                self._tm.startFunction( target=self._sendMutant, args=targs, ownerObj=self )
+            targs = (mutant,)
+            self._tm.startFunction( target=self._sendMutant, args=targs, ownerObj=self )
+            
+        self._tm.join( self )
         
     def _get_xss_tests( self ):
         '''
@@ -214,6 +218,13 @@ class xss(baseAuditPlugin):
         Example: [ ('<>RANDOMIZE', ['Internet Explorer']) ]
         '''
         xss_tests = []
+        
+        #
+        #   TODO: with these xss tests, and the rest of the plugin as it is, w3af has false negatives
+        #    in the case in which we're already controlling something that is written inside <script></script>
+        #    tags.
+        #
+        
         
         # The number 2 is to inject in stored xss and not "letting the user know we are testing 
         # the site". And also please note that I don't have this: alert2('abc'); this "failure" will
@@ -247,6 +258,10 @@ class xss(baseAuditPlugin):
                 [browsers.INTERNET_EXPLORER_6, browsers.INTERNET_EXPLORER_7, browsers.NETSCAPE_IE]))
                 
         xss_tests.append(("<IFRAME SRC=\"javascript:alert('RANDOMIZE');\"></IFRAME>", [browsers.ALL, ]))
+        
+        # IE only
+        xss_tests.append(('</A/style="xss:exp/**/ression(alert(\'XSS\'))">',
+                [browsers.INTERNET_EXPLORER_6, browsers.INTERNET_EXPLORER_7]))
 
         # Javascript
         xss_tests.append(('jAvasCript:alert("RANDOMIZE");',
@@ -259,7 +274,7 @@ class xss(baseAuditPlugin):
                 [browsers.INTERNET_EXPLORER_6, browsers.NETSCAPE_IE]))
         
         # I need to identify everything I send to the web app
-        rnd_value = createRandAlNum()
+        rnd_value = createRandAlNum(4)
 
         xss_tests = [ (x[0].replace( "RANDOMIZE", rnd_value ), x[1]) for x in xss_tests ]
 
@@ -307,32 +322,45 @@ class xss(baseAuditPlugin):
         # Add to the stored XSS checking
         self._addToPermanentXssChecking( mutant, response.id )
         
-        # Init some variables
-        vulnerable = False
-        
-        if mutant.getModValue() in response:
-            # Ok, we MAY have found a xss. Let's remove some false positives.
-            if mutant.getModValue().lower().count( 'javas' ):
-                # I have to check if javascript was written inside a SRC parameter of html
-                # afaik it is the only place this type (<IMG SRC="javascript:alert('XSS');">)
-                # of xss works.
-                if self._checkHTML( mutant.getModValue(), response ):
-                    vulnerable = True
-            else:
-                # Not a javascript type of xss, it's a <SCRIPT>...</SCRIPT> type
-                vulnerable = True
-        
-        # Save it to the KB
-        if vulnerable:                
-            v = vuln.vuln( mutant )
-            v.setId( response.id )
-            v.setName( 'Cross site scripting vulnerability' )
-            v.setSeverity(severity.MEDIUM)
-            msg = 'Cross Site Scripting was found at: ' + mutant.foundAt() 
-            msg += ' This vulnerability affects ' + ','.join(mutant.affected_browsers)
-            v.setDesc( msg )
+        #
+        #   Only one thread at the time can enter here. This is because I want to report each
+        #   vulnerability only once, and by only adding the "if self._hasNoBug" statement, that
+        #   could not be done.
+        #
+        with self._plugin_lock:
+            
+            #
+            #   I will only report the XSS vulnerability once.
+            #
+            if self._hasNoBug( 'xss' , 'xss' , mutant.getURL() , mutant.getVar() ):
+                
+                #   Internal variable for the analysis process
+                vulnerable = False
+                
+                if mutant.getModValue() in response:
+                    # Ok, we MAY have found a xss. Let's remove some false positives.
+                    if mutant.getModValue().lower().count( 'javas' ):
+                        # I have to check if javascript was written inside a SRC parameter of html
+                        # afaik it is the only place this type (<IMG SRC="javascript:alert('XSS');">)
+                        # of xss works.
+                        if self._checkHTML( mutant.getModValue(), response ):
+                            vulnerable = True
+                    else:
+                        # Not a javascript type of xss, it's a <SCRIPT>...</SCRIPT> type
+                        vulnerable = True
+                
+                # Save it to the KB
+                if vulnerable:                
+                    v = vuln.vuln( mutant )
+                    v.setId( response.id )
+                    v.setName( 'Cross site scripting vulnerability' )
+                    v.setSeverity(severity.MEDIUM)
+                    msg = 'Cross Site Scripting was found at: ' + mutant.foundAt() 
+                    msg += ' This vulnerability affects ' + ','.join(mutant.affected_browsers)
+                    v.setDesc( msg )
+                    v.addToHighlight( mutant.getModValue() )
 
-            kb.kb.append( self, 'xss', v )
+                    kb.kb.append( self, 'xss', v )
     
     def _checkHTML( self, xss_string , response ):
         '''
@@ -409,6 +437,7 @@ class xss(baseAuditPlugin):
                         msg += ' URL: ' + mutant.getURL()+ '. ' + mutant.printModValue()
                         v.setDesc( msg )
                         v.setId( [response.id, mutant_response_id] )
+                        v.addToHighlight( mutant.getModValue() )
                         kb.kb.append( self, 'xss', v )
                         break
         

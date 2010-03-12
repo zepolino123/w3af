@@ -72,6 +72,8 @@ class phishingVector(baseAuditPlugin):
                 # that has no reported bugs in the kb
                 targs = (mutant,)
                 self._tm.startFunction( target=self._sendMutant, args=targs, ownerObj=self )
+                
+        self._tm.join( self )
             
     def _analyzeResult( self, mutant, response ):
         '''
@@ -92,13 +94,15 @@ class phishingVector(baseAuditPlugin):
                 # Houston we *may* have a problem ;)
                 regex = '<(iframe|frame).*?src=(\'|")?' + url + '.*?>'
                 frame_regex = re.compile(regex, re.DOTALL )
-                if frame_regex.search( html_body ):
+                match = frame_regex.search( html_body )
+                if match:
                     # Vuln vuln!
                     v = vuln.vuln( mutant )
                     v.setId( response.id )
                     v.setSeverity(severity.LOW)
                     v.setName( 'Phishing vector' )
                     v.setDesc( 'A phishing vector was found at: ' + mutant.foundAt() )
+                    v.addToHighlight( match.group(0) )
                     res.append( v )
         return res
         

@@ -33,7 +33,7 @@ import core.data.parsers.urlParser as urlParser
 
 from core.data.db.temp_persist import disk_list
 
-import core.data.kb.knowledgeBase as kb
+from core.controllers.coreHelpers.fingerprint_404 import is_404
 
 import re
 
@@ -69,7 +69,6 @@ class digitSum(baseDiscoveryPlugin):
         
         if self._first_time:
             self._first_time = False
-            self.is404 = kb.kb.getData( 'error404page', '404' )
         
         om.out.debug('digitSum is testing ' + fuzzableRequest.getURL() )
         original_response = self._urlOpener.GET( fuzzableRequest.getURL(), \
@@ -83,7 +82,9 @@ class digitSum(baseDiscoveryPlugin):
                     targs = ( fr, original_response)
                     self._tm.startFunction( target=self._do_request, args=targs , ownerObj=self )
             
+            # Wait for all threads to finish
             self._tm.join( self )
+            
             # I add myself so the next call to this plugin wont find me ...
             # Example: index1.html ---> index2.html --!!--> index1.html
             self._already_visited.append( fuzzableRequest.getURI() )
@@ -102,7 +103,7 @@ class digitSum(baseDiscoveryPlugin):
         except KeyboardInterrupt,e:
             raise e
         else:
-            if not self.is404( response ):
+            if not is_404( response ):
                 # We have two different cases:
                 # - If the URL's are different, then there is nothing to think about, we simply found
                 # something new!

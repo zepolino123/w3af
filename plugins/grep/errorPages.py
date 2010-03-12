@@ -85,7 +85,9 @@ class errorPages(baseGrepPlugin):
         mesg.append('<p>Active Server Pages</font> <font face="Arial" size=2>error \'ASP 0126\'</font>')
         
         # ASPX
-        mesg.append('<b> Description: </b>An unhandled exception occurred during the execution of the current web request')
+        msg = '<b> Description: </b>An unhandled exception occurred during the execution of the'
+        msg += ' current web request'
+        mesg.append( msg )
         
         # Struts
         mesg.append('] does not contain handler parameter named')
@@ -93,6 +95,7 @@ class errorPages(baseGrepPlugin):
         # PHP
         mesg.append('<b>Warning</b>: ')
         mesg.append('No row with the given identifier')
+        mesg.append('open_basedir restriction in effect')
         mesg.append("eval()'d code</b> on line <b>")
         mesg.append("Cannot execute a blank command in")
         mesg.append("Fatal error</b>:  preg_replace")
@@ -142,6 +145,9 @@ class errorPages(baseGrepPlugin):
     def grep(self, request, response):
         '''
         Plugin entry point, find the error pages and report them.
+        
+        @parameter request: The HTTP request object.
+        @parameter response: The HTTP response object
         @return: None
         '''
         if response.is_text_or_html():
@@ -152,13 +158,25 @@ class errorPages(baseGrepPlugin):
                 if msg in response:
                     
                     i = info.info()
-                    i.setName('Descriptive error page')
+                    
+                    # Set a nicer name for the vulnerability
+                    name = 'Descriptive error page - "'
+                    if len(msg) > 12:
+                        name += msg[:12] + '..."'
+                    else:
+                        name += msg + '"'
+                    i.setName( name )
+                    
                     i.setURL( response.getURL() )
                     i.setId( response.id )
-                    i.setName( 'Error page' )
                     i.setDesc( 'The URL: "' + response.getURL() + '" contains the descriptive error: "' + msg + '"' )
                     i.addToHighlight( msg ) 
                     kb.kb.append( self , 'errorPage' , i )
+                    
+                    # There is no need to report more than one info for the same result,
+                    # the user will read the info object and analyze it even if we report it
+                    # only once. If we report it twice, he'll get mad ;)
+                    break
                     
             # Now i'll check if I can get a version number from the error page
             # This is common in apache, tomcat, etc...

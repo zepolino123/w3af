@@ -47,14 +47,18 @@ class yahooSiteExplorer(baseDiscoveryPlugin):
     '''
     def __init__(self):
         baseDiscoveryPlugin.__init__(self)
+        
+        # Internal variables
         self._run = True
-        self._resultLimit = 300
+        
+        # User configured settings
+        self._result_limit = 300
         
     def discover(self, fuzzableRequest ):
         '''
         @parameter fuzzableRequest: A fuzzableRequest instance that contains (among other things) the URL to test.
         '''
-        self._fuzzableRequests = []
+        self._new_fuzzable_requests = []
         if not self._run:
             # This will remove the plugin from the discovery plugins to be runned.
             raise w3afRunOnce()
@@ -69,14 +73,18 @@ class yahooSiteExplorer(baseDiscoveryPlugin):
                 msg += domain + '" . Yahoo doesnt index private pages.'
                 raise w3afException(msg)
 
-            results = self._yse.getNResults( domain, self._resultLimit )
+            results = self._yse.search( domain, 0, self._result_limit )
                 
             for res in results:
+                #   Send the requests using threads:
                 targs = (res.URL,)
                 self._tm.startFunction( target=self._generate_fuzzable_requests, \
                                                     args=targs, ownerObj=self )
+            
+            # Wait for all threads to finish
             self._tm.join( self )
-        return self._fuzzableRequests
+            
+        return self._new_fuzzable_requests
     
     def _generate_fuzzable_requests( self, url ):
         '''
@@ -85,7 +93,7 @@ class yahooSiteExplorer(baseDiscoveryPlugin):
         @parameter url: The URL to GET.
         '''
         try:
-            response = self._urlOpener.GET( url, useCache=True, getSize=True )
+            response = self._urlOpener.GET( url, useCache=True)
         except KeyboardInterrupt, k:
             raise k
         except w3afException, w3:
@@ -95,14 +103,14 @@ class yahooSiteExplorer(baseDiscoveryPlugin):
             om.out.debug('URL Error while fetching page in yahooSiteExplorer, error: ' + str(w3) )
         else:
             fuzzReqs = self._createFuzzableRequests( response )
-            self._fuzzableRequests.extend( fuzzReqs )
+            self._new_fuzzable_requests.extend( fuzzReqs )
     
     def getOptions( self ):
         '''
         @return: A list of option objects for this plugin.
         '''
         d1 = 'Fetch the first "resultLimit" results from Yahoo search'
-        o1 = option('resultLimit', self._resultLimit, d1, 'integer')
+        o1 = option('resultLimit', self._result_limit, d1, 'integer')
                 
         ol = optionList()
         ol.add(o1)
@@ -116,7 +124,7 @@ class yahooSiteExplorer(baseDiscoveryPlugin):
         @parameter OptionList: A dictionary with the options for the plugin.
         @return: No value is returned.
         ''' 
-        self._resultLimit = optionsMap['resultLimit'].getValue()
+        self._result_limit = optionsMap['resultLimit'].getValue()
 
     def getPluginDeps( self ):
         '''

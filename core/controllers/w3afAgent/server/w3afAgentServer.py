@@ -20,15 +20,23 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
-import sys
-from socket import *
-from threading import Thread
-import thread
-import time
+if __name__ == '__main__':
+    import sys
+    import os
+    sys.path.append( os.getcwd() )
+    
+
 import core.controllers.outputManager as om
 from core.controllers.threads.w3afThread import w3afThread
 from core.controllers.w3afException import w3afException
 import core.data.kb.config as cf
+
+import sys
+from socket import *
+from threading import Thread
+import threading
+import time
+
 
 class connectionManager( w3afThread ):
     '''
@@ -41,7 +49,7 @@ class connectionManager( w3afThread ):
         self._connections = []
         self._port = port
         
-        self._cmLock = thread.allocate_lock()
+        self._cmLock = threading.RLock()
     
         self._keepRunning = True
         self._reportedConnection = False
@@ -66,8 +74,10 @@ class connectionManager( w3afThread ):
             self.sock.setsockopt( SOL_SOCKET, SO_REUSEADDR, 1)
             self.sock.bind(( cf.cf.getData( 'localAddress' ) , self._port ))
             self.sock.listen(5)
-        except:
-            raise w3afException('[w3afAgentServer] Failed to bind on port: ' + str(self._port) )
+        except Exception, e:
+            msg = '[w3afAgentServer] Failed to bind on port ' + str(self._port) + '. Exception:'
+            msg += '"' + str(e) +'".'
+            raise w3afException( msg )
             
         # loop !
         while self._keepRunning:
@@ -164,8 +174,12 @@ class tcprelay( w3afThread ):
         self._keepRunning = False
         s = socket( AF_INET, SOCK_STREAM )
         s.setsockopt( SOL_SOCKET, SO_REUSEADDR, 1)
-        s.connect( 'localhost', self._port )
-        s.close()
+        try:
+            s.connect( ('localhost', self._port) )
+            s.close()
+        except:
+            pass
+
         
         for pipe in self._pipes:
             pipe.stop()
@@ -239,3 +253,20 @@ class w3afAgentServer( w3afThread ):
     def isWorking( self ):
         return self._cm.isWorking()
     
+if __name__ == '__main__':
+    sys.path.append('../../../../')
+    
+    if len(sys.argv) != 3:
+        print
+        print 'w3afAgent usage:'
+        print 'python w3afAgentServer.py <bind-address> <bind-port>'
+        print
+        sys.exit(-1)
+        
+    cf.cf.save('localAddress', sys.argv[1])
+    agent = w3afAgentServer( listenPort=int(sys.argv[2]) )
+    
+    try:
+        agent.run()
+    except KeyboardInterrupt:
+        print 'bye.'

@@ -34,6 +34,10 @@ from core.data.url.handlers.gzip_handler import HTTPGzipProcessor
 from core.data.url.handlers.FastHTTPBasicAuthHandler import FastHTTPBasicAuthHandler
 import core.data.url.handlers.logHandler as logHandler
 import core.data.url.handlers.mangleHandler as mangleHandler
+from core.data.url.handlers.urlParameterHandler import URLParameterHandler
+
+from extlib.ntlm import ntlm
+import core.data.url.handlers.HTTPNtlmAuthHandler as HTTPNtlmAuthHandler
 
 from core.controllers.configurable import configurable
 
@@ -66,6 +70,8 @@ class urlOpenerSettings( configurable ):
         self._httpsHandler = None
         self._mangleHandler = None
         self._cookieHandler = None
+        self._urlParameterHandler = None
+        self._ntlmAuthHandler = None
         # Keep alive handlers are created on buildOpeners()
         
         # Openers
@@ -74,7 +80,15 @@ class urlOpenerSettings( configurable ):
 
         # Some internal variables
         self.needUpdate = True
-        self.HeaderList = [('User-Agent','w3af.sourceforge.net')]        
+        
+        #
+        #   I've found some websites that check the user-agent string, and don't allow you to access
+        #   if you don't have IE (mostly ASP.NET applications do this). So now we use the following
+        #   user-agent string in w3af:
+        user_agent = 'Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.1; Trident/4.0;'
+        user_agent += ' w3af.sf.net)'
+        #   which basically is the UA for IE8 running in Windows 7, plus our website :)
+        self.HeaderList = [('User-Agent', user_agent)]
         
         # By default, dont mangle any request/responses
         self._manglePlugins = []
@@ -83,7 +97,7 @@ class urlOpenerSettings( configurable ):
         if cf.cf.getData('timeout') == None:
             # This is the first time we are executed...
         
-            cf.cf.save('timeout', 10 )
+            cf.cf.save('timeout', 15 )
             self._socket.setdefaulttimeout(cf.cf.getData('timeout'))
             cf.cf.save('headersFile', '' )
             cf.cf.save('cookieJarFile', '' )
@@ -95,17 +109,20 @@ class urlOpenerSettings( configurable ):
             cf.cf.save('basicAuthPass', '' )
             cf.cf.save('basicAuthUser', '' )
             cf.cf.save('basicAuthDomain', '' )
+
+            cf.cf.save('ntlmAuthUser', '' )
+            cf.cf.save('ntlmAuthPass', '' )
             
             cf.cf.save('ignoreSessCookies', False )
             cf.cf.save('maxFileSize', 400000 )
             cf.cf.save('maxRetrys', 2 )
             
+            cf.cf.save('urlParameter', '' )
+            
             # 404 settings
-            cf.cf.save('404exceptions', []  )
+            cf.cf.save('never404', []  )
             cf.cf.save('always404', [] )
-            cf.cf.save('autodetect404', False )
-            cf.cf.save('byDirectory404', False )
-            cf.cf.save('byDirectoryAndExtension404', True)        
+            cf.cf.save('404string', '' )
     
     def setHeadersFile(self, HeadersFile ):
         '''
@@ -204,7 +221,10 @@ class urlOpenerSettings( configurable ):
         
     def setBasicAuth( self, url, username, password ):
         if url == '':
-            raise w3afException('To properly configure the basic authentication settings, you should also set the auth domain. If you are unsure, you can set it to the target domain name.')
+            msg = 'To properly configure the basic authentication settings, you'
+            msg += ' should also set the auth domain. If you are unsure, you can'
+            msg += ' set it to the target domain name.'
+            raise w3afException( msg )
         
         cf.cf.save('basicAuthPass',  password)
         cf.cf.save('basicAuthUser', username )
@@ -231,11 +251,38 @@ class urlOpenerSettings( configurable ):
         self._basicAuthStr = scheme + '://' + username + ':' + password + '@' + domain + '/'
         
         self.needUpdate = True
-    
+
     def getBasicAuth( self ):
         scheme, domain, path, x1, x2, x3 = self._uparse.urlparse( cf.cf.getData('basicAuthDomain') )
-        return scheme + '://' + cf.cf.getData('basicAuthUser') + ':' + cf.cf.getData('basicAuthPass') + '@' + domain + '/'
+        res = scheme + '://' + cf.cf.getData('basicAuthUser') + ':' 
+        res += cf.cf.getData('basicAuthPass') + '@' + domain + '/'
+        return res
+    
+    def setNtlmAuth( self, url, username, password ):
+
+        cf.cf.save('ntlmAuthPass',  password)
+        cf.cf.save('ntlmAuthUser', username )
         
+        om.out.debug( 'Called SetNtlmAuth')
+
+        if not hasattr( self, '_password_mgr' ):
+            # create a new password manager
+            self._password_mgr = self._ulib.HTTPPasswordMgrWithDefaultRealm()
+
+        # add the username and password
+        if url.startswith('http://') or url.startswith('https://'):
+            scheme, domain, path, x1, x2, x3 = self._uparse.urlparse( url )
+            self._password_mgr.add_password(None, url, username, password)
+
+        else:
+            domain = url
+            scheme = 'http://'
+            self._password_mgr.add_password(None, url, username, password)
+
+        self._ntlmAuthHandler = HTTPNtlmAuthHandler.HTTPNtlmAuthHandler(self._password_mgr)
+   
+        self.needUpdate = True
+                        
     def buildOpeners(self):
         om.out.debug( 'Called buildOpeners')
         
@@ -250,11 +297,11 @@ class urlOpenerSettings( configurable ):
         # Prepare the list of handlers
         handlers = []
         for handler in [ self._proxyHandler, self._basicAuthHandler,  \
-                                self._cookieHandler, \
+                                self._ntlmAuthHandler, self._cookieHandler, \
                                 MultipartPostHandler.MultipartPostHandler, \
                                 self._kAHTTP, self._kAHTTPS, logHandler.logHandler, \
                                 mangleHandler.mangleHandler( self._manglePlugins ), \
-                                HTTPGzipProcessor ]:
+                                HTTPGzipProcessor, self._urlParameterHandler ]:
             if handler:
                 handlers.append(handler)
         
@@ -303,6 +350,17 @@ class urlOpenerSettings( configurable ):
     def getMaxRetrys( self ):
         return cf.cf.getData('maxRetrys')
     
+    def setUrlParameter ( self, urlParam ):
+        # Do some input cleanup/validation
+        urlParam = urlParam.replace("'", "")
+        urlParam = urlParam.replace("\"", "")
+        urlParam = urlParam.lstrip().rstrip()
+        if urlParam != '':
+            cf.cf.save('urlParameter', urlParam)
+            self._urlParameterHandler = URLParameterHandler(urlParam)
+    
+    def getUrlParameter ( self ):
+        return cf.cf.getData('urlParameter')
 
     def getOptions( self ):
         '''
@@ -322,55 +380,63 @@ class urlOpenerSettings( configurable ):
         o4 = option('basicAuthPass', cf.cf.getData('basicAuthPass'), d4, 'string', tabid='Basic HTTP Authentication')
 
         d5 = 'Set the basic authentication domain for HTTP requests'
-        h5 = 'This configures on which requests to send the authentication settings configured in basicAuthPass and basicAuthUser. If you are unsure, just set it to the target domain name.'
+        h5 = 'This configures on which requests to send the authentication settings configured'
+        h5 += ' in basicAuthPass and basicAuthUser. If you are unsure, just set it to the'
+        h5 += ' target domain name.'
         o5 = option('basicAuthDomain', cf.cf.getData('basicAuthDomain'), d5, 'string', help=h5, tabid='Basic HTTP Authentication')
 
-        d6 = 'Set the cookiejar filename.'
-        h6 = 'The cookiejar file must be in mozilla format'
-        o6 = option('cookieJarFile', cf.cf.getData('cookieJarFile'), d6, 'string', help=h6, tabid='Cookies')
+        d6= 'Set the NTLM authentication username for HTTP requests'
+        o6 = option('ntlmAuthUser', cf.cf.getData('ntlmAuthUser'), d6, 'string', tabid='NTLM Authentication')
 
-        d7 = 'Ignore session cookies'
-        h7 = 'If set to True, w3af will ignore all session cookies sent by the web application.'
-        o7 = option('ignoreSessCookies', cf.cf.getData('ignoreSessCookies'), d7, 'boolean', help=h7, tabid='Cookies')
+        d7 = 'Set the NTLM authentication password for HTTP requests'
+        o7 = option('ntlmAuthPass', cf.cf.getData('ntlmAuthPass'), d7, 'string', tabid='NTLM Authentication')
+                
+        d8 = 'Set the cookiejar filename.'
+        h8 = 'The cookiejar file must be in mozilla format.'
+        h8 += ' An example of a valid mozilla cookie jar file follows:\n\n'
+        h8 += '# Netscape HTTP Cookie File\n'
+        h8 += '.domain.com    TRUE   /       FALSE   1731510001      user    admin\n\n'
+        h8 += 'The comment seems to be mandatory. Take special attention to spaces.'
+        o8 = option('cookieJarFile', cf.cf.getData('cookieJarFile'), d8, 'string', help=h8, tabid='Cookies')
+
+        d9 = 'Ignore session cookies'
+        h9 = 'If set to True, w3af will ignore all session cookies sent by the web application.'
+        o9 = option('ignoreSessCookies', cf.cf.getData('ignoreSessCookies'), d9, 'boolean', help=h9, tabid='Cookies')
        
-        d8 = 'Proxy TCP port'
-        h8 = 'TCP port for the remote proxy server to use. On windows systems, if you left this setting blank '
-        h8 += 'w3af will use the system settings that are configured in Internet Explorer.'
-        o8 = option('proxyPort', cf.cf.getData('proxyPort'), d8, 'integer', help=h8, tabid='Outgoing proxy')
+        d10 = 'Proxy TCP port'
+        h10 = 'TCP port for the remote proxy server to use. On Microsoft Windows systems, w3af'
+        h10 += ' will use the proxy settings that are configured in Internet Explorer.'
+        o10 = option('proxyPort', cf.cf.getData('proxyPort'), d10, 'integer', help=h10, tabid='Outgoing proxy')
 
-        d9 = 'Proxy IP address'
-        h9 = 'IP address for the remote proxy server to use. On windows systems, if you left this setting blank '
-        h9 += 'w3af will use the system settings that are configured in Internet Explorer.'
-        o9 = option('proxyAddress', cf.cf.getData('proxyAddress'), d9, 'string', help=h9, tabid='Outgoing proxy')
+        d11 = 'Proxy IP address'
+        h11 = 'IP address for the remote proxy server to use. On Microsoft Windows systems, w3af'
+        h11 += ' will use the proxy settings that are configured in Internet Explorer.'
+        o11 = option('proxyAddress', cf.cf.getData('proxyAddress'), d11, 'string', help=d11, tabid='Outgoing proxy')
 
-        d10 = 'User Agent header'
-        h10 = 'User Agent header to send in request.'
-        o10 = option('userAgent', cf.cf.getData('User-Agent'), d10, 'string', help=h10, tabid='Misc')
+        d12 = 'User Agent header'
+        h12 = 'User Agent header to send in request.'
+        o12 = option('userAgent', cf.cf.getData('User-Agent'), d12, 'string', help=h12, tabid='Misc')
 
-        d11 = 'Maximum file size'
-        h11 = 'Indicates the maximum file size (in bytes) that w3af will GET/POST.'
-        o11 = option('maxFileSize', cf.cf.getData('maxFileSize'), d11, 'integer', help=h11, tabid='Misc')
+        d13 = 'Maximum file size'
+        h13 = 'Indicates the maximum file size (in bytes) that w3af will GET/POST.'
+        o13 = option('maxFileSize', cf.cf.getData('maxFileSize'), d13, 'integer', help=h13, tabid='Misc')
 
-        d12 = 'Maximum number of retries'
-        h12 = 'Indicates the maximum number of retries when requesting an URL.'
-        o12 = option('maxRetrys', cf.cf.getData('maxRetrys'), d12, 'integer', help=h12, tabid='Misc')
+        d14 = 'Maximum number of retries'
+        h14 = 'Indicates the maximum number of retries when requesting an URL.'
+        o14 = option('maxRetrys', cf.cf.getData('maxRetrys'), d14, 'integer', help=h14, tabid='Misc')
 
-        d13 = 'A comma separated list that determines what URLs will ALWAYS be detected as 404 pages.'
-        o13 = option('always404', cf.cf.getData('always404'), d13, 'list', tabid='404 settings')
+        d15 = 'A comma separated list that determines what URLs will ALWAYS be detected as 404 pages.'
+        o15 = option('always404', cf.cf.getData('always404'), d15, 'list', tabid='404 settings')
 
-        d14 = 'A comma separated list that determines what URLs will NEVER be detected as 404 pages.'
-        o14 = option('404exceptions', cf.cf.getData('404exceptions'), d14, 'list', tabid='404 settings')
+        d16 = 'A comma separated list that determines what URLs will NEVER be detected as 404 pages.'
+        o16 = option('never404', cf.cf.getData('never404'), d16, 'list', tabid='404 settings')
 
-        d15 = 'Perform 404 page autodetection.'
-        o15 = option('autodetect404', cf.cf.getData('autodetect404'), d15, 'boolean', tabid='404 settings')
+        d17 = 'If this string is found in an HTTP response, then it will be tagged as a 404.'
+        o17 = option('404string', cf.cf.getData('404string'), d17, 'string', tabid='404 settings')
 
-        d16 = 'Perform 404 page detection based on the knowledge found in the directory of the file'
-        h16 = 'Only used when autoDetect404 is False.'
-        o16 = option('byDirectory404', cf.cf.getData('byDirectory404'), d16, 'boolean', tabid='404 settings')
-
-        d17 = 'Perform 404 page detection based on the knowledge found in the directory of the file AND the file extension'
-        h17 = 'Only used when autoDetect404 and byDirectory404 are False.'
-        o17 = option('byDirectoryAndExtension404', cf.cf.getData('byDirectoryAndExtension404'), d17, 'boolean', tabid='404 settings')
+        d18 = 'Append the given URL parameter to every accessed URL.'
+        d18 += ' Example: http://www.foobar.com/index.jsp;<parameter>?id=2'
+        o18 = option('urlParameter', cf.cf.getData('urlParameter'), d18, 'string')    
 
         ol = optionList()
         ol.add(o1)
@@ -390,6 +456,7 @@ class urlOpenerSettings( configurable ):
         ol.add(o15)
         ol.add(o16)
         ol.add(o17)
+        ol.add(o18)
         return ol
 
     def setOptions( self, optionsMap ):
@@ -406,7 +473,9 @@ class urlOpenerSettings( configurable ):
         if optionsMap['basicAuthDomain'].getValue() != cf.cf.getData('basicAuthDomain') or\
         optionsMap['basicAuthUser'].getValue() != cf.cf.getData('basicAuthUser') or\
         optionsMap['basicAuthPass'].getValue() != cf.cf.getData('basicAuthPass'):
-            self.setBasicAuth( optionsMap['basicAuthDomain'].getValue(), optionsMap['basicAuthUser'].getValue(), optionsMap['basicAuthPass'].getValue()  )
+            self.setBasicAuth( optionsMap['basicAuthDomain'].getValue(),
+                                        optionsMap['basicAuthUser'].getValue(),
+                                        optionsMap['basicAuthPass'].getValue()  )
 
         # Only apply changes if they exist
         if optionsMap['proxyAddress'].getValue() != cf.cf.getData('proxyAddress') or\
@@ -421,12 +490,12 @@ class urlOpenerSettings( configurable ):
         self.setMaxFileSize( optionsMap['maxFileSize'].getValue() )
         self.setMaxRetrys( optionsMap['maxRetrys'].getValue() )
         
+        self.setUrlParameter( optionsMap['urlParameter'].getValue() )
+        
         # 404 settings are saved here
-        cf.cf.save('404exceptions', optionsMap['404exceptions'].getValue() )
+        cf.cf.save('never404', optionsMap['never404'].getValue() )
         cf.cf.save('always404', optionsMap['always404'].getValue() )
-        cf.cf.save('autodetect404', optionsMap['autodetect404'].getValue() )
-        cf.cf.save('byDirectory404', optionsMap['byDirectory404'].getValue() )
-        cf.cf.save('byDirectoryAndExtension404', optionsMap['byDirectoryAndExtension404'].getValue() )
+        cf.cf.save('404string', optionsMap['404string'].getValue() )
         
     def getDesc( self ):
         return 'This section is used to configure URL settings that affect the core and all plugins.'

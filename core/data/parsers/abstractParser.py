@@ -69,6 +69,7 @@ class abstractParser:
         if documentString.find('@') != -1:
             documentString = re.sub( '[^\w@\\.]', ' ', documentString )
             
+            # NOTE: emailRegex is also used in pks search engine.
             # Now we have a clean documentString; and we can match the mail addresses!
             emailRegex = '([A-Z0-9\._%-]{1,45}@([A-Z0-9\.-]{1,45}\.){1,10}[A-Z]{2,4})'
             for email, domain in re.findall(emailRegex, documentString,  re.IGNORECASE):
@@ -85,7 +86,7 @@ class abstractParser:
         @return: None. The findings are stored in self._re_URLs.
         '''
         #url_regex = '((http|https):[A-Za-z0-9/](([A-Za-z0-9$_.+!*(),;/?:@&~=-])|%[A-Fa-f0-9]{2})+(#([a-zA-Z0-9][a-zA-Z0-9$_.+!*(),;/?:@&~=%-]*))?)'
-        url_regex = '((http|https)://([\w\./]*?)/[^ \n\r\t"<>]*)'
+        url_regex = '((http|https)://([a-zA-Z0-9_\-\./]*?)/[^ \n\r\t"\'<>]*)'
         for url in re.findall(url_regex, httpResponse.getBody() ):
             # This try is here because the _decode_URL method raises an exception
             # whenever it fails to decode a url.
@@ -96,28 +97,45 @@ class abstractParser:
             else:
                 self._re_URLs.append(decoded_url)
         
+        #
         # Now detect some relative URL's ( also using regexs )
+        #
         def find_relative( doc ):
             res = []
-            # TODO: Also matches //foo/bar.txt , which is bad
-            # I'm removing those matches manually below
-            relative_regex = re.compile('[A-Z0-9a-z%_~\./]+([\/][A-Z0-9a-z%_~\.]+)+\.[A-Za-z0-9]{1,5}(((\?)([a-zA-Z0-9]*=\w*)){1}((&)([a-zA-Z0-9]*=\w*))*)?')
             
-            while True:
-                regex_match = relative_regex.search( doc )
-                if not regex_match:
-                    break
-                else:
-                    s, e = regex_match.span()
-                    match_string = doc[s:e]
-                    if not match_string.startswith('//'):
-                        domainPath = urlParser.getDomainPath(httpResponse.getURL())
-                        url = urlParser.urlJoin( domainPath , match_string )
-                        url = self._decode_URL(url, self._encoding)
-                        res.append( url )
+            # TODO: Also matches //foo/bar.txt and http://host.tld/foo/bar.txt
+            # I'm removing those matches manually below
+            regex = '((:?[/]{1,2}[A-Z0-9a-z%_\-~\.]+)+\.[A-Za-z0-9]{2,4}(((\?)([a-zA-Z0-9]*=\w*)){1}((&)([a-zA-Z0-9]*=\w*))*)?)'
+            relative_regex = re.compile( regex )
+            
+            for match_tuple in relative_regex.findall(doc):
+                
+                match_string = match_tuple[0]
+                
+                #
+                #   And now I filter out some of the common false positives
+                #
+                if match_string.startswith('//'):
+                    continue
                     
-                    # continue
-                    doc = doc[e:]
+                if match_string.startswith('://'):
+                    continue
+
+                if re.match('HTTP/\d\.\d', match_string):
+                    continue
+                
+                # Matches "PHP/5.2.4-2ubuntu5.7" , "Apache/2.2.8", and "mod_python/3.3.1"
+                if re.match('.*?/\d\.\d\.\d', match_string):
+                    continue
+                #
+                #   Filter finished.
+                #
+                    
+                domainPath = urlParser.getDomainPath(httpResponse.getURL())
+                url = urlParser.urlJoin( domainPath , match_string )
+                url = self._decode_URL(url, self._encoding)
+                res.append( url )
+            
             return res
         
         relative_URLs = find_relative( httpResponse.getBody() )
@@ -125,12 +143,6 @@ class abstractParser:
         self._re_URLs = [ urlParser.normalizeURL(i) for i in self._re_URLs ]
         self._re_URLs = list(set(self._re_URLs))
         
-        '''
-        om.out.debug('Relative URLs found using regex:')
-        for u in self._re_URLs:
-            if '8_' in u:
-                om.out.information('! ' + u )
-        '''    
 
     def getEmails( self, domain=None ):
         '''

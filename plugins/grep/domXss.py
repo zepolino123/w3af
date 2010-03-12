@@ -34,6 +34,7 @@ import core.data.constants.severity as severity
 
 import re
 
+
 class domXss(baseGrepPlugin):
     '''
     Grep every page for traces of DOM XSS.
@@ -90,6 +91,8 @@ class domXss(baseGrepPlugin):
     def grep(self, request, response):
         '''
         Plugin entry point, search for the DOM XSS vulns.
+        @parameter request: The HTTP request object.
+        @parameter response: The HTTP response object
         @return: None
         '''
         if response.is_text_or_html():

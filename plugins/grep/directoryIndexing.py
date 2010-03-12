@@ -58,15 +58,17 @@ class directoryIndexing(baseGrepPlugin):
     def grep(self, request, response):
         '''
         Plugin entry point, search for directory indexing.
+        @parameter request: The HTTP request object.
+        @parameter response: The HTTP response object
         @return: None
         '''
-        if response.getURL() in self._already_visited:
+        if urlParser.getDomainPath(response.getURL()) in self._already_visited:
             # Already worked for this URL, no reason to work twice
             return
         
         else:
             # Save it,
-            self._already_visited.append( response.getURL() )
+            self._already_visited.append( urlParser.getDomainPath(response.getURL()) )
             
             # Work,
             if response.is_text_or_html():
@@ -111,7 +113,7 @@ class directoryIndexing(baseGrepPlugin):
         dir_indexing_regexes.append("<TITLE>Folder Listing.")
         dir_indexing_regexes.append('<table summary="Directory Listing" ')
         dir_indexing_regexes.append("- Browsing directory ")
-        dir_indexing_regexes.append('">\\[To Parent Directory\\]</a><br><br>') # IIS 6.0
+        dir_indexing_regexes.append('">\\[To Parent Directory\\]</a><br><br>') # IIS 6.0 and 7.0
         dir_indexing_regexes.append('<A HREF=".*?">.*?</A><br></pre><hr></body></html>') # IIS 5.0
         return dir_indexing_regexes
         

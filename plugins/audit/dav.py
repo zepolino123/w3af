@@ -34,6 +34,7 @@ import core.data.kb.info as info
 import core.data.constants.severity as severity
 
 from core.data.db.temp_persist import disk_list
+from core.controllers.coreHelpers.fingerprint_404 import is_404
 
 from core.controllers.w3afException import w3afException
 import core.data.parsers.urlParser as urlParser
@@ -51,7 +52,6 @@ class dav(baseAuditPlugin):
         baseAuditPlugin.__init__(self)
         
         # Internal variables
-        self.is_404 = None
         self._already_tested_dirs = disk_list()
 
     def audit(self, freq ):
@@ -60,10 +60,6 @@ class dav(baseAuditPlugin):
         
         @param freq: A fuzzableRequest
         '''
-        # Init...
-        if self.is_404 == None:
-            self.is_404 = kb.kb.getData( 'error404page', '404' )
-
         # Start
         domain_path = urlParser.getDomainPath( freq.getURL() )
         if domain_path not in self._already_tested_dirs:
@@ -168,7 +164,7 @@ class dav(baseAuditPlugin):
         elif put_response.getCode() == 403:
             i = info.info()
             i.setURL( url )
-            i.setId( res.id )
+            i.setId( [put_response.id, res.id] )
             i.setName( 'DAV insufficient privileges' )
             i.setMethod( 'PUT' )
             msg = 'DAV seems to be correctly configured and allowing you to use the PUT method'

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Project SYSTEM "Project-4.2.dtd">
 <!-- eric4 project file for project w3af -->
-<!-- Saved: 2009-07-24, 12:48:50 -->
-<!-- Copyright (C) 2009 Andres Riancho, andres.riancho@gmail.com -->
+<!-- Saved: 2010-02-14, 23:50:32 -->
+<!-- Copyright (C) 2010 Andres Riancho, andres.riancho@gmail.com -->
 <Project version="4.2">
   <ProgLanguage mixed="0">Python</ProgLanguage>
   <ProjectType>Console</ProjectType>
@@ -592,11 +592,6 @@
     <Source>
       <Dir>plugins</Dir>
       <Dir>discovery</Dir>
-      <Name>crossDomain.py</Name>
-    </Source>
-    <Source>
-      <Dir>plugins</Dir>
-      <Dir>discovery</Dir>
       <Name>phishtank.py</Name>
     </Source>
     <Source>
@@ -698,11 +693,6 @@
       <Dir>plugins</Dir>
       <Dir>discovery</Dir>
       <Name>fingerPKS.py</Name>
-    </Source>
-    <Source>
-      <Dir>plugins</Dir>
-      <Dir>discovery</Dir>
-      <Name>googleSets.py</Name>
     </Source>
     <Source>
       <Dir>plugins</Dir>
@@ -1449,10 +1439,6 @@
     <Source>
       <Dir>scripts</Dir>
       <Name>script-halberd.w3af</Name>
-    </Source>
-    <Source>
-      <Dir>scripts</Dir>
-      <Name>script-headers.w3af</Name>
     </Source>
     <Source>
       <Dir>scripts</Dir>
@@ -2230,12 +2216,6 @@
       <Dir>core</Dir>
       <Dir>controllers</Dir>
       <Dir>coreHelpers</Dir>
-      <Name>fingerprint404Page.py</Name>
-    </Source>
-    <Source>
-      <Dir>core</Dir>
-      <Dir>controllers</Dir>
-      <Dir>coreHelpers</Dir>
       <Name>__init__.py</Name>
     </Source>
     <Source>
@@ -2315,12 +2295,6 @@
       <Dir>data</Dir>
       <Dir>db</Dir>
       <Name>__init__.py</Name>
-    </Source>
-    <Source>
-      <Dir>core</Dir>
-      <Dir>data</Dir>
-      <Dir>db</Dir>
-      <Name>reqResDBHandler.py</Name>
     </Source>
     <Source>
       <Dir>core</Dir>
@@ -2470,12 +2444,6 @@
       <Dir>data</Dir>
       <Dir>parsers</Dir>
       <Name>encode_decode.py</Name>
-    </Source>
-    <Source>
-      <Dir>core</Dir>
-      <Dir>data</Dir>
-      <Dir>db</Dir>
-      <Name>persist.py</Name>
     </Source>
     <Source>
       <Dir>core</Dir>
@@ -3499,10 +3467,173 @@
       <Name>temp_persist.py</Name>
     </Source>
     <Source>
+      <Dir>plugins</Dir>
+      <Dir>discovery</Dir>
+      <Name>wordpress_fingerprint.py</Name>
+    </Source>
+    <Source>
+      <Dir>plugins</Dir>
+      <Dir>discovery</Dir>
+      <Name>ria_enumerator.py</Name>
+    </Source>
+    <Source>
+      <Dir>core</Dir>
+      <Dir>data</Dir>
+      <Dir>url</Dir>
+      <Dir>handlers</Dir>
+      <Name>HTTPNtlmAuthHandler.py</Name>
+    </Source>
+    <Source>
+      <Dir>core</Dir>
+      <Dir>data</Dir>
+      <Dir>url</Dir>
+      <Dir>handlers</Dir>
+      <Name>urlParameterHandler.py</Name>
+    </Source>
+    <Source>
+      <Dir>plugins</Dir>
+      <Dir>discovery</Dir>
+      <Name>dir_bruter.py</Name>
+    </Source>
+    <Source>
+      <Dir>core</Dir>
+      <Dir>data</Dir>
+      <Dir>export</Dir>
+      <Name>__init__.py</Name>
+    </Source>
+    <Source>
+      <Dir>core</Dir>
+      <Dir>data</Dir>
+      <Dir>export</Dir>
+      <Name>ajax_export.py</Name>
+    </Source>
+    <Source>
+      <Dir>core</Dir>
+      <Dir>data</Dir>
+      <Dir>export</Dir>
+      <Name>python_export.py</Name>
+    </Source>
+    <Source>
+      <Dir>core</Dir>
+      <Dir>data</Dir>
+      <Dir>export</Dir>
+      <Name>ruby_export.py</Name>
+    </Source>
+    <Source>
+      <Dir>core</Dir>
+      <Dir>ui</Dir>
+      <Dir>gtkUi</Dir>
+      <Name>export_request.py</Name>
+    </Source>
+    <Source>
+      <Dir>plugins</Dir>
+      <Dir>discovery</Dir>
+      <Name>favicon_identification.py</Name>
+    </Source>
+    <Source>
       <Dir>core</Dir>
       <Dir>data</Dir>
       <Dir>parsers</Dir>
       <Name>httpRequestParser.py</Name>
+    </Source>
+    <Source>
+      <Dir>plugins</Dir>
+      <Dir>discovery</Dir>
+      <Dir>favicon</Dir>
+      <Name>favicon-md5</Name>
+    </Source>
+    <Source>
+      <Dir>plugins</Dir>
+      <Dir>discovery</Dir>
+      <Name>xssedDotCom.py</Name>
+    </Source>
+    <Source>
+      <Dir>plugins</Dir>
+      <Dir>audit</Dir>
+      <Name>redos.py</Name>
+    </Source>
+    <Source>
+      <Dir>plugins</Dir>
+      <Dir>discovery</Dir>
+      <Name>fingerprint_os.py</Name>
+    </Source>
+    <Source>
+      <Dir>plugins</Dir>
+      <Dir>attack</Dir>
+      <Dir>rfiProxy</Dir>
+      <Name>rfip.txt</Name>
+    </Source>
+    <Source>
+      <Dir>core</Dir>
+      <Dir>controllers</Dir>
+      <Dir>coreHelpers</Dir>
+      <Name>fingerprint_404.py</Name>
+    </Source>
+    <Source>
+      <Dir>core</Dir>
+      <Dir>data</Dir>
+      <Dir>db</Dir>
+      <Name>db.py</Name>
+    </Source>
+    <Source>
+      <Dir>core</Dir>
+      <Dir>data</Dir>
+      <Dir>db</Dir>
+      <Name>history.py</Name>
+    </Source>
+    <Source>
+      <Dir>core</Dir>
+      <Dir>ui</Dir>
+      <Dir>consoleUi</Dir>
+      <Name>help.xml</Name>
+    </Source>
+    <Source>
+      <Dir>core</Dir>
+      <Dir>controllers</Dir>
+      <Dir>misc</Dir>
+      <Name>get_local_ip.py</Name>
+    </Source>
+    <Source>
+      <Dir>core</Dir>
+      <Dir>controllers</Dir>
+      <Dir>misc</Dir>
+      <Name>get_net_iface.py</Name>
+    </Source>
+    <Source>
+      <Dir>core</Dir>
+      <Dir>controllers</Dir>
+      <Dir>misc</Dir>
+      <Name>number_generator.py</Name>
+    </Source>
+    <Source>
+      <Dir>core</Dir>
+      <Dir>controllers</Dir>
+      <Dir>misc</Dir>
+      <Name>temp_dir.py</Name>
+    </Source>
+    <Source>
+      <Dir>core</Dir>
+      <Dir>controllers</Dir>
+      <Dir>misc</Dir>
+      <Name>timeout_function.py</Name>
+    </Source>
+    <Source>
+      <Dir>core</Dir>
+      <Dir>data</Dir>
+      <Dir>request</Dir>
+      <Name>variant_identification.py</Name>
+    </Source>
+    <Source>
+      <Dir>core</Dir>
+      <Dir>data</Dir>
+      <Dir>request</Dir>
+      <Name>xmlrpcRequest.py</Name>
+    </Source>
+    <Source>
+      <Dir>core</Dir>
+      <Dir>data</Dir>
+      <Dir>parsers</Dir>
+      <Name>xmlrpc.py</Name>
     </Source>
   </Sources>
   <Forms>

@@ -25,6 +25,7 @@ from core.controllers.basePlugin.basePlugin import basePlugin
 import core.controllers.outputManager as om
 import core.data.kb.knowledgeBase as kb
 import core.data.parsers.urlParser as urlParser
+
 import copy
 
 
@@ -56,7 +57,12 @@ class baseAuditPlugin(basePlugin):
         # These lines were added because we need to return the new vulnerabilities found by this
         # audit plugin, and I don't want to change the code of EVERY plugin!
         before_vuln_dict = kb.kb.getData( self )
+        
         self.audit( fuzzable_request_copy )
+        
+        # The join is here just in case, because the audit method of each plugin should call it
+        self._tm.join( self )
+        
         after_vuln_dict = kb.kb.getData( self )
         
         # Now I get the difference between them:
@@ -96,21 +102,26 @@ class baseAuditPlugin(basePlugin):
         '''
         raise w3afException('Plugin is not implementing required method _analyzeResult' )
 
-    def _hasNoBug( self, plugin, kbVar, uri, variable ):
+    def _hasNoBug( self, plugin_name, kb_name, uri, variable ):
         '''
-        Verify if a variable name has a reported sql injection vuln ( in the kb ).
+        Verify if a (uri, variable) has a reported vulnerability in the kb or not.
+        
+        @parameter plugin_name: The name of the plugin that supposingly reported the vulnerability
+        @parameter kb_name: The name of the variable in the kb, where the vulnerability was saved.
+        
         @parameter uri: The uri where we should search for bugs.
         @parameter variable: The variable that is queryed for bugs.
-        @return: True if the variable HAS a reported bug.
+        
+        @return: True if the (uri, variable) has NO vulnerabilities reported.
         '''
-        vuln = kb.kb.getData( plugin , kbVar )
+        vuln_list = kb.kb.getData( plugin_name , kb_name )
         url = urlParser.uri2url( uri )
-        res = True
-        for v in vuln:
-            if v.getVar() == variable and urlParser.uri2url( v.getURL() ) == url:
-                res = False
-                break
-        return res
+        
+        for vuln in vuln_list:
+            if vuln.getVar() == variable and urlParser.uri2url( vuln.getURL() ) == url:
+                return False
+                
+        return True
         
     def getType( self ):
         return 'audit'

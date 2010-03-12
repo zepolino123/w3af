@@ -184,6 +184,8 @@ class findvhost(baseDiscoveryPlugin):
                     kb.kb.append( self, 'findvhost', i )
                     om.out.information( i.getDesc() )
         
+        res = [ r for r in res if r != '']
+        
         return res 
     
     def _can_resolve_domains(self):
@@ -240,8 +242,9 @@ class findvhost(baseDiscoveryPlugin):
         '''
         res = []
         
-        common_virtual_hosts = ['intranet', 'intra', 'extranet', 'extra' , 'test' , 
-        'old' , 'new' , 'admin', 'webmail', 'services', 'console', 'apps', 'mail', 'corporate' ]
+        common_virtual_hosts = ['intranet', 'intra', 'extranet', 'extra' , 'test' , 'test1'
+        'old' , 'new' , 'admin', 'adm', 'webmail', 'services', 'console', 'apps', 'mail', 
+        'corporate', 'ws', 'webservice', 'private', 'secure', 'safe', 'hidden', 'public' ]
         
         for subdomain in common_virtual_hosts:
             # intranet

@@ -24,6 +24,7 @@ from core.controllers.basePlugin.basePlugin import basePlugin
 from core.controllers.w3afException import w3afException
 from core.data.request.frFactory import createFuzzableRequests
 
+
 class baseDiscoveryPlugin(basePlugin):
     '''
     This is the base class for discovery plugins, all discovery plugins should inherit from it 
@@ -58,8 +59,8 @@ class baseDiscoveryPlugin(basePlugin):
         '''
         raise w3afException('Plugin is not implementing required method discover' )
 
-    def _createFuzzableRequests( self, httpResponse, addSelf=True ):
-        return createFuzzableRequests( httpResponse, addSelf )
+    def _createFuzzableRequests( self, httpResponse, request=None, add_self=True ):
+        return createFuzzableRequests( httpResponse, request, add_self )
     
     def getType( self ):
         return 'discovery'

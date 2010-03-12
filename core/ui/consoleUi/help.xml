@@ -35,6 +35,7 @@ This is the central help file for the consoleUi
                 <head>List and use scan profiles.</head>
                 <body>Scan profiles are predefined set of plugins and customized configurations.</body>
             </item>
+            <item name="cleanup">Cleanup before starting a new scan.  </item>
         </category>
         <category name="config">
             <item name="http-settings">Configure the HTTP settings of the framework.</item>
@@ -85,7 +86,7 @@ By default all plugins are listed.
             <item name="${TYPE}">
                 <head>View, configure and enable ${TYPE} plugins</head>
                 <body><![CDATA[Syntax: ${TYPE} [config plugin | plugin1[,plugin2 ... pluginN] | desc plugin]
-Example: ${TYPE}
+Example1: ${TYPE}
 Result: All enabled ${TYPE} plugins are listed.
 
 Example2: ${TYPE} ${PLUGIN1},${PLUGIN2}
@@ -97,8 +98,12 @@ Result: Enters to the plugin configuration menu.
 Example4: ${TYPE} all,!${PLUGIN2}
 Result: All ${TYPE} plugins are configured to run except ${PLUGIN2}.
 
-Example1: ${TYPE} desc ${PLUGIN1}
-Result: You will get the plugin description ]]></body>
+Example5: ${TYPE} desc ${PLUGIN1}
+Result: You will get the plugin description.
+
+Example6: ${TYPE} ${PLUGIN1},${PLUGIN2}
+          ${TYPE} !${PLUGIN1}
+Result: ${PLUGIN1} is disabled in the second command, only ${PLUGIN2} will run.]]></body>
             </item>
         </category>
 

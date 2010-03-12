@@ -109,8 +109,8 @@ def dependencyCheck():
         from OpenSSL import SSL
     except:
         msg = 'You have to install pyOpenSSL library. \n'
-        msg += '    - On Debian based distributions: apt-get install python-pyopenssl\n'
-        msg += '    - On Mac: sudo port install py25-socket-ssl'
+        msg += '    - On Debian based distributions: sudo apt-get install python-pyopenssl\n'
+        msg += '    - On Mac: sudo port install py25-socket-ssl , or py25-openssl'
         print msg
         sys.exit( 1 )
 

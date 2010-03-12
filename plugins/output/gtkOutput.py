@@ -80,6 +80,7 @@ class gtkOutput(baseOutputPlugin):
                     if not os.path.exists(newDbName):
                         dbName = newDbName
                         break
+
             # Create DB!
             self._db.open(dbName)
             # Create table

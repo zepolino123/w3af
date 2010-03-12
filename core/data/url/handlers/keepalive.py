@@ -17,6 +17,12 @@
 # This file is part of urlgrabber, a high-level cross-protocol url-grabber
 # Copyright 2002-2004 Michael D. Stenner, Ryan Tomayko
 
+# This file was modified (considerably) to be integrated with w3af. Some modifications are:
+#   - Added the size limit for responses
+#   - Raising w3afExceptions in some places
+#   - Modified the HTTPResponse object in order to be able to perform multiple reads, and
+#     added a hack for the HEAD method.
+
 """An HTTP handler for urllib2 that supports HTTP 1.1 and keepalive.
 
 >>> import urllib2
@@ -101,24 +107,29 @@ EXTRA ATTRIBUTES AND METHODS
 
 # $Id: keepalive.py,v 1.16 2006/09/22 00:58:05 mstenner Exp $
 
+from __future__ import with_statement
+
 import urllib2
 import httplib
 import socket
-import thread
+import threading
 import traceback
 import urllib
+import sys
 
 if __name__ != '__main__':
     import core.controllers.outputManager as om
+    from core.controllers.w3afException import w3afException
+    import core.data.kb.config as cf
+    from core.data.constants.httpConstants import *
 
 DEBUG = None
 MAXCONNECTIONS = 500
 
-import sys
-from core.controllers.w3afException import w3afException
 if sys.version_info < (2, 4): HANDLE_ERRORS = 1
 else: HANDLE_ERRORS = 0
-    
+
+
 class HTTPResponse(httplib.HTTPResponse):
     # we need to subclass HTTPResponse in order to
     # 1) add readline() and readlines() methods
@@ -157,8 +168,19 @@ class HTTPResponse(httplib.HTTPResponse):
         self._multiread = None
 
     def _raw_read(self, amt=None):
+        '''
+        This is the original read function from httplib with a minor modification
+        that allows me to check the size of the file being fetched, and throw an exception
+        in case it is too big.
+        '''
         if self.fp is None:
             return ''
+
+        if __name__ != '__main__':
+            if self.length > cf.cf.getData('maxFileSize'):
+                self.status = NO_CONTENT
+                self.reason = 'No Content'  # Reason-Phrase
+                return ''
 
         if self.chunked:
             return self._read_chunked(amt)
@@ -270,29 +292,36 @@ class HTTPResponse(httplib.HTTPResponse):
 class ConnectionManager:
     """
     The connection manager must be able to:
-      * keep track of all existing
-      """
+        * keep track of all existing HTTPConnections
+        * kill the connections that we're not going to use anymore
+    """
     def __init__(self):
-        self._lock = thread.allocate_lock()
+        self._lock = threading.RLock()
         self._hostmap = {} # map hosts to a list of connections
         self._connmap = {} # map connections to host
         self._readymap = {} # map connection to ready state
 
     def add(self, host, connection, ready):
-        self._lock.acquire()
-        try:
-            if not self._hostmap.has_key(host): self._hostmap[host] = []
-            self._hostmap[host].append(connection)
-            self._connmap[connection] = host
-            self._readymap[connection] = ready
-        finally:
-            self._lock.release()
-            if __name__ != '__main__':
-                om.out.debug('keepalive: added one connection, len(self._hostmap["'+host+'"]): ' + str( self.get_connectionNumber(host) ) )
+        '''
+        Add a connection to the connmap.
+        '''
+        with self._lock:
+            try:
+                if not self._hostmap.has_key(host): self._hostmap[host] = []
+                self._hostmap[host].append(connection)
+                self._connmap[connection] = host
+                self._readymap[connection] = ready
+            finally:
+                if __name__ != '__main__':
+                    msg = 'keepalive: added one connection, len(self._hostmap["'+host+'"]): '
+                    msg += str( self.get_connectionNumber(host) )
+                    om.out.debug( msg )
 
     def remove(self, connection):
-        self._lock.acquire()
-        try:
+        '''
+        Remove a connection, it was closed by the server.
+        '''
+        with self._lock:
             try:
                 host = self._connmap[connection]
             except KeyError:
@@ -302,26 +331,25 @@ class ConnectionManager:
                 del self._readymap[connection]
                 self._hostmap[host].remove(connection)
                 if __name__ != '__main__':
-                    om.out.debug('keepalive: removed one connection,  len(self._hostmap["'+host+'"]): ' + str( self.get_connectionNumber(host) ) )
+                    msg = 'keepalive: removed one connection,  len(self._hostmap["'+host+'"]): '
+                    msg += str( self.get_connectionNumber(host) )
+                    om.out.debug( msg )
                 if not self._hostmap[host]: del self._hostmap[host]
-        finally:
-            self._lock.release()
 
     def set_ready(self, connection, ready):
         self._readymap[connection] = ready
         
     def get_ready_conn(self, host):
         conn = None
-        self._lock.acquire()
-        try:
+        
+        with self._lock:
             if self._hostmap.has_key(host):
                 for c in self._hostmap[host]:
                     if self._readymap[c]:
                         self._readymap[c] = 0
                         conn = c
                         break
-        finally:
-            self._lock.release()
+        
         return conn
 
     def get_all(self, host=None):
@@ -342,7 +370,7 @@ class ConnectionManager:
 class KeepAliveHandler:
     def __init__(self):
         self._cm = ConnectionManager()
-        self._lock = thread.allocate_lock()
+        self._lock = threading.RLock()
         
     #### Connection Management
     def open_connections(self):
@@ -383,13 +411,18 @@ class KeepAliveHandler:
         if self._cm.get_connectionNumber() >= MAXCONNECTIONS:
             # This will fix the 'Too many open files' exception
             if __name__ != '__main__':
-                om.out.debug('keepalive: Closing all connections. The connection number exceeded MAXCONNECTIONS (' + str(MAXCONNECTIONS) + ') .')
-            self._lock.acquire()
-            self.close_all()
-            self._lock.release()
+                msg = 'keepalive: Closing all connections. The connection number exceeded'
+                msg += ' MAXCONNECTIONS (' + str(MAXCONNECTIONS) + ') .'
+                om.out.debug( msg )
+            
+            with self._lock:
+                self.close_all()
+
         else:
             if __name__ != '__main__':
-                om.out.debug( 'keepalive: The connection manager has ' + str(self._cm.get_connectionNumber()) + ' active connections.')
+                msg = 'keepalive: The connection manager has '
+                msg += str(self._cm.get_connectionNumber()) + ' active connections.'
+                om.out.debug( msg )
             
         try:
             h = self._cm.get_ready_conn(host)
@@ -532,7 +565,9 @@ class HTTPSHandler(KeepAliveHandler, urllib2.HTTPSHandler):
         try:
             host, port = self._proxy.split(':')
         except:
-            raise w3afException('The proxy you are specifying is invalid! (' + self._proxy + '), IP:Port is expected.')
+            msg = 'The proxy you are specifying is invalid! (' 
+            msg += self._proxy + '), IP:Port is expected.'
+            raise w3afException( msg )
 
         if not host or not port:
             self._proxy = None
@@ -564,16 +599,18 @@ class ProxyHTTPConnection(httplib.HTTPConnection):
             raise ValueError, "unknown URL type: %s" % url
         #get host
         host, rest = urllib.splithost(rest)
+        self._real_host = host
+        
         #try to get port
         host, port = urllib.splitport(host)
         #if port is not defined try to get from proto
         if port is None:
             try:
-                port = self._ports[proto]
+                self._real_port = self._ports[proto]
             except KeyError:
                 raise ValueError, "unknown protocol for: %s" % url
-        self._real_host = host
-        self._real_port = port
+        else:
+            self._real_port = port           
        
     def connect(self):
         httplib.HTTPConnection.connect(self)

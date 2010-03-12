@@ -58,6 +58,8 @@ class strangeParameters(baseGrepPlugin):
         '''
         Plugin entry point.
         
+        @parameter request: The HTTP request object.
+        @parameter response: The HTTP response object
         @return: None, all results are saved in the kb.
         '''
         try:
@@ -94,7 +96,7 @@ class strangeParameters(baseGrepPlugin):
                             i.setDesc( msg )
                             i.setVar( param_name )
                             i['parameterValue'] = qs[param_name][element_index]
-                            i.addToHighlight(qs[param_name][element_index], param_name)
+                            i.addToHighlight(qs[param_name][element_index])
 
                             kb.kb.append( self , 'strangeParameters' , i )
                             
@@ -117,7 +119,7 @@ class strangeParameters(baseGrepPlugin):
                             v.setDesc( msg )
                             v.setVar( param_name )
                             v['parameterValue'] = qs[param_name][element_index]
-                            i.addToHighlight(qs[param_name][element_index], param_name)
+                            i.addToHighlight(qs[param_name][element_index])
                             kb.kb.append( self , 'strangeParameters' , v )
     
     def setOptions( self, OptionList ):

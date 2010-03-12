@@ -25,9 +25,11 @@ from core.data.options.option import option
 from core.data.options.optionList import optionList
 
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
+from core.data.db.temp_persist import disk_list
 
 import core.data.kb.knowledgeBase as kb
 import core.data.kb.info as info
+
 
 class blankBody(baseGrepPlugin):
     '''
@@ -38,14 +40,23 @@ class blankBody(baseGrepPlugin):
 
     def __init__(self):
         baseGrepPlugin.__init__(self)
+        self._already_reported = disk_list()
         
     def grep(self, request, response):
         '''
         Plugin entry point, find the blank bodies and report them.
+        @parameter request: The HTTP request object.
+        @parameter response: The HTTP response object
         @return: None
         '''
         if response.getBody() == '' and request.getMethod() in ['GET', 'POST']\
-        and response.getCode() != 401 and 'location' not in response.getLowerCaseHeaders():
+        and response.getCode() not in [401, 304] and 'location' not in response.getLowerCaseHeaders()\
+        and response.getURL() not in self._already_reported:
+            
+            #   report these informations only once
+            self._already_reported.append( response.getURL() )
+            
+            #   append the info object to the KB.
             i = info.info()
             i.setName('Blank body')
             i.setURL( response.getURL() )

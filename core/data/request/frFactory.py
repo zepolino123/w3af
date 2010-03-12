@@ -28,6 +28,7 @@ import core.data.request.httpPostDataRequest as httpPostDataRequest
 import core.data.request.httpQsRequest as httpQsRequest
 import core.data.request.wsPostDataRequest as wsPostDataRequest
 import core.data.request.jsonPostDataRequest as jsonPostDataRequest
+import core.data.request.xmlrpcRequest as xmlrpcRequest
 
 from core.data.dc.cookie import cookie as cookie
 
@@ -45,11 +46,16 @@ import core.controllers.outputManager as om
 import core.data.kb.config as cf
 
 
-def createFuzzableRequests( httpResponse, addSelf=True ):
+def createFuzzableRequests( httpResponse, request=None, add_self=True ):
     '''
     Generates the fuzzable requests based on an http response instance.
     
     @parameter httpResponse: An httpResponse instance.
+    @parameter request: The HTTP request that generated the httpResponse
+    @parameter add_self: If I should add the current HTTP request (@parameter request) to the result
+    on not.
+    
+    @return: A list of fuzzable requests.
     '''
     res = []
     
@@ -57,21 +63,32 @@ def createFuzzableRequests( httpResponse, addSelf=True ):
     url = httpResponse.getURL()
     QSObject = urlParser.getQueryString( httpResponse.getURI() )
     
-    # Headers
+    # Headers for all fuzzable requests created here:
+    # And add the fuzzable headers to the dict
     headers = {}
-    for header in cf.cf.getData('fuzzableHeaders' ):
-        headers[ header ] = ''
+    for header_name in cf.cf.getData('fuzzableHeaders' ):
+        if header_name not in headers:
+            headers[ header_name ] = ''
     
     # Get the cookie!
     cookieObj = _createCookie( httpResponse )
     
-    # create a httpQsRequest
-    qsr = httpQsRequest.httpQsRequest()
-    qsr.setURL( url )
-    qsr.setDc( QSObject )
-    qsr.setHeaders( headers )
-    qsr.setCookie( cookieObj )
-    if addSelf:
+    #
+    # create the fuzzable request that represents the request object passed as parameter
+    #
+    if add_self:
+        self_headers = {}
+        if request:
+            self_headers = request.getHeaders()
+        for header_name in cf.cf.getData('fuzzableHeaders' ):
+            if header_name not in headers:
+                self_headers[ header_name ] = ''
+
+        qsr = httpQsRequest.httpQsRequest()
+        qsr.setURL( url )
+        qsr.setDc( QSObject )
+        qsr.setHeaders( self_headers )
+        qsr.setCookie( cookieObj )
         res.append( qsr )
     
     # Try to find forms in the document
@@ -111,12 +128,13 @@ def createFuzzableRequests( httpResponse, addSelf=True ):
         for form in form_list:
             variants = form.getVariants(mode)
             for variant in variants:
-                if form.getMethod().upper() == 'GET':
-                    r = httpQsRequest.httpQsRequest()
-                elif form.getMethod().upper() == 'POST':
+                if form.getMethod().upper() == 'POST':
                     r = httpPostDataRequest.httpPostDataRequest()
                     r.setMethod(variant.getMethod())
                     r.setFileVariables(form.getFileVariables())
+                else:
+                    # The default is a GET request
+                    r = httpQsRequest.httpQsRequest()
                 r.setURL(variant.getAction())
                 r.setDc(variant)
                 r.setHeaders(headers)
@@ -134,18 +152,39 @@ def createFuzzableRequestRaw( method, url, postData, headers ):
     @parameter postData: A string that represents the postdata, if its a GET request, set to None.
     @parameter headers: A dict that holds the headers
     '''
-    res = None
-
-    if postData and len( postData ):
+    if not (postData and len( postData )):
+        #
+        # Just a query string request ! no postdata
+        #
+        qsr = httpQsRequest.httpQsRequest()
+        qsr.setURL( url )
+        qsr.setMethod( method )
+        qsr.setHeaders( headers )
+        dc = urlParser.getQueryString( url )
+        qsr.setDc( dc )
+        return qsr
+        
+    else:
+        #
         # Seems to be something that has post data
+        #
         pdr = httpPostDataRequest.httpPostDataRequest()
         pdr.setURL( url )
         pdr.setMethod( method )
-        if 'content-length' in headers.keys():
-            headers.pop('content-length')
+
+        for header_name in headers.keys():
+            if header_name.lower() == 'content-length':
+                del headers[header_name]
+
         pdr.setHeaders( headers )
         
-        # Parse the content
+        #
+        #   Parse the content
+        #
+        
+        #
+        #   Case #1, multipart form data
+        #
         if 'content-Type' in headers.keys() and headers['content-Type'] == 'multipart/form-data':
             try:
                 dc = cgi.parse_multipart( postData, headers )
@@ -155,38 +194,57 @@ def createFuzzableRequestRaw( method, url, postData, headers ):
                 for i in dc.keys():
                     dc = dc[ i ][0]
                 pdr.setDc( dc )
+                return pdr
+                
+        #
+        #   Case #2, JSON request
+        #
+        try:
+            dc = json.read( postData )
+        except:
+            pass
         else:
-            # Let's try if this is a json request...
-            try:
-                dc = json.read( postData )
-            except:
-                # NOT a JSON request!, let's try the simple url encoded post data...
-                try:
-                    dc = urlParser.getQueryString( 'http://w3af/?' + postData )
-                    pdr.setDc( dc )
-                except:
-                    om.out.debug('Failed to create a data container that can store this data: "' + postData + '".')
-            else:
-                # It's json! welcome to the party dude!
-                pdr = jsonPostDataRequest.jsonPostDataRequest()
-                pdr.setURL( url )
-                pdr.setMethod( method )
-                pdr.setHeaders( headers )
-                pdr.setDc( dc )             
-    
-        res = pdr
-    
-    else:
-        # Just a query string request ! no postdata
-        qsr = httpQsRequest.httpQsRequest()
-        qsr.setURL( url )
-        qsr.setMethod( method )
-        qsr.setHeaders( headers )
-        dc = urlParser.getQueryString( url )
-        qsr.setDc( dc )
-        res = qsr
+            # It's json! welcome to the party dude!
+            pdr = jsonPostDataRequest.jsonPostDataRequest()
+            pdr.setURL( url )
+            pdr.setMethod( method )
+            pdr.setHeaders( headers )
+            pdr.setDc( dc )
+            return pdr
+
+        #
+        #   Case #3, XMLRPC request
+        #
+        postData_lower = postData.lower()
+        if '<methodcall>' in postData_lower and\
+        '<methodname>' in postData_lower and\
+        '<params>' in postData_lower and\
+        '</methodcall>' in postData_lower and\
+        '</methodname>' in postData_lower and\
+        '</params>' in postData_lower:
+            #
+            #   XMLRPC!
+            #
+            xmlrpc_request = xmlrpcRequest.xmlrpcRequest(postData)
+            xmlrpc_request.setURL( url )
+            xmlrpc_request.setMethod( method )
+            xmlrpc_request.setHeaders( headers )
+            return xmlrpc_request
+
+        #
+        #   Case #4, the "default".
+        #
+        #
+        # NOT a JSON or XMLRPC request!, let's try the simple url encoded post data...
+        #
+        try:
+            dc = urlParser.getQueryString( 'http://w3af/?' + postData )
+            pdr.setDc( dc )
+        except:
+            om.out.debug('Failed to create a data container that can store this data: "' + postData + '".')
+        else:
+            return pdr
         
-    return res
     
     
 def _createCookie( httpResponse ):

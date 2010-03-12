@@ -26,6 +26,9 @@ from core.controllers.threads.threadManager import threadManagerObj as tm
 from core.controllers.configurable import configurable
 import core.data.kb.vuln as vuln
 
+import threading
+
+
 class basePlugin(configurable):
     '''
     This is the base class for ALL plugins, all plugins should inherit from it 
@@ -40,8 +43,12 @@ class basePlugin(configurable):
     '''
 
     def __init__(self):
+        '''
+        Create some generic attributes that are going to be used by most plugins.
+        '''
         self._urlOpener = None
         self._tm = tm
+        self._plugin_lock = threading.RLock()
 
     def setUrlOpener( self, urlOpener):
         '''
@@ -164,7 +171,9 @@ class basePlugin(configurable):
         
         functor = getattr( self._urlOpener , method )
         # run functor , run !   ( forest gump flash )
-        res = apply( functor, args, {'data': data, 'headers': headers, 'grepResult': grepResult } )
+        res = apply( functor, args, 
+                            {'data': data, 'headers': headers, 'grepResult': grepResult,
+                            'useCache': True } )
         
         if analyze:
             if analyze_callback:
@@ -182,7 +191,9 @@ class basePlugin(configurable):
         @parameter mutant: The mutated request.
         @parameter res: The HTTP response.
         '''
-        raise w3afException('You must override the _analyzeResult method of basePlugin if you want to use _sendMutant().')
+        msg = 'You must override the "_analyzeResult" method of basePlugin if'
+        msg += ' you want to use "_sendMutant" with the default callback.'
+        raise w3afException( msg )
     
     def __eq__( self, other ):
         '''

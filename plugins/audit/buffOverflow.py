@@ -88,6 +88,8 @@ class buffOverflow(baseAuditPlugin):
             targs = (mutant,)
             self._tm.startFunction( target=self._sendMutant, args=targs, ownerObj=self )
             
+        self._tm.join( self )
+            
     def _sendMutant( self, mutant, analyze=True, grepResult=True ):
         '''
         Sends a mutant to the remote web server. I override the _sendMutant of basePlugin
@@ -114,7 +116,7 @@ class buffOverflow(baseAuditPlugin):
             if data:
                 msg = 'A possible (most probably a false positive than a bug) buffer overflow was'
                 msg += ' found when requesting: "' + url + '", using HTTP method ' + method
-                msg += '. The data sent was: "' + data + '".'
+                msg += '. The data sent was: "' + str(data) + '".'
                 i.setDesc( msg )
             else:
                 msg = 'A possible (most probably a false positive than a bug) buffer overflow was'
@@ -157,6 +159,7 @@ class buffOverflow(baseAuditPlugin):
                     msg = 'A possible buffer overflow (detection is really hard...) was found at: '
                     msg += mutant.foundAt()
                     v.setDesc( msg )
+                    v.addToHighlight( error )
                     kb.kb.append( self, 'buffOverflow', v )
     
     def end(self):

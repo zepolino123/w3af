@@ -66,6 +66,8 @@ class globalRedirect(baseAuditPlugin):
             , mutant.getVar() ):
                 targs = (mutant,)
                 self._tm.startFunction( target=self._sendMutant, args=targs, ownerObj=self )
+        
+        self._tm.join( self )
 
     def _analyzeResult( self, mutant, response ):
         '''
@@ -91,7 +93,7 @@ class globalRedirect(baseAuditPlugin):
         This method checks if the browser was redirected ( using a 302 code ) 
         or is being told to be redirected by javascript or <meta http-equiv="refresh"
         '''
-        if self._test_site in response.getRedirURL():
+        if response.getRedirURL().startswith( self._test_site ):
             # The script sent a 302, and w3af followed the redirection
             # so the URL is now the test site
             return True
@@ -106,7 +108,7 @@ class globalRedirect(baseAuditPlugin):
                 for redir in dp.getMetaRedir():
                     if redir.count( self._test_site ):
                         return True
-                    
+            
             # Test for javascript redirects
             # These are some redirects I found on google :
             # location.href = '../htmljavascript.htm';

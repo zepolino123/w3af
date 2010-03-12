@@ -58,6 +58,9 @@ class privateIP(baseGrepPlugin):
     def grep(self, request, response):
         '''
         Plugin entry point. Search for private IPs in the header and the body.
+        
+        @parameter request: The HTTP request object.
+        @parameter response: The HTTP response object
         @return: None, results are saved to the kb.
         '''
         
@@ -93,14 +96,15 @@ class privateIP(baseGrepPlugin):
                 ('192.168.' in response) or ('169.254.' in response)):
                 return
             
-            # Some proxy servers will return errors that include headers in the body
-            # along with the client IP
-            if 'X-Forwarded-For: ' in response:
-                return
-
             for regex in self._regex_list:
                 for match in regex.findall(response.getBody()):
                     match = match.strip()
+                    
+                    # Some proxy servers will return errors that include headers in the body
+                    # along with the client IP which we want to ignore
+                    if re.search("^.*X-Forwarded-For: .*%s" % match, response.getBody(), re.M):
+                        continue
+                        
                     # If i'm requesting 192.168.2.111 then I don't want to be alerted about it
                     if match != urlParser.getDomain(response.getURL()) and \
                     not self._wasSent( request, match ):
@@ -115,6 +119,7 @@ class privateIP(baseGrepPlugin):
                         msg += 'with an IP address: "' +  match + '".'
                         v.setDesc( msg )
                         v['IP'] = match
+                        v.addToHighlight( match )
                         kb.kb.append( self, 'html', v )     
 
     def setOptions( self, OptionList ):

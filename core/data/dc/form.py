@@ -24,6 +24,7 @@ from core.data.dc.dataContainer import dataContainer
 import copy
 from core.data.parsers.encode_decode import urlencode
 
+
 class form(dataContainer):
     '''
     This class represents a HTML form.
@@ -40,6 +41,7 @@ class form(dataContainer):
         self._files = []
         self._selects = {}
         self._submitMap = {}
+        
         # it is used for processing checkboxes
         self._secret_value = "3_!21#47w@"
         
@@ -95,6 +97,8 @@ class form(dataContainer):
         if name:
             self._files.append( name )
             self._setVar(name, '')
+            # TODO: This does not work if there are different parameters in a form
+            # with the same name, and different types
             self._types[name] = 'file'
 
     def __str__( self ):
@@ -139,8 +143,9 @@ class form(dataContainer):
         <INPUT type="text" name="email"><BR>
         <INPUT type="radio" name="sex" value="Male"> Male<BR>
         '''
-        
-        attr_type = name = value = ''
+        # Set the default input type to text.
+        attr_type = 'text'
+        name = value = ''
         
         # Try to get the name:
         for attr in attrs:

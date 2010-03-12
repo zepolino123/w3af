@@ -117,6 +117,11 @@ class phpEggs(baseDiscoveryPlugin):
                 ("11b9cfe306004fce599a1f8180b61266", "PHP Logo"), 
                 ("4b2c92409cf0bcf465d199e93a15ac3f", "PHP Logo 2"), 
                 ("da2dae87b166b7709dbd4061375b74cb", "Zend Logo") ]
+        self._egg_DB['4.4.7, PleskWin, ASP.NET'] = [
+                ('b8477b9b88e90f12e3200660a70eb765', 'Zend Logo'),
+                ('b8477b9b88e90f12e3200660a70eb765', 'PHP Credits'),
+                ('b8477b9b88e90f12e3200660a70eb765', 'PHP Logo 2'),
+                ('b8477b9b88e90f12e3200660a70eb765', 'PHP Logo')]
         self._egg_DB["4.4.8"] = [ 
                 ("4cdfec8ca11691a46f4f63839e559fc5", "PHP Credits"), 
                 ("11b9cfe306004fce599a1f8180b61266", "PHP Logo"), 
@@ -235,20 +240,41 @@ class phpEggs(baseDiscoveryPlugin):
                     except w3afException, w3:
                         raise w3
                     else:
-                        if relative_distance(original_response.getBody(), response.getBody()) < 0.1:
-                            # Found an egg, save it.
-                            i = info.info()
-                            i.setName('PHP Egg - ' + egg_desc)
-                            i.setURL( egg_URL )
-                            desc = 'The PHP framework running on the remote server has a "'
-                            desc += egg_desc +'" easter egg, access to the PHP egg is possible'
-                            desc += ' through the URL: "'+  egg_URL + '".'
-                            i.setDesc( desc )
-                            kb.kb.append( self, 'eggs', i )
-                            om.out.information( i.getDesc() )
-                            
-                            GET_results.append( (response, egg_desc) )
-                            self._exec = False
+                        GET_results.append( (response, egg_desc, egg_URL) )
+                        
+                #
+                #   Now I analyze if this is really a PHP eggs thing, or simply a response that
+                #   changes a lot on each request. Before, I had something like this:
+                #
+                #       if relative_distance(original_response.getBody(), response.getBody()) < 0.1:
+                #
+                #   But I got some reports about false positives with this approach, so now I'm
+                #   changing it to something a little bit more specific.
+                images = 0
+                not_images = 0
+                for response, egg_desc, egg_URL in GET_results:
+                    if 'image' in response.getContentType():
+                        images += 1
+                    else:
+                        not_images += 1
+                
+                if images == 3 and not_images == 1:
+                    #
+                    #   The remote web server has expose_php = On. Report all the findings.
+                    #
+                    for response, egg_desc, egg_URL in GET_results:
+                        i = info.info()
+                        i.setName('PHP Egg - ' + egg_desc)
+                        i.setURL( egg_URL )
+                        desc = 'The PHP framework running on the remote server has a "'
+                        desc += egg_desc +'" easter egg, access to the PHP egg is possible'
+                        desc += ' through the URL: "'+  egg_URL + '".'
+                        i.setDesc( desc )
+                        kb.kb.append( self, 'eggs', i )
+                        om.out.information( i.getDesc() )
+                        
+                        #   Only run once.
+                        self._exec = False
                 
                 # analyze the info to see if we can identify the version
                 self._analyze_egg( GET_results )

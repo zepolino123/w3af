@@ -26,13 +26,17 @@ from core.controllers.basePlugin.baseDiscoveryPlugin import baseDiscoveryPlugin
 from core.controllers.w3afException import w3afException
 
 import core.data.parsers.dpCache as dpCache
-from core.data.parsers.urlParser import getDomain
 import core.data.parsers.urlParser as urlParser
+from core.controllers.misc.levenshtein import relative_distance
 
-import core.data.kb.knowledgeBase as kb
+from core.controllers.coreHelpers.fingerprint_404 import is_404
 import core.data.kb.config as cf
 from core.data.fuzzer.formFiller import smartFill
+import core.data.dc.form as form
 import core.data.request.httpPostDataRequest as httpPostDataRequest
+from core.data.request.variant_identification import are_variants
+
+from core.data.db.temp_persist import disk_list
 
 # options
 from core.data.options.option import option
@@ -40,10 +44,13 @@ from core.data.options.optionList import optionList
 
 import re
 
+IS_EQUAL_RATIO = 0.90
+MAX_VARIANTS = 5
+
 
 class webSpider(baseDiscoveryPlugin):
     '''
-    Crawl the whole site to find new URLs
+    Crawl the web application.
     
     @author: Andres Riancho ( andres.riancho@gmail.com )  
     '''
@@ -57,13 +64,14 @@ class webSpider(baseDiscoveryPlugin):
         self._brokenLinks = []
         self._fuzzableRequests = []
         self._first_run = True
+        self._already_crawled = disk_list()
+        self._already_filled_form = disk_list()
 
         # User configured variables
-        self._ignore_regex = 'None'
+        self._ignore_regex = ''
         self._follow_regex = '.*'
         self._only_forward = False
         self._compileRE()
-        self._url_parameter = ''
 
     def discover(self, fuzzableRequest ):
         '''
@@ -77,23 +85,39 @@ class webSpider(baseDiscoveryPlugin):
             # I have to set some variables, in order to be able to code the "onlyForward" feature
             self._first_run = False
             self._target_urls = [ urlParser.getDomainPath(i) for i in cf.cf.getData('targets') ]
-            
-
-        # Init some internal variables
-        self.is404 = kb.kb.getData( 'error404page', '404' )
-
-        # Set the URL parameter if necessary
-        if self._url_parameter:
-            fuzzableRequest.setURL(urlParser.setParam(fuzzableRequest.getURL(), self._url_parameter))
-            fuzzableRequest.setURI(urlParser.setParam(fuzzableRequest.getURI(), self._url_parameter))
-
+            self._target_domain = urlParser.getDomain( cf.cf.getData('targets')[0] )
+        
         # If its a form, then smartFill the Dc.
         original_dc = fuzzableRequest.getDc()
         if isinstance( fuzzableRequest, httpPostDataRequest.httpPostDataRequest ):
+            
+            # TODO!!!!!!
+            if fuzzableRequest.getURL() in self._already_filled_form:
+                return []
+            else:
+                self._already_filled_form.append( fuzzableRequest.getURL() )
+                
             to_send = original_dc.copy()
             for parameter_name in to_send:
+                
+                # I do not want to mess with the "static" fields
+                if isinstance( to_send, form.form ):
+                    if to_send.getType(parameter_name) in ['checkbox', 'file', 'radio', 'select']:
+                        continue
+                
+                #
+                #   Set all the other fields, except from the ones that have a value set (example:
+                #   hidden fields like __VIEWSTATE).
+                #                
                 for element_index in xrange(len(to_send[parameter_name])):
+                    
+                    #   should I ignore it because it already has a value?
+                    if to_send[parameter_name][element_index] != '':
+                        continue
+                    
+                    #   smartFill it!
                     to_send[ parameter_name ][element_index] = smartFill( parameter_name )
+                    
             fuzzableRequest.setDc( to_send )
 
         self._fuzzableRequests = []
@@ -104,15 +128,22 @@ class webSpider(baseDiscoveryPlugin):
         except KeyboardInterrupt,e:
             raise e
         else:
+            #
+            #   Simply ignore 401 responses, because they might bring problems
+            #   if I keep crawling them!
+            #
+            if response.getCode() == 401:
+                return []
+                
+            #
             # Note: I WANT to follow links that are in the 404 page.
+            #
             
             # Modified when I added the pdfParser
             # I had to add this x OR y stuff, just because I dont want the SGML parser to analyze
             # a image file, its useless and consumes CPU power.
             if response.is_text_or_html() or response.is_pdf() or response.is_swf():
                 originalURL = response.getRedirURI()
-                if self._url_parameter:
-                    originalURL = urlParser.setParam(originalURL, self._url_parameter)
                 try:
                     documentParser = dpCache.dpc.getDocumentParserFor( response )
                 except w3afException, w3:
@@ -140,64 +171,156 @@ class webSpider(baseDiscoveryPlugin):
                     parsed_references = list( set( parsed_references ) )
 
                     references = parsed_references + re_references
-
+                    references = list( set( references ) )
+                    
+                    # Filter only the references that are inside the target domain
+                    # I don't want w3af sending request to 3rd parties!
+                    references = [ r for r in references if urlParser.getDomain( r ) == self._target_domain]
+                            
                     # Filter the URL's according to the configured regular expressions
                     references = [ r for r in references if self._compiled_follow_re.match( r ) ]
                     references = [ r for r in references if not self._compiled_ignore_re.match( r )]
                                           
                     # work with the parsed references and report broken links
                     # then work with the regex references and DO NOT report broken links
-                    count = 0
                     for ref in references:
-                        if self._url_parameter:
-                            ref = urlParser.setParam(ref, self._url_parameter)
-                        targs = (ref, fuzzableRequest, originalURL, count<len(parsed_references))
-                        self._tm.startFunction( target=self._verifyReferences, args=targs, \
-                                                            ownerObj=self )
-                        count += 1
+                        
+                        if self._need_more_variants(ref):
+                            
+                            self._already_crawled.append(ref)
+                            
+                            possibly_broken = ref in re_references and not ref in parsed_references
+                            targs = (ref, fuzzableRequest, originalURL, possibly_broken)
+                            self._tm.startFunction( target=self._verify_reference, args=targs, \
+                                                                ownerObj=self )
             
         self._tm.join( self )
-            
-        # Restore the Dc value
-        fuzzableRequest.setDc( original_dc )
         
         return self._fuzzableRequests
+    
+    
+    def _need_more_variants(self, new_reference):
+        '''
+        @new_reference: The new URL that we want to see if its a variant of at most MAX_VARIANTS
+        references stored in self._already_crawled.
         
-    def _verifyReferences( self, reference, originalRequest, originalURL, report_broken ):
+        @return: True if I need more variants of ref.
+        
+        Basically, the idea is to crawl the whole website, but if we are crawling a site like
+        youtube.com that has A LOT of links with the form: 
+            - http://www.youtube.com/watch?v=xwLNu5MHXFs
+            - http://www.youtube.com/watch?v=JEzjwifH4ts
+            - ...
+            - http://www.youtube.com/watch?v=something_here
+        
+        Then we don't actually want to follow all the links to all the videos! So we are going
+        to follow a decent number of variant URLs (in this case, video URLs) to see if we can
+        find something interesting in those links, but after a fixed number of variants, we will
+        start ignoring all those variants.
+        '''
+        number_of_variants = 0
+        for reference in self._already_crawled:
+            if are_variants(reference, new_reference):
+                number_of_variants += 1
+                
+            if number_of_variants > MAX_VARIANTS:
+                msg = 'Ignoring new reference "' + new_reference + '" (it is simply a variant).'
+                om.out.debug( msg )
+                return False
+            
+        return True
+    
+    def _verify_reference( self, reference, original_request, originalURL, possibly_broken ):
         '''
         This method GET's every new link and parses it in order to get new links and forms.
         '''
-        if getDomain( reference ) == getDomain( originalURL ):
-            isForward = self._isForward(reference)
-            if not self._only_forward or isForward:
-                response = None
-                headers = { 'Referer': originalURL }
-                
-                try:
-                    response = self._urlOpener.GET( reference, useCache=True, headers= headers, \
-                                                                    getSize=True)
-                except KeyboardInterrupt,e:
-                    raise e
-                except w3afException,w3:
-                    om.out.error( str(w3) )
+        fuzzable_request_list = []
+        is_forward = self._is_forward(reference)
+        if not self._only_forward or is_forward:
+            response = None
+            #
+            #   Remember that this "breaks" the useCache=True in most cases!
+            #
+            #headers = { 'Referer': originalURL }
+            #
+            #   But this does not, and it is friendlier that simply ignoring the referer
+            #
+            referer = urlParser.getDomainPath(originalURL).replace( urlParser.getPath(originalURL), '' )
+            if not referer.endswith('/'):
+                referer += '/'
+            headers = { 'Referer': referer }
+            
+            try:
+                response = self._urlOpener.GET( reference, useCache=True, headers= headers)
+            except KeyboardInterrupt,e:
+                raise e
+            except w3afException,w3:
+                om.out.error( str(w3) )
+            else:
+                # Note: I WANT to follow links that are in the 404 page, but if the page
+                # I fetched is a 404... I should ignore it.
+                if is_404( response ):
+                    #
+                    # add_self == False, because I don't want to return a 404 to the core
+                    #
+                    fuzzable_request_list = self._createFuzzableRequests( response, 
+                                                                request=original_request, add_self = False)
+                    if not possibly_broken:
+                        self._brokenLinks.append( (response.getURL(), original_request.getURI()) )
                 else:
-                    # Note: I WANT to follow links that are in the 404 page, but if the page
-                    # I fetched is a 404... I should ignore it.
-                    if self.is404( response ):
-                        fuzzableRequestList = self._createFuzzableRequests( response, addSelf=False)
-                        if report_broken:
-                            self._brokenLinks.append( (response.getURL(), originalRequest.getURI()) )
-                    else:
-                        fuzzableRequestList = self._createFuzzableRequests( response, addSelf=True )
-                    
-                    # Process the list.
-                    for fuzzableRequest in fuzzableRequestList:
-                        if self._url_parameter:
-                            fuzzableRequest.setURL(urlParser.setParam(fuzzableRequest.getURL(), self._url_parameter))
-                            fuzzableRequest.setURI(urlParser.setParam(fuzzableRequest.getURI(), self._url_parameter))
-                        fuzzableRequest.setReferer( originalURL )
-                        self._fuzzableRequests.append( fuzzableRequest )
-                        
+                    if possibly_broken:
+                        #
+                        #   Now... the caller is telling us that this link is possibly broken. This
+                        #   means that it came from a regular expression, or something that
+                        #   usually introduces "false positives". So what I'm going to do is to
+                        #   perform one more request to the same directory but with a different
+                        #   filename, and then compare it to what we got in the first request.
+                        #
+                        #   Fixes this:
+                        '''
+                        /es/ga.js/google-analytics.com
+                        /ga.js/google-analytics.com
+                        /es/ga.js/google-analytics.com/ga.js/google-analytics.com/ga.js
+                        /ga.js/google-analytics.com/google-analytics.com/ga.js/
+                        /es/ga.js/google-analytics.com/google-analytics.com/ga.js/
+                        /es/ga.js/google-analytics.com/google-analytics.com/
+                        /es/ga.js/google-analytics.com/google-analytics.com/google-analytics.com/ga.js
+                        /ga.js/google-analytics.com/google-analytics.com/ga.js
+                        /services/google-analytics.com/google-analytics.com/
+                        /services/google-analytics.com/google-analytics.com/google-analytics.com/ga.js
+                        /es/ga.js/google-analytics.com/ga.js/google-analytics.com/ga.js/
+                        /ga.js/google-analytics.com/ga.js/google-analytics.com/ga.js/
+                        /ga.js/google-analytics.com/ga.js/google-analytics.com/
+                        /ga.js/google-analytics.com/ga.js/google-analytics.com/google-analytics.com/ga.js
+                        '''
+                        filename = urlParser.getFileName(reference)
+                        if filename:
+                            rindex = reference.rindex(filename)
+                            # 'ar9k' is just a random string to get a 404
+                            new_reference = reference[:rindex] + 'ar9k' + reference[rindex:]
+                            
+                            check_response = self._urlOpener.GET( new_reference, useCache=True,
+                                                                                        headers= headers)
+                            
+                            ratio = relative_distance( response.getBody(), check_response.getBody() )
+                            if ratio > IS_EQUAL_RATIO:
+                                # If they are equal, then they are both a 404 (or something invalid)
+                                #om.out.debug( reference + ' was broken!')
+                                return
+                            
+                            else:
+                                # The URL was possibly_broken, but after testing we found out that
+                                # it was not, so not we use it!
+                                om.out.debug('Adding relative reference "' + reference + '" to the response.')
+                                fuzzable_request_list.extend( self._createFuzzableRequests( response, request=original_request ) )
+                
+                    else: # Not possibly_broken:
+                        fuzzable_request_list = self._createFuzzableRequests( response, request=original_request )
+                
+                # Process the list.
+                for fuzzableRequest in fuzzable_request_list:
+                    fuzzableRequest.setReferer( referer )
+                    self._fuzzableRequests.append( fuzzableRequest )
     
     def end( self ):
         '''
@@ -210,9 +333,9 @@ class webSpider(baseDiscoveryPlugin):
             for broken, where in self._brokenLinks:
                 if (broken, where) not in reported:
                     reported.append( (broken, where) )
-                    om.out.information('- ' + broken + ' [ ' + where + ' ]')
+                    om.out.information('- ' + broken + ' [ referenced from: ' + where + ' ]')
     
-    def _isForward( self, reference ):
+    def _is_forward( self, reference ):
         '''
         Check if the reference is inside the target directories.
         
@@ -243,16 +366,11 @@ class webSpider(baseDiscoveryPlugin):
         d3 = 'When spidering, DO NOT follow links that match this regular expression '
         d3 += '(has precedence over followRegex)'
         o3 = option('ignoreRegex', self._ignore_regex, d3, 'string')
-        
-        d4 = 'Append the given parameter to new URLs found by the spider.'
-        d4 += ' Example: http://www.foobar.com/index.jsp;<parameter>?id=2'
-        o4 = option('urlParameter', self._url_parameter, d4, 'string')    
 
         ol = optionList()
         ol.add(o1)
         ol.add(o2)
         ol.add(o3)
-        ol.add(o4)
         return ol
         
     def setOptions( self, optionsMap ):
@@ -266,7 +384,6 @@ class webSpider(baseDiscoveryPlugin):
         self._only_forward = optionsMap['onlyForward'].getValue()
         self._ignore_regex = optionsMap['ignoreRegex'].getValue()
         self._follow_regex = optionsMap['followRegex'].getValue()
-        self._url_parameter = optionsMap['urlParameter'].getValue()
         self._compileRE()
     
     def _compileRE( self ):
@@ -274,11 +391,18 @@ class webSpider(baseDiscoveryPlugin):
         Now we compile the regular expressions that are going to be
         used to ignore or follow links.
         '''
-        try:
-            self._compiled_ignore_re = re.compile( self._ignore_regex )
-        except:
-            msg = 'You specified an invalid regular expression: "' + self._ignore_regex + '".'
-            raise w3afException(msg)
+        #
+        #   If the self._ignore_regex is '' then I don't have to ignore anything. To be able to do
+        #   that, I simply compile an re with "abc" as the pattern.
+        #
+        if self._ignore_regex != '':
+            try:
+                self._compiled_ignore_re = re.compile( self._ignore_regex )
+            except:
+                msg = 'You specified an invalid regular expression: "' + self._ignore_regex + '".'
+                raise w3afException(msg)
+        else:
+            self._compiled_ignore_re = re.compile( 'abc' )
 
         try:
             self._compiled_follow_re = re.compile( self._follow_regex )
@@ -292,7 +416,7 @@ class webSpider(baseDiscoveryPlugin):
         @return: A list with the names of the plugins that should be runned before the
         current one.
         '''
-        return [ ]
+        return [ 'grep.httpAuthDetect', ]
             
     def getLongDesc( self ):
         '''
@@ -306,13 +430,14 @@ class webSpider(baseDiscoveryPlugin):
             - onlyForward
             - ignoreRegex
             - followRegex
-            - urlParameter
 
         IgnoreRegex and followRegex are commonly used to configure the webSpider to spider
         all URLs except the "logout" or some other more exciting link like "Reboot Appliance"
         that would make the w3af run finish without the expected result.
         
-        By default ignoreRegex is 'None' (nothing is ignored) and followRegex is '.*' ( everything is
+        By default ignoreRegex is an empty string (nothing is ignored) and followRegex is '.*' ( everything is
         followed ). Both regular expressions are normal regular expressions that are compiled with
         the python's re module.
+        
+        The regular expressions are applied to the URLs that are found using the match function.
         '''

@@ -21,13 +21,25 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 '''
 
 import urlOpenerSettings
-import core.controllers.outputManager as om
-import core.data.url.timeAnalysis as timeAnalysis
-from core.controllers.w3afException import *
-from core.controllers.threads.threadManager import threadManagerObj as thread_manager
-from core.data.parsers.urlParser import *
-from core.data.constants.httpConstants import *
 
+#
+#   Misc imports
+#
+import core.controllers.outputManager as om
+from core.controllers.misc.timeout_function import TimeLimited, TimeLimitExpired
+from core.controllers.misc.lru import LRU
+from core.controllers.misc.homeDir import get_home_dir
+from core.controllers.misc.memoryUsage import dumpMemoryUsage
+# This is a singleton that's used for assigning request IDs
+from core.controllers.misc.number_generator import consecutive_number_generator
+
+from core.controllers.threads.threadManager import threadManagerObj as thread_manager
+
+from core.controllers.w3afException import w3afMustStopException,  w3afException
+
+#
+#   Data imports
+#
 import core.data.parsers.urlParser as urlParser
 from core.data.parsers.httpRequestParser import httpRequestParser
 
@@ -35,7 +47,10 @@ from core.data.request.frFactory import createFuzzableRequestRaw
 
 from core.data.url.httpResponse import httpResponse as httpResponse
 from core.data.url.handlers.localCache import CachedResponse
-from core.controllers.misc.lru import LRU
+import core.data.kb.config as cf
+import core.data.kb.knowledgeBase as kb
+import core.data.constants.httpConstants as http_constants
+
 
 # For subclassing requests and other things
 import urllib2
@@ -43,21 +58,9 @@ import urllib
 
 import time
 import os
-from core.controllers.misc.homeDir import get_home_dir
-from core.controllers.misc.memoryUsage import dumpMemoryUsage
 
 # for better debugging of handlers
 import traceback
-
-import core.data.kb.config as cf
-import core.data.kb.knowledgeBase as kb
-
-# This is a singleton that's used for assigning request IDs
-from core.controllers.misc.number_generator import consecutive_number_generator
-
-
-class sizeExceeded( Exception ):
-    pass
 
     
 class xUrllib:
@@ -71,7 +74,6 @@ class xUrllib:
         self.settings = urlOpenerSettings.urlOpenerSettings()
         self._opener = None
         self._cacheOpener = None
-        self._timeAnalysis = None
         self._memoryUsageCounter = 0
         
         # For error handling
@@ -204,7 +206,6 @@ class xUrllib:
             self.settings.buildOpeners()
             self._opener = self.settings.getCustomUrlopen()
             self._cacheOpener = self.settings.getCachedUrlopen()
-            self._timeAnalysis = timeAnalysis.timeAnalysis()
 
     def getHeaders( self, uri ):
         '''
@@ -230,14 +231,14 @@ class xUrllib:
         
         return False
     
-    def sendRawRequest( self, head, postdata, fixContentLength=True, get_size=True):
+    def sendRawRequest( self, head, postdata, fixContentLength=True):
         '''
         In some cases the xUrllib user wants to send a request that was typed in a textbox or is stored in a file.
         When something like that happens, this library allows the user to send the request by specifying two parameters
         for the sendRawRequest method:
         
-        @parameter head: The postdata, if any. If set to '' or None, no postdata is sent.
-        @parameter postdata: "<method> <URI> <HTTP version>\r\nHeader: Value\r\nHeader2: Value2..."
+        @parameter head: "<method> <URI> <HTTP version>\r\nHeader: Value\r\nHeader2: Value2..."
+        @parameter postdata: The postdata, if any. If set to '' or None, no postdata is sent.
         @parameter fixContentLength: Indicates if the content length has to be fixed or not.
         
         @return: An httpResponse object.
@@ -260,9 +261,9 @@ class xUrllib:
         # Send it
         function_reference = getattr( self , fuzzReq.getMethod() )
         return function_reference( fuzzReq.getURI(), data=fuzzReq.getData(), headers=fuzzReq.getHeaders(),
-                                                useCache=False, grepResult=False, getSize=get_size )
+                                                useCache=False, grepResult=False)
         
-    def GET(self, uri, data='', headers={}, useCache=False, grepResult=True, getSize=False ):
+    def GET(self, uri, data='', headers={}, useCache=False, grepResult=True):
         '''
         Gets a uri using a proxy, user agents, and other settings that where set previously.
         
@@ -273,7 +274,7 @@ class xUrllib:
         self._init()
 
         if self._isBlacklisted( uri ):
-            return httpResponse( NO_CONTENT, '', {}, uri, uri, msg='No Content', id=consecutive_number_generator.inc() )
+            return httpResponse( http_constants.NO_CONTENT, '', {}, uri, uri, msg='No Content', id=consecutive_number_generator.inc() )
         
         qs = urlParser.getQueryString( uri )
         if qs:
@@ -286,19 +287,9 @@ class xUrllib:
                 req = urllib2.Request( uri )
             
         req = self._addHeaders( req, headers )
-        
-        if getSize:
-            # Check the file size
-            try:
-                self._checkFileSize( req )
-            except sizeExceeded, se:
-                return httpResponse( NO_CONTENT, '', {}, uri, uri, msg='No Content', id=consecutive_number_generator.inc() )
-            except Exception, e:
-                raise e
-        
         return self._send( req , useCache=useCache, grepResult=grepResult)
     
-    def POST(self, uri, data='', headers={}, grepResult=True, getSize=False, useCache=False ):
+    def POST(self, uri, data='', headers={}, grepResult=True, useCache=False ):
         '''
         POST's data to a uri using a proxy, user agents, and other settings that where set previously.
         
@@ -308,42 +299,38 @@ class xUrllib:
         '''
         self._init()
         if self._isBlacklisted( uri ):
-            return httpResponse( NO_CONTENT, '', {}, uri, uri, msg='No Content', id=consecutive_number_generator.inc() )
+            return httpResponse( http_constants.NO_CONTENT, '', {}, uri, uri, msg='No Content', id=consecutive_number_generator.inc() )
         
         req = urllib2.Request(uri, data )
         req = self._addHeaders( req, headers )
-        
-        if getSize:
-            # Check the file size
-            try:
-                self._checkFileSize( req )
-            except sizeExceeded, se:
-                return httpResponse( NO_CONTENT, '', {}, uri, uri, msg='No Content', id=consecutive_number_generator.inc() )
-            except Exception, e:
-                raise e
-        
         return self._send( req , grepResult=grepResult, useCache=useCache)
     
-    def getRemoteFileSize( self, uri, headers={}, useCache=True ):
+    def getRemoteFileSize( self, req, useCache=True ):
         '''
+        This method was previously used in the framework to perform a HEAD request before each GET/POST (ouch!)
+        and get the size of the response. The bad thing was that I was performing two requests for each resource...
+        I moved the "protection against big files" to the keepalive.py module.
+        
+        I left it here because maybe I want to use it at some point... Mainly to call it directly or something.
+        
         @return: The file size of the remote file.
         '''
-        res = self.HEAD( uri, headers=headers, useCache=useCache )  
+        res = self.HEAD( req.get_full_url(), headers=req.headers, data=req.get_data(), useCache=useCache )  
         
-        fileLen = None
+        resource_length = None
         for i in res.getHeaders():
             if i.lower() == 'content-length':
-                fileLen = res.getHeaders()[ i ]
-                if fileLen.isdigit():
-                    fileLen = int( fileLen )
+                resource_length = res.getHeaders()[ i ]
+                if resource_length.isdigit():
+                    resource_length = int( resource_length )
                 else:
                     msg = 'The content length header value of the response wasn\'t an integer...'
                     msg += ' this is strange... The value is: "' + res.getHeaders()[ i ] + '"'
                     om.out.error( msg )
                     raise w3afException( msg )
         
-        if fileLen != None:
-            return fileLen
+        if resource_length != None:
+            return resource_length
         else:
             msg = 'The response didn\'t contain a content-length header. Unable to return the'
             msg += ' remote file size of request with id: ' + str(res.id)
@@ -351,9 +338,12 @@ class xUrllib:
             # I prefer to fetch the file, before this om.out.debug was a "raise w3afException", but this didnt make much sense
             return 0
         
-    def __getattr__( self, methodName ):
+    def __getattr__( self, method_name ):
         '''
         This is a "catch-all" way to be able to handle every HTTP method.
+        
+        @parameter method_name: The name of the method being called:
+        xurllib_instance.OPTIONS will make method_name == 'OPTIONS'.
         '''
         class anyMethod:
             
@@ -367,41 +357,31 @@ class xUrllib:
                 self._xurllib = xu
                 self._method = method
             
-            #(self, uri, data='', headers={}, useCache=False, grepResult=True, getSize=False )
-            def __call__( self, *args, **keywords ):
-                if len( args ) != 1:
-                    msg = 'Invalid number of arguments. This method receives one argument and N keywords and you called it with:'
-                    msg += 'args: ' + repr(args) + ' and keywords: ' + repr(keywords)
-                    raise w3afException( msg )
-                    
-                uri = args[0]
+            def __call__( self, uri, data='', headers={}, useCache=False, grepResult=True ):
                 
                 self._xurllib._init()
                 
                 if self._xurllib._isBlacklisted( uri ):
-                    return httpResponse( NO_CONTENT, '', {}, uri, uri, 'No Content', id=consecutive_number_generator.inc() )
+                    return httpResponse( http_constants.NO_CONTENT, '', {}, uri, uri, 'No Content', id=consecutive_number_generator.inc() )
             
-                if 'data' in keywords:
-                    req = self.methodRequest( uri, keywords['data'] )
-                    keywords.pop('data')
+                if data:
+                    req = self.methodRequest( uri, data )
                 else:
                     req = self.methodRequest( uri )
                 
                 req.set_method( self._method )
 
-                if 'headers' in keywords:
-                    req = self._xurllib._addHeaders( req, keywords['headers'] )
-                    keywords.pop('headers')
+                if headers:
+                    req = self._xurllib._addHeaders( req, headers )
+                else:
+                    # This adds the default headers like the user-agent,
+                    # and any headers configured by the user
+                    # https://sourceforge.net/tracker/?func=detail&aid=2788341&group_id=170274&atid=853652
+                    req = self._xurllib._addHeaders( req, {} )
                 
-                if 'getSize' in keywords:
-                    keywords.pop('getSize')
-                    
-                om.out.debug( req.get_method() + ' ' + uri)
-                
-                # def _send( self , req , useCache=False, useMultipart=False, grepResult=True )
-                return apply(self._xurllib._send, (req,) , keywords )
+                return self._xurllib._send( req, useCache=useCache, grepResult=grepResult )
         
-        am = anyMethod( self, methodName )
+        am = anyMethod( self, method_name )
         return am
 
     def _addHeaders( self , req, headers={} ):
@@ -417,8 +397,8 @@ class xUrllib:
     def _checkURI( self, req ):
         #bug bug !
         #
-        #[ Fri Sep 21 23:05:18 2007 - debug ] Reason: "unknown url type: javascript" , Exception: "<urlopen error unknown url type: javascript>"; going to retry.
-        #[ Fri Sep 21 23:05:18 2007 - error ] Too many retries when trying to get: http://localhost/w3af/globalRedirect/2.php?url=javascript%3Aalert
+        # Reason: "unknown url type: javascript" , Exception: "<urlopen error unknown url type: javascript>"; going to retry.
+        # Too many retries when trying to get: http://localhost/w3af/globalRedirect/2.php?url=javascript%3Aalert
         #
         ###TODO: The problem is that the urllib2 library fails even if i do this tests, it fails if it finds javascript: in some part of the URL    
         if req.get_full_url().startswith( 'http' ):
@@ -427,27 +407,6 @@ class xUrllib:
             raise w3afException('Unsupported URL: ' +  req.get_full_url() )
         else:
             return False
-    
-    def _checkFileSize( self, req ):
-        # No max file size.
-        if self.settings.getMaxFileSize() == 0:
-            pass
-        else:
-            # This will speed up the most frequent request, no HEAD is done to the last
-            # recently used URLs
-            try:
-                size = self._sizeLRU[ req.get_full_url() ]
-            except KeyError:
-                size = self.getRemoteFileSize( req.get_full_url() )
-                self._sizeLRU[ req.get_full_url() ] = size
-                #om.out.debug('Size of response got from self._sizeLRU.')
-            
-            if self.settings.getMaxFileSize() < size :
-                msg = 'File size of URL: "' +  req.get_full_url()  + '" exceeds the configured file'
-                msg += ' size limit. Max size limit is: ' + str(greek(self.settings.getMaxFileSize()))
-                msg += ' and file size is: ' + str(greek(size)) + ' .'
-                om.out.debug( msg )
-                raise sizeExceeded( msg )
             
     def _send( self , req , useCache=False, useMultipart=False, grepResult=True ):
         '''
@@ -513,6 +472,9 @@ class xUrllib:
                 # We usually get here when the response has codes 404, 403, 401, etc...
                 msg = req.get_method() + ' ' + original_url +' returned HTTP code "'
                 msg += str(e.code) + '" - id: ' + str(e.id)
+                
+                if hasattr(e,'from_cache'):
+                    msg += ' - from cache.'
                 om.out.debug( msg )
                 
                 # Return this info to the caller
@@ -530,7 +492,7 @@ class xUrllib:
                 if grepResult:
                     self._grepResult( req, httpResObj )
                 else:
-                    om.out.debug('No grep for : ' + geturl + ' , the plugin sent grepResult=False.')
+                    om.out.debug('No grep for: "' + geturl + '", the plugin sent grepResult=False.')
                 return httpResObj
         except KeyboardInterrupt, k:
             # Correct control+c handling...
@@ -542,7 +504,7 @@ class xUrllib:
             # The handling of this errors is complex... if I get a lot of errors in a row, I'll raise a
             # w3afMustStopException because the remote webserver might be unreachable.
             # For the first N errors, I just return an empty response...
-            om.out.debug( req.get_method() + ' ' + original_url +' returned HTTP code "' + str(NO_CONTENT) + '"' )
+            om.out.debug( req.get_method() + ' ' + original_url +' returned HTTP code "' + str(http_constants.NO_CONTENT) + '"' )
             om.out.debug( 'Unhandled exception in xUrllib._send(): ' + str ( e ) )
             om.out.debug( str( traceback.format_exc() ) )
             
@@ -551,17 +513,21 @@ class xUrllib:
                 del self._errorCount[ id(req) ]
             self._incrementGlobalErrorCount()
             
-            return httpResponse( NO_CONTENT, '', {}, original_url, original_url, msg='No Content', id=consecutive_number_generator.inc() )
+            return httpResponse( http_constants.NO_CONTENT, '', {}, original_url, original_url, msg='No Content', id=consecutive_number_generator.inc() )
         else:
             # Everything ok !
             if not req.get_data():
                 msg = req.get_method() + ' ' + urllib.unquote_plus( original_url ) +' returned HTTP code "'
                 msg += str(res.code) + '" - id: ' + str(res.id)
+                if hasattr(res,'from_cache'):
+                    msg += ' - from cache.'
                 om.out.debug( msg )
             else:
                 msg = req.get_method() + ' ' + original_url +' with data: "'
                 msg += urllib.unquote_plus( req.get_data() ) +'" returned HTTP code "'
                 msg += str(res.code) + '" - id: ' + str(res.id)
+                if hasattr(res,'from_cache'):
+                    msg += ' - from cache.'
                 om.out.debug( msg )
             
             code = int(res.code)
@@ -608,12 +574,14 @@ class xUrllib:
             om.out.debug('Re-sending request...')
             return self._send( req, useCache )
         else:
+            error_amt = self._errorCount[ id(req) ]
             # Clear the log of failed requests; this one definetly failed...
             del self._errorCount[ id(req) ]
             # No need to add this:
             #self._incrementGlobalErrorCount()
             # The global error count is already incremented by the _send method.
-            raise w3afException('Too many retries when trying to get: ' + req.get_full_url() )
+            msg = 'Too many retries (' + str(error_amt) +') while requesting: ' + req.get_full_url()
+            raise w3afException( msg )
     
     def _incrementGlobalErrorCount( self ):
         '''
@@ -681,37 +649,60 @@ class xUrllib:
         # The grep process is all done in another thread. This improves the
         # speed of all w3af.
         if len( self._grepPlugins ) and urlParser.getDomain( request.get_full_url() ) in cf.cf.getData('targetDomains'):
+            
             # I'll create a fuzzable request based on the urllib2 request object
             fuzzReq = createFuzzableRequestRaw( request.get_method(), request.get_full_url(), request.get_data(), request.headers )
-            targs = (fuzzReq, response)
-            self._tm.startFunction( target=self._grepWorker, args=targs, ownerObj=self, restrict=True )
+            
+            for grep_plugin in self._grepPlugins:
+                #
+                #   For debugging, do not remove, only comment out if needed.
+                #
+                self._grep_worker( grep_plugin, fuzzReq, response )
+                
+                # TODO: Analyze if creating a different threadpool for grep workers speeds up the whole process
+                #targs = (grep_plugin, fuzzReq, response)
+                #self._tm.startFunction( target=self._grep_worker, args=targs, ownerObj=self, restrict=False )
+            
+            self._tm.join( self )
     
-    def _grepWorker( self , request, response):
+    def _grep_worker( self , grep_plugin, request, response):
         '''
-        This method calls all the grep plugins so they can analyze the request/response pair.
+        This method applies the grep_plugin to a request / response pair.
 
-        Remember that this method is always called in a thread (see the restrict=False 3 lines above)
-
+        @parameter grep_plugin: The grep plugin to run.
         @parameter request: The request which generated the response. A request object.
         @parameter response: The response which was generated by the request (first parameter). A httpResponse object.
         '''
-        om.out.debug('Starting grepWorker for response: ' + repr(response) )
+        msg = 'Starting "'+ grep_plugin.getName() +'" grep_worker for response: ' + repr(response)
+        om.out.debug( msg )
         
-        for grepPlugin in self._grepPlugins:
-            try:
-                grepPlugin.grep_wrapper( request, response)
-            except KeyboardInterrupt:
-                # Correct control+c handling...
-                raise
-            except Exception, e:
-                msg = 'Error in grep plugin, "' + grepPlugin.getName() + '" raised the exception: '
-                msg += str(e) + '. Please report this bug to the w3af sourceforge project page '
-                msg += '[ http://sourceforge.net/tracker/?func=add&group_id=170274&atid=853652 ] '
-                msg += '\nException: ' + str(traceback.format_exc(1))
-                om.out.error( msg )
-                om.out.error( str(traceback.format_exc()) )
+        # Create a wrapper that will timeout in "timeout_seconds" seconds.
+        #
+        # TODO:
+        # For now I leave it at 5, but I have to debug grep plugins and I will lower this eventually
+        #
+        timeout_seconds = 5
+        timedout_grep_wrapper = TimeLimited( grep_plugin.grep_wrapper, timeout_seconds)
+        try:
+            timedout_grep_wrapper( request, response)
+        except KeyboardInterrupt:
+            # Correct control+c handling...
+            raise
+        except TimeLimitExpired:
+            msg = 'The "' + grep_plugin.getName() + '" plugin took more than ' + str(timeout_seconds)
+            msg += ' seconds to run.'
+            msg += ' For a plugin that should only perform pattern matching, this is too much,'
+            msg += ' please review its source code.'
+            om.out.error( msg )
+        except Exception, e:
+            msg = 'Error in grep plugin, "' + grep_plugin.getName() + '" raised the exception: '
+            msg += str(e) + '. Please report this bug to the w3af sourceforge project page '
+            msg += '[ http://sourceforge.net/tracker/?func=add&group_id=170274&atid=853652 ] '
+            msg += '\nException: ' + str(traceback.format_exc(1))
+            om.out.error( msg )
+            om.out.error( str(traceback.format_exc()) )
         
-        om.out.debug('Finished grepWorker for response: ' + repr(response) )
+        om.out.debug('Finished grep_worker for response: ' + repr(response) )
 
 _abbrevs = [
     (1<<50L, 'P'),

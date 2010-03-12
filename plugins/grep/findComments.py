@@ -30,6 +30,7 @@ from core.data.options.optionList import optionList
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
 from core.controllers.w3afException import w3afException
 
+from core.controllers.coreHelpers.fingerprint_404 import is_404
 import core.data.kb.knowledgeBase as kb
 import core.data.kb.info as info
 
@@ -54,7 +55,6 @@ class findComments(baseGrepPlugin):
         'secret','@', 'email','security','captcha'
         ]
         self._already_reported_interesting = []
-        self.is404 = None
 
         # User configurations
         self._search404 = False
@@ -62,14 +62,13 @@ class findComments(baseGrepPlugin):
     def grep(self, request, response):
         '''
         Plugin entry point, parse those comments!
+        
+        @parameter request: The HTTP request object.
+        @parameter response: The HTTP response object
         @return: None
         '''
-        # Set the is404 method if not already set
-        if not self.is404:
-            self.is404 = kb.kb.getData( 'error404page', '404' )
-
         if response.is_text_or_html():
-            if not self.is404( response ) or self._search404:
+            if not is_404( response ) or self._search404:
                 
                 try:
                     dp = dpCache.dpc.getDocumentParserFor( response )
@@ -109,7 +108,8 @@ class findComments(baseGrepPlugin):
                             om.out.information( i.getDesc() )
                             self._already_reported_interesting.append( ( word, response.getURL() ) )
                     
-                    if re.search('<[a-zA-Z]*.*?>.*?</[a-zA-Z]>', comment) and \
+                    html_in_comment = re.search('<[a-zA-Z]*.*?>.*?</[a-zA-Z]>', comment)
+                    if html_in_comment and \
                     ( comment, response.getURL() ) not in self._already_reported_interesting:
                         # There is HTML code in the comment.
                         i = info.info()
@@ -120,6 +120,7 @@ class findComments(baseGrepPlugin):
                         i.setId( response.id )
                         i.setDc( request.getDc )
                         i.setURI( response.getURI() )
+                        i.addToHighlight( html_in_comment.group(0) )
                         kb.kb.append( self, 'htmlCommentsHideHtml', i )
                         om.out.information( i.getDesc() )
                         self._already_reported_interesting.append( ( comment, response.getURL() ) )

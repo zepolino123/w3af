@@ -41,17 +41,30 @@ class threadManager:
     
     def _initPool( self ):
         self._maxThreads = cf.cf.getData('maxThreads' ) or 0
-        # if I want to use the restrict argument of startFunction,
-        # the thread pool MUST have at least some threads
+        
+        #
+        #   Please note that I'm using the q_size parameter of the Threadpool. This is what the 
+        #   threadpool documentation says about it:
+        #
+        #        If q_size > 0 the size of the work request is limited and the
+        #       thread pool blocks when queue is full and it tries to put more
+        #       work requests in it.
+        #
+        #   This will basically save me from filling-up all the memory with WorkRequest objects
+        #   when somebody performs something like this:
+        #
+        #   for url in looooooong_list:
+        #       self._tm.startFunction( target=self._do_request, args=(url,) )
+        #
         if self._maxThreads:
-            self._threadPool = ThreadPool( self._maxThreads )
+            self._threadPool = ThreadPool( self._maxThreads, q_size = 200)
         else:
-            self._threadPool = ThreadPool( 5 )
+            # if I want to use the restrict argument of startFunction, the thread pool 
+            # MUST have some threads
+            self._threadPool = ThreadPool( 5, 15 )
     
     def setMaxThreads( self, threads ):
-        if self._maxThreads == threads:
-            self._maxThreads = threads
-        elif self._maxThreads > threads:
+        if self._maxThreads > threads:
             self._threadPool.dismissWorkers( self._maxThreads - threads )
             self._maxThreads = threads
         elif self._maxThreads < threads:
@@ -96,9 +109,11 @@ class threadManager:
             apply( target, args, kwds )
         else:
             # Assign a job to a thread in the thread pool
-            om.out.debug('Assigning function object with id: "' + str(id(target)) + '" to a thread in the thread pool.' )
             wr = WorkRequest( target, args=args, kwds=kwds, ownerObj=ownerObj )
             self._threadPool.putRequest( wr )
+            msg = '[thread manager] Successfully added function to threadpool. Work queue size: '
+            msg += str(self._threadPool.requestsQueue.qsize())
+            om.out.debug( msg )
             
     def join( self, ownerObj=None, joinAll=False ):
         self._threadPool.wait( ownerObj, joinAll )

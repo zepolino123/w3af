@@ -21,32 +21,40 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 '''
 
 from core.data.fuzzer.fuzzer import createRandAlNum
+
+import core.controllers.outputManager as om
+import core.data.kb.knowledgeBase as kb
+import core.data.kb.config as cf
+import core.data.parsers.urlParser as urlParser
+from core.data.kb.shell import shell as shell
+
+from core.controllers.w3afException import w3afException
+from core.controllers.basePlugin.baseAttackPlugin import baseAttackPlugin
+
+from core.controllers.daemons.webserver import webserver
+from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
+from core.controllers.threads.w3afThread import w3afThread
+from core.controllers.threads.threadManager import threadManagerObj as tm
+import core.data.constants.w3afPorts as w3afPorts
+
+# options
+from core.data.options.option import option
+from core.data.options.optionList import optionList
+
+import time
+import socket, urlparse, urllib
+import os
+
+#
+# TODO: I dont like globals, please see TODO below.
+#
+url = ''
+exploitData = ''
+rfiConnGenerator = ''
 # This separator is a Unique string used for parsing. 
 RFI_SEPARATOR = createRandAlNum( 25 )
 URLOPENER = None
 
-import core.controllers.outputManager as om
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
-from core.controllers.basePlugin.baseAttackPlugin import baseAttackPlugin
-import core.data.kb.knowledgeBase as kb
-from core.controllers.w3afException import w3afException
-from core.controllers.daemons.webserver import webserver
-import core.data.parsers.urlParser as urlParser
- 
-from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
-from core.controllers.threads.w3afThread import w3afThread
-import time
-import socket, urlparse, urllib
-import os
-from core.controllers.threads.threadManager import threadManagerObj as tm
-import core.data.constants.w3afPorts as w3afPorts
-
-### TODO: I dont like globals, please see TODO below.
-url = ''
-exploitData = ''
-rfiConnGenerator = ''
 
 class rfiProxy(baseAttackPlugin, w3afThread):
     '''
@@ -59,7 +67,7 @@ class rfiProxy(baseAttackPlugin, w3afThread):
         baseAttackPlugin.__init__(self)
         w3afThread.__init__( self )
         
-        self._listenAddress = '127.0.0.1'
+        self._proxyAddress = '127.0.0.1'
         self._proxyPort = w3afPorts.RFIPROXY
         self._rfiConnGenerator = ''
         self._httpdPort = w3afPorts.RFIPROXY2
@@ -71,7 +79,7 @@ class rfiProxy(baseAttackPlugin, w3afThread):
         self._url = None
         self._method = None
         self._exploitQs = None
-        self._proxyPublicIP = None
+        self._proxyPublicIP = cf.cf.getData( 'localAddress' )
         
     def fastExploit(self, url, method, data ):
         '''
@@ -104,27 +112,8 @@ class rfiProxy(baseAttackPlugin, w3afThread):
         '''        
         return 'remoteFileInclude'
                 
-    def exploit(self, vulnToExploit=None ):
-        '''
-        Exploits a rfiVulns that were found and stored in the kb.
-
-        @return: True if the shell is working and the user can start using the proxy.
-        '''
-        om.out.information( 'rfiProxy exploit plugin is starting.' )
-        rfiVulns = kb.kb.getData( 'remoteFileInclude' , 'rfi' )
-        if len( rfiVulns ) == 0:
-            raise w3afException('No remote file inclusion vulnerabilities have been found.')
-
-        for vuln in rfiVulns:
-            # Try to get a shell using all vuln
-            if self._generateProxy(vuln):
-                # A proxy was generated.
-                kb.kb.append( self, 'proxy', self )
-                return True
-                    
-        return False
-        
-    def _generateProxy( self, vuln ):
+      
+    def _generateShell( self, vuln ):
         '''
         @parameter vuln: The vuln to exploit.
         @return: True if the user can start using the proxy.
@@ -137,7 +126,10 @@ class rfiProxy(baseAttackPlugin, w3afThread):
         
         self.start2()
         time.sleep(0.5) # wait for webserver thread to start
-        return True
+        
+        p = proxy_rfi_shell( self._proxyAddress + ':' + str(self._proxyPort) )
+        
+        return p
         
     def stop(self):
         if self._running:
@@ -147,7 +139,7 @@ class rfiProxy(baseAttackPlugin, w3afThread):
             self._go = False
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
-                s.connect((self._listenAddress, self._proxyPort))
+                s.connect((self._proxyAddress, self._proxyPort))
                 s.close()
             except:
                 pass
@@ -202,8 +194,8 @@ class rfiProxy(baseAttackPlugin, w3afThread):
         rfiConnGenerator = self._rfiConnGenerator
         variable = self._variable
         
-        self._proxy = HTTPServer((self._listenAddress, self._proxyPort ),  w3afProxyHandler )
-        message = 'Proxy server running on '+ self._listenAddress + ':'+ str(self._proxyPort) +' .'
+        self._proxy = HTTPServer((self._proxyAddress, self._proxyPort ),  w3afProxyHandler )
+        message = 'Proxy server running on '+ self._proxyAddress + ':'+ str(self._proxyPort) +' .'
         message += ' You may now configure this proxy in w3af or your browser. '
         om.out.information( message )
         
@@ -215,57 +207,43 @@ class rfiProxy(baseAttackPlugin, w3afThread):
                 self._proxy.server_close()
     
     def getOptions(self):
-        # FIXME!
-        return optionList()
-
-    def getOptionsXML(self):
         '''
-        This method returns a XML containing the Options that the plugin has.
-        Using this XML the framework will build a window, a menu, or some other input method to retrieve
-        the info from the user. The XML has to validate against the xml schema file located at :
-        w3af/core/ui/userInterface.dtd
+        @return: A list of option objects for this plugin.
+        '''
+        desc_1 = 'IP address that the proxy will use to receive requests'
+        option_1 = option('proxyAddress', self._proxyAddress, desc_1, 'string')
         
-        @return: XML with the plugin options.
-        ''' 
-        return  '<?xml version="1.0" encoding="ISO-8859-1"?>\
-        <OptionList>\
-            <Option name="listenAddress">\
-                <default>127.0.0.1</default>\
-                <desc>IP address that the proxy will use to receive requests</desc>\
-                <type>string</type>\
-                <help></help>\
-            </Option>\
-            <Option name="proxyPort">\
-                <default>8000</default>\
-                <desc>Port that the proxy will use to receive requests</desc>\
-                <type>integer</type>\
-                <help></help>\
-            </Option>\
-            <Option name="httpdPort">\
-                <default>8001</default>\
-                <desc>Port that the local httpd will listen on.</desc>\
-                <help>When exploiting a remote file include for generating a proxy, w3af can use a local web server to serve the included file. This setting will configure the TCP port where this webserver listens.</help>\
-                <type>integer</type>\
-                <help></help>\
-            </Option>\
-            <Option name="proxyPublicIP">\
-                <default></default>\
-                <desc>This is the ip that the remote server will connect to in order to retrieve the file inclusion.</desc>\
-                <help>When exploiting a remote file include for generating a proxy, w3af can use a local web server to serve the included file. This setting will configure the IP address where this webserver listens.</help>\
-                <type>string</type>\
-                <help></help>\
-            </Option>\
-            <Option name="rfiConnGenerator">\
-                <default></default>\
-                <desc>URL for the remote file inclusion connection generator.</desc>\
-                <type>string</type>\
-                <help>If left blank, a local webserver will be runned at proxyPublicIP:httpdPort \
-                and the connection generator \
-                will be served to the remote web application this way.</help>\
-            </Option>\
-        </OptionList>\
-        '
-    
+        desc_2 = 'Port that the proxy will use to receive requests'
+        option_2 = option('proxyPort', self._proxyPort, desc_2, 'integer')
+        
+        desc_3 = 'Port that the local httpd will listen on.'
+        help_3 = 'When exploiting a remote file include for generating a proxy, w3af can'
+        help_3 += ' use a local web server to serve the included file. This setting will'
+        help_3 += ' configure the TCP port where this webserver listens.'
+        option_3 = option('httpdPort', self._httpdPort, desc_3, 'integer', help=help_3)
+
+        desc_4 = 'This is the ip that the remote server will connect to in order to'
+        desc_4 += ' retrieve the file inclusion payload "rfip.txt".'
+        help_4 = 'When exploiting a remote file include for generating a proxy, w3af can use'
+        help_4 += ' a local web server to serve the included file. This setting will configure'
+        help_4 += ' the IP address where this webserver listens.'
+        option_4 = option('proxyPublicIP', self._proxyPublicIP, desc_4, 'string',  help=help_4)
+
+        desc_5 = 'URL for the remote file inclusion connection generator.'
+        help_5 = 'If left blank, a local webserver will be runned at proxyPublicIP:httpdPort'
+        help_5 += ' and the connection generator will be served to the remote web application'
+        help_5 +=' this way.'
+        option_5 = option('rfiConnGenerator', self._rfiConnGenerator, desc_5, 'integer', help=help_5)
+
+        options = optionList()
+        options.add(option_1)
+        options.add(option_2)
+        options.add(option_3)
+        options.add(option_4)
+        options.add(option_5)
+        return options
+
+        
     def getRootProbability( self ):
         '''
         @return: This method returns the probability of getting a root shell using this attack plugin.
@@ -283,7 +261,7 @@ class rfiProxy(baseAttackPlugin, w3afThread):
         @parameter optionsMap: A dictionary with the options for the plugin.
         @return: No value is returned.
         ''' 
-        self._listenAddress = optionsMap['listenAddress'].getValue()
+        self._proxyAddress = optionsMap['proxyAddress'].getValue()
         self._proxyPort = optionsMap['proxyPort'].getValue()
         self._httpdPort = optionsMap['httpdPort'].getValue()
         self._proxyPublicIP = optionsMap['proxyPublicIP'].getValue()
@@ -314,14 +292,45 @@ class rfiProxy(baseAttackPlugin, w3afThread):
         end, where the connections are actually created.
         
         Five configurable parameters exist:
-            - listenAddress
+            - proxyAddress
             - proxyPort
             - httpdPort
             - proxyPublicIP
             - rfiConnGenerator
         '''
         
+class proxy_rfi_shell(shell):
+    
+    def __init__(self, proxy_url):
+        self._proxy_url = proxy_url
+    
+    def _rexec( self, command ):
+        msg = 'This is a placeholder. You should use your browser to interact with this plugin.'
+        return msg
+    
+    def end( self ):
+        om.out.debug('xssShell cleanup complete.')
         
+    def getName( self ):
+        return 'proxy_rfi_shell'
+    
+    def _identifyOs(self):
+        return 'remote_file_inclusion_proxy'
+        
+    def __repr__( self ):
+        return '<'+self.getName()+' object (Use proxy: "'+self._proxy_url+'")>'
+        
+    def getRemoteSystem( self ):
+        return 'browser'
+
+    def getRemoteUser( self ):
+        return 'user'
+        
+    def getRemoteSystemName( self ):
+        return 'browser'
+        
+    __str__ = __repr__
+
 class w3afProxyHandler(BaseHTTPRequestHandler):
 
     def _work( self, host, port, send, proxyClientConnection ):
@@ -375,13 +384,16 @@ class w3afProxyHandler(BaseHTTPRequestHandler):
             command, url, version = words
             (scm, netloc, path, params, query, fragment) = urlparse.urlparse(url)
             if scm != 'http':
-                self.send_error(501, 'Remote file inclusion proxy has no https support. Contribute <a href="http://w3af.sourceforge.net/">here</a>')
+                msg = 'Remote file inclusion proxy has no https support.'
+                msg += ' Contribute <a href="http://w3af.sourceforge.net/">here</a>'
+                self.send_error(501, msg)
+                return
             else:
-                splitNetloc = netloc.split(':')
+                split_netloc = netloc.split(':')
                 port = 80
-                if len( splitNetloc ) == 2:
-                    port = splitNetloc[1]
-                host = splitNetloc[0]
+                if len( split_netloc ) == 2:
+                    port = split_netloc[1]
+                host = split_netloc[0]
         else:
             return
 
@@ -407,19 +419,3 @@ class w3afProxyHandler(BaseHTTPRequestHandler):
         #targs = ( host, port, raw_request, proxyClientConnection )
         #self._tm.startFunction( target=self._work, args=targs, ownerObj=self )
         self._work( host, port, raw_request, proxyClientConnection )
-
-    def getLongDesc( self ):
-        '''
-        @return: A DETAILED description of the plugin functions and features.
-        '''
-        return '''
-        This plugin exploits remote file inclusion vulnerabilities and returns a HTTP proxy. The proxy will use
-        the remote file inclusion bug to navigate the web in an anonymous way.
-        
-        Six configurable parameters exist:
-            - listenAddress
-            - listenPort
-            - httpdPort
-            - proxyPublicIP
-            - rfiConnGenerator
-        '''

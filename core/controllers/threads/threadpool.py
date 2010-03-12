@@ -37,6 +37,9 @@ __date__ = "2005-07-19"
 import threading, Queue
 import core.controllers.outputManager as om
 import traceback
+import time
+
+DEBUG = False
 
 class NoResultsPending(Exception):
     """All work requests have been processed."""
@@ -61,6 +64,8 @@ class WorkerThread(threading.Thread):
         threading.Thread.__init__(self, **kwds)
         self.setDaemon(1)
         self.workRequestQueue = requestsQueue
+        if DEBUG:
+            print '[worker] Init with queue',  id(self.workRequestQueue)
         self.resultQueue = resultsQueue
         self._dismissed = threading.Event()
         self.start()
@@ -68,10 +73,32 @@ class WorkerThread(threading.Thread):
     def run(self):
         """Repeatedly process the job queue until told to exit.
         """
-
         while not self._dismissed.isSet():
-            # thread blocks here, if queue empty
-            request = self.workRequestQueue.get()
+            
+            if DEBUG:
+                msg = '[worker] Blocking at Queue.get().'
+                om.out.debug( msg )
+                
+            try:
+                # thread blocks here for 1 second, if queue empty
+                request = self.workRequestQueue.get(timeout=1)
+            except:
+                if DEBUG:
+                    msg = '[worker] Is blocked at Queue.get() because the queue is empty (size='
+                    msg += str(self.workRequestQueue.qsize()) +').'
+                    om.out.debug( msg )
+                continue
+
+            
+            if DEBUG:
+                msg = '[worker] Unblocking after Queue.get().'
+                om.out.debug( msg )
+            
+            if DEBUG:
+                msg = '[worker] workRequestQueue length for thread with id ' + str(id(self)) + ' is '
+                msg += str(self.workRequestQueue.qsize())
+                om.out.debug( msg )
+            
             if self._dismissed.isSet():
                 # return the work request we just picked up
                 self.workRequestQueue.put(request)
@@ -80,10 +107,15 @@ class WorkerThread(threading.Thread):
             try:
                 self.resultQueue.put( (request, request.callable(*request.args, **request.kwds)) )
             except Exception, e:
-                om.out.debug('The thread: ' + str(self) + ' raised an exception while running the request: ' + str(request.callable) )
-                om.out.debug('Exception: ' + str( e ) )
-                om.out.debug( 'Traceback: ' + str( traceback.format_exc() ) )
+                om.out.error('The thread: ' + str(self) + ' raised an exception while running the request: ' + str(request.callable) )
+                om.out.error('Exception: ' + str( e ) )
+                om.out.error( 'Traceback: ' + str( traceback.format_exc() ) )
                 self.resultQueue.put( (request, e) )
+        
+        if DEBUG:
+            om.out.debug('[worker] Ending!')
+                
+            
 
     def dismiss(self):
         """Sets a flag to tell the thread to exit when done with current job.
@@ -125,7 +157,7 @@ class WorkRequest:
         self.ownerObj = ownerObj
 
 
-class ThreadPool:
+class ThreadPoolImplementation:
     """A thread pool, distributing work requests and collecting results.
 
     See the module doctring for more information.
@@ -139,9 +171,21 @@ class ThreadPool:
         thread pool blocks when queue is full and it tries to put more
         work requests in it.
         """
-
-        self.requestsQueue = Queue.Queue(q_size)
+        # There are some problems with the q_size. Lets analyze it:
+        #
+        #   - qsize == 10
+        #   - We have 10 queued work requests
+        #   - One of the work requests says "Hey, lets create a new thread"
+        #   - That startFunction() will lock until its able to input the work request in the queue
+        #   - The queue is full, no new requests can come in.
+        #   - Dead-locks occur.
+        #
+        #   In most cases, having a q_size of 150 is enough to avoid this situation, and at the same
+        #   time save some memory. The q_size is set in threadManager.py.
+        self.requestsQueue = Queue.Queue()
         self.resultsQueue = Queue.Queue()
+        if DEBUG:
+            print '[ThreadPool][',id(self),'] Init with queue',  id(self.requestsQueue)
         self.workers = []
         self.workRequests = {}
         self.createWorkers(num_workers)
@@ -171,48 +215,49 @@ class ThreadPool:
             try:
                 # still results pending?
                 if not joinAll:
-                    ownedWordRequests = [ wr for wr in self.workRequests.values() if id(wr.ownerObj) == id(ownerObj) ]
+                    owned_work_requests = [ wr for wr in self.workRequests.values() if id(wr.ownerObj) == id(ownerObj) ]
                 else:
-                    ownedWordRequests = self.workRequests.values()
-                if not ownedWordRequests:
+                    owned_work_requests = self.workRequests.values()
+                if not owned_work_requests:
                     raise NoResultsPending
                 
-                # are there still workers to process remaining requests?
+                if DEBUG:
+                    msg = 'The object calling poll("'+ str(ownerObj) +'") still owns '
+                    msg += str(len(owned_work_requests)) + ' work requests.'
+                    om.out.debug( msg )
+                
+                #   Are there still workers to process remaining requests?
                 elif block and not self.workers:
                     raise NoWorkersAvailable
-                
-                # get back next results
-                request, result = self.resultsQueue.get(block=block)
-                
+                                
+                #   Get back a new result from the queue where the workers put their result.
+                request, result = self.resultsQueue.get(block=block, timeout=1)
+
                 if id(request.ownerObj) == id(ownerObj) or joinAll:
                     # and hand them to the callback, if any
                     if request.callback:
                         request.callback(request, result)
                     del self.workRequests[request.requestID]
-                    
-                    # Raise the exception that was catched before in:
-                    '''
-                    try:
-                        self.resultQueue.put( (request, request.callable(*request.args, **request.kwds)) )
-                    except Exception, e:
-                        om.out.debug('The thread: ' + str(self) + ' raised an exception while running the request: ' + str(request.callable) )
-                    self.resultQueue.put( (request, e) )
-                    '''
+
+                    # Raised here so I can handle it in the main thread...
+                    # TODO: Remove this. No part of the code handles errors from tm.join()
                     if isinstance( result, Exception ):
-                        # Raised here so I can handle it in the main thread...
                         raise result
                     
                 else:
                     self.resultsQueue.put( (request,result) )
                 
             except Queue.Empty:
+                if DEBUG:
+                    msg = 'The results Queue is empty, breaking.'
+                    om.out.debug( msg )
                 break
 
     def wait(self, ownerObj=None, joinAll=False ):
         """Wait for results, blocking until all have arrived."""
         while 1:
             try:
-                self.poll(True, ownerObj, joinAll)
+                self.poll(block=True, ownerObj=ownerObj, joinAll=joinAll)
             except NoResultsPending:
                 break
 
@@ -238,6 +283,47 @@ def makeRequests(callable, args_list, callback=None):
               WorkRequest(callable, [item], None, callback=callback))
     return requests
 
+class ThreadPool( object ):
+    '''
+    This is a Singleton class that I had to add here as a kludge, in order to avoid the
+    creation of two ThreadPool instances. If two ThreadPools are created, the whole
+    threading system is crazy...
+    '''
+    ## Stores the unique Singleton instance-
+    _iInstance = None
+ 
+    ## Class used with this Python singleton design pattern
+    #  @todo Add all variables, and methods needed for the Singleton class below
+    Singleton = ThreadPoolImplementation
+ 
+    ## The constructor
+    #  @param self The object pointer.
+    def __init__( self, num_workers, q_size=0):
+        # Check whether we already have an instance
+        if ThreadPool._iInstance is None:
+            # Create and remember instanc
+            ThreadPool._iInstance = ThreadPool.Singleton(num_workers,  q_size)
+ 
+        # Store instance reference as the only member in the handle
+        self._EventHandler_instance = ThreadPool._iInstance
+ 
+ 
+    ## Delegate access to implementation.
+    #  @param self The object pointer.
+    #  @param attr Attribute wanted.
+    #  @return Attribute
+    def __getattr__(self, aAttr):
+        return getattr(self._iInstance, aAttr)
+ 
+ 
+    ## Delegate access to implementation.
+    #  @param self The object pointer.
+    #  @param attr Attribute wanted.
+    #  @param value Vaule to be set.
+    #  @return Result of operation.
+    def __setattr__(self, aAttr, aValue):
+        return setattr(self._iInstance, aAttr, aValue)
+        
 
 if __name__ == '__main__':
     import random

@@ -19,6 +19,7 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
+from __future__ import with_statement
 
 import core.controllers.outputManager as om
 
@@ -47,10 +48,13 @@ class osCommanding(baseAuditPlugin):
     def __init__(self):
         baseAuditPlugin.__init__(self)
         
-        # Some internal variables
+        #
+        #   Some internal variables
+        #
         self._special_chars = ['', '&&', '|', ';']
         # The wait time of the unfuzzed request
         self._original_wait_time = 0
+        self._file_compiled_regex = []
         
         # The wait time of the first test I'm going to perform
         self._wait_time = 4
@@ -73,6 +77,12 @@ class osCommanding(baseAuditPlugin):
         # The basic idea is to be able to detect ANY vulnerability, so we use ALL
         # of the known techniques
         self._with_time_delay(freq)
+        
+        #   Wait until the echo tests finish. I need to do this because of an odd problem with
+        #   Python's "with" statement. It seems that if I use two different with statements and
+        #   the same thread lock at the same time, the application locks and stops working.
+        self._tm.join(self)
+        
         self._with_echo(freq)
     
     def _with_time_delay(self, freq):
@@ -92,13 +102,17 @@ class osCommanding(baseAuditPlugin):
         mutants = createMutants( freq , only_command_strings )
         
         for mutant in mutants:
-            if self._hasNoBug( 'osCommanding', 'osCommanding', mutant.getURL() , mutant.getVar() ):
-                # Only spawn a thread if the mutant has a modified variable
-                # that has no reported bugs in the kb
+            
+            # Only spawn a thread if the mutant has a modified variable
+            # that has no reported bugs in the kb
+            if self._hasNoBug( 'osCommanding' , 'osCommanding', mutant.getURL() , mutant.getVar() ):
+                
                 targs = (mutant,)
                 kwds = {'analyze_callback':self._analyze_wait}
                 self._tm.startFunction( target=self._sendMutant, args=targs , \
                                                     kwds=kwds, ownerObj=self )
+                                                    
+            self._tm.join( self )
 
     def _with_echo(self, freq):
         '''
@@ -114,9 +128,11 @@ class osCommanding(baseAuditPlugin):
         mutants = createMutants( freq , only_command_strings, oResponse=original_response )
 
         for mutant in mutants:
-            if self._hasNoBug( 'osCommanding', 'osCommanding', mutant.getURL() , mutant.getVar() ):
-                # Only spawn a thread if the mutant has a modified variable
-                # that has no reported bugs in the kb
+
+            # Only spawn a thread if the mutant has a modified variable
+            # that has no reported bugs in the kb
+            if self._hasNoBug( 'osCommanding' , 'osCommanding', mutant.getURL() , mutant.getVar() ):
+                
                 targs = (mutant,)
                 kwds = {'analyze_callback':self._analyze_echo}
                 self._tm.startFunction( target=self._sendMutant, args=targs , \
@@ -126,40 +142,78 @@ class osCommanding(baseAuditPlugin):
         '''
         Analyze results of the _sendMutant method that was sent in the _with_echo method.
         '''
-        file_patterns = self._get_file_patterns()
-        for file_pattern in file_patterns:
-            if not re.search( file_pattern, mutant.getOriginalResponseBody(), re.IGNORECASE )\
-            and re.search(file_pattern, response.getBody(), re.IGNORECASE):
-                # Search for the correct command and separator
-                sentOs, sentSeparator = self._get_os_separator(mutant)
+        #
+        #   Only one thread at the time can enter here. This is because I want to report each
+        #   vulnerability only once, and by only adding the "if self._hasNoBug" statement, that
+        #   could not be done.
+        #
+        with self._plugin_lock:
+            
+            #
+            #   I will only report the vulnerability once.
+            #
+            if self._hasNoBug( 'osCommanding' , 'osCommanding' , mutant.getURL() , mutant.getVar() ):
+                
+                file_patterns = self._get_file_patterns()
+                for file_pattern_re in file_patterns:
+                    
+                    match = file_pattern_re.search( response.getBody() )
+                    
+                    if match\
+                    and not file_pattern_re.search( mutant.getOriginalResponseBody() ):
+                        # Search for the correct command and separator
+                        sentOs, sentSeparator = self._get_os_separator(mutant)
 
-                # Create the vuln obj
-                v = vuln.vuln( mutant )
-                v.setName( 'OS commanding vulnerability' )
-                v.setSeverity(severity.HIGH)
-                v['os'] = sentOs
-                v['separator'] = sentSeparator
-                v.setDesc( 'OS Commanding was found at: ' + mutant.foundAt() )
-                v.setDc( mutant.getDc() )
-                v.setId( response.id )
-                v.setURI( response.getURI() )
-                kb.kb.append( self, 'osCommanding', v )
-                break
+                        # Create the vuln obj
+                        v = vuln.vuln( mutant )
+                        v.setName( 'OS commanding vulnerability' )
+                        v.setSeverity(severity.HIGH)
+                        v['os'] = sentOs
+                        v['separator'] = sentSeparator
+                        v.setDesc( 'OS Commanding was found at: ' + mutant.foundAt() )
+                        v.setDc( mutant.getDc() )
+                        v.setId( response.id )
+                        v.setURI( response.getURI() )
+                        v.addToHighlight( match.group(0) )
+                        kb.kb.append( self, 'osCommanding', v )
+                        break
     
     def _get_file_patterns(self):
         '''
         @return: A list of file patterns, that if found in the response, indicate that a command
         was successfully executed.
         '''
-        file_patterns = []
-        file_patterns.append("root:x:0:0:")	
-        file_patterns.append("daemon:x:1:1:")
-        file_patterns.append(":/bin/bash")
-        file_patterns.append(":/bin/sh")
-        file_patterns.append("[fonts]")
-        file_patterns.append("[extensions]")
-        file_patterns.append("[files]")
-        return file_patterns
+        if self._file_compiled_regex:
+            # returning the already compiled regular expressions
+            return self._file_compiled_regex
+        
+        else:
+            # Compile them for the first time, and return the compiled regular expressions
+            
+            file_patterns = []
+            
+            # /etc/passwd
+            file_patterns.append("root:x:0:0:")  
+            file_patterns.append("daemon:x:1:1:")
+            file_patterns.append(":/bin/bash")
+            file_patterns.append(":/bin/sh")
+
+            # /etc/passwd in AIX
+            file_patterns.append("root:!:x:0:0:")
+            file_patterns.append("daemon:!:x:1:1:")
+            file_patterns.append(":usr/bin/ksh") 
+
+            # boot.ini
+            file_patterns.append("\\[boot loader\\]")
+            file_patterns.append("default=multi\\(")
+            file_patterns.append("\\[operating systems\\]")
+            
+            # win.ini
+            file_patterns.append("\\[fonts\\]")
+            
+            self._file_compiled_regex = [re.compile(i, re.IGNORECASE) for i in file_patterns]
+            
+            return self._file_compiled_regex
 
     def _get_os_separator(self, mutant):
         '''
@@ -182,47 +236,59 @@ class osCommanding(baseAuditPlugin):
         '''
         Analyze results of the _sendMutant method that was sent in the _with_time_delay method.
         '''
-        if response.getWaitTime() > (self._original_wait_time + self._wait_time-2) and \
-        response.getWaitTime() < (self._original_wait_time + self._wait_time+2):
-            sentOs, sentSeparator = self._get_os_separator(mutant)
-                    
-            # This could be because of an osCommanding vuln, or because of an error that
-            # generates a delay in the response; so I'll resend changing the time and see 
-            # what happens
-            original_wait_param = mutant.getModValue()
-            more_wait_param = original_wait_param.replace( \
-                                                        str(self._wait_time), \
-                                                        str(self._second_wait_time) )
-            mutant.setModValue( more_wait_param )
-            response = self._sendMutant( mutant, analyze=False )
+        #
+        #   Only one thread at the time can enter here. This is because I want to report each
+        #   vulnerability only once, and by only adding the "if self._hasNoBug" statement, that
+        #   could not be done.
+        #
+        with self._plugin_lock:
             
-            if response.getWaitTime() > (self._original_wait_time + self._second_wait_time-3) and \
-            response.getWaitTime() < (self._original_wait_time + self._second_wait_time+3):
-                # Now I can be sure that I found a vuln, I control the time of the response.
-                v = vuln.vuln( mutant )
-                v.setName( 'OS commanding vulnerability' )
-                v.setSeverity(severity.HIGH)
-                v['os'] = sentOs
-                v['separator'] = sentSeparator
-                v.setDesc( 'OS Commanding was found at: ' + mutant.foundAt() )
-                v.setDc( mutant.getDc() )
-                v.setId( response.id )
-                v.setURI( response.getURI() )
-                kb.kb.append( self, 'osCommanding', v )
+            #
+            #   I will only report the vulnerability once.
+            #
+            if self._hasNoBug( 'osCommanding' , 'osCommanding' , mutant.getURL() , mutant.getVar() ):
+                
+                if response.getWaitTime() > (self._original_wait_time + self._wait_time-2) and \
+                response.getWaitTime() < (self._original_wait_time + self._wait_time+2):
+                    sentOs, sentSeparator = self._get_os_separator(mutant)
+                            
+                    # This could be because of an osCommanding vuln, or because of an error that
+                    # generates a delay in the response; so I'll resend changing the time and see 
+                    # what happens
+                    original_wait_param = mutant.getModValue()
+                    more_wait_param = original_wait_param.replace( \
+                                                                str(self._wait_time), \
+                                                                str(self._second_wait_time) )
+                    mutant.setModValue( more_wait_param )
+                    response = self._sendMutant( mutant, analyze=False )
+                    
+                    if response.getWaitTime() > (self._original_wait_time + self._second_wait_time-3) and \
+                    response.getWaitTime() < (self._original_wait_time + self._second_wait_time+3):
+                        # Now I can be sure that I found a vuln, I control the time of the response.
+                        v = vuln.vuln( mutant )
+                        v.setName( 'OS commanding vulnerability' )
+                        v.setSeverity(severity.HIGH)
+                        v['os'] = sentOs
+                        v['separator'] = sentSeparator
+                        v.setDesc( 'OS Commanding was found at: ' + mutant.foundAt() )
+                        v.setDc( mutant.getDc() )
+                        v.setId( response.id )
+                        v.setURI( response.getURI() )
+                        kb.kb.append( self, 'osCommanding', v )
 
-            else:
-                # The first delay existed... I must report something...
-                i = info.info()
-                i.setName('Possible OS commanding vulnerability')
-                i.setId( response.id )
-                i.setDc( mutant.getDc() )
-                i.setMethod( mutant.getMethod() )
-                i['os'] = sentOs
-                i['separator'] = sentSeparator
-                msg = 'A possible OS Commanding was found at: ' + mutant.foundAt() 
-                msg += 'Please review manually.'
-                i.setDesc( msg )
-                kb.kb.append( self, 'osCommanding', i )
+                    else:
+                        # The first delay existed... I must report something...
+                        i = info.info()
+                        i.setName('Possible OS commanding vulnerability')
+                        i.setId( response.id )
+                        i.setDc( mutant.getDc() )
+                        i.setMethod( mutant.getMethod() )
+                        i['os'] = sentOs
+                        i['separator'] = sentSeparator
+                        msg = 'A possible OS Commanding was found at: ' + mutant.foundAt() 
+                        msg += 'Please review manually.'
+                        i.setDesc( msg )
+                        kb.kb.append( self, 'osCommanding', i )
     
     def end(self):
         '''

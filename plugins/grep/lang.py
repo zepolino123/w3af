@@ -20,7 +20,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 from __future__ import with_statement
-import thread
 
 import core.controllers.outputManager as om
 
@@ -30,8 +29,11 @@ from core.data.options.optionList import optionList
 
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
 
+from core.controllers.coreHelpers.fingerprint_404 import is_404
 import core.data.kb.knowledgeBase as kb
+
 import re
+
 
 class lang(baseGrepPlugin):
     '''
@@ -71,32 +73,31 @@ class lang(baseGrepPlugin):
         'gibi', 'haber', 'kadar', 'karar', 'kaynak', 'olarak', 'sayfa', 'siteye', 
         'sorumlu', 'tamam', 'yasak', 'zorunlu']
         
-        self._lang_lock = thread.allocate_lock()
-        
     def grep(self, request, response):
         '''
         Get the page indicated by the fuzzableRequest and determine the language using the preposition list.
         
-        @parameter fuzzableRequest: A fuzzableRequest instance that contains (among other things) the URL to test.
+        @parameter request: The HTTP request object.
+        @parameter response: The HTTP response object
         '''
-        with self._lang_lock:
-            self.is404 = kb.kb.getData( 'error404page', '404' )
-            if self._exec and not self.is404( response ):
+        with self._plugin_lock:
+            if self._exec and not is_404( response ) and response.is_text_or_html():
                 kb.kb.save( self, 'lang', 'unknown' )
                 
-                # Init the count map
                 number_of_matches = {}
-                for i in self._prepositions.keys():
-                    number_of_matches[ i ] = 0
                 
-                # Count prepositions
-                for possible_lang in self._prepositions.keys():
-                    for preposition in self._prepositions[ possible_lang ]:
-                        # I want to match WHOLE words
-                        response_words = re.split('[^\w]', response.getBody())
-                        if preposition in response_words:
-                            om.out.debug('Found preposition: "' + preposition + '"')
-                            number_of_matches[ possible_lang ] += 1
+                for lang_string in self._prepositions:
+                    # Init the count map
+                    number_of_matches[ lang_string ] = 0
+                    
+                    # Create regular expression
+                    # I add the ' 's because I want the whole word.
+                    prepositions = [' ' + i + ' ' for i in self._prepositions[lang_string]]
+                    preposition_regex = '(' + '|'.join(prepositions) + ')'
+                    
+                    # Find all the matches for this regular expression
+                    matches = re.findall(preposition_regex, response.getBody().lower())
+                    number_of_matches[ lang_string ] = len(matches)
                             
                 # Determine who is the winner
                 def sortfunc(x,y):

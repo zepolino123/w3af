@@ -75,7 +75,7 @@ class allowedMethods(baseDiscoveryPlugin):
 
  
         # User configured variables
-        self._exec_one_time = False
+        self._exec_one_time = True
         self._report_dav_only = True
         
     def discover(self, fuzzableRequest ):
@@ -124,9 +124,40 @@ class allowedMethods(baseDiscoveryPlugin):
             id_list.append( res.id )
 
         if not with_options:
+            #
+            #   Before doing anything else, I'll send a request with a non-existant method
+            #   If that request succeds, then all will...
+            #
+            try:
+                non_exist_response = self._urlOpener.ARGENTINA( url )
+                get_response = self._urlOpener.GET( url )
+            except:
+                pass
+            else:
+                if non_exist_response.getCode() not in self._bad_codes\
+                and get_response.getBody() == non_exist_response.getBody():
+                    i = info.info()
+                    i.setName( 'Non existent methods default to GET' )
+                    i.setURL( url )
+                    i.setId( [non_exist_response.getId(), get_response.getId()] )
+                    msg = 'The remote Web server has a custom configuration, in which any non'
+                    msg += ' existent methods that are invoked are defaulted to GET instead of'
+                    msg += ' returning a "Not Implemented" response.'
+                    i.setDesc( msg )
+                    kb.kb.append( self , 'custom-configuration' , i )
+                    #
+                    #   It makes no sense to continue working, all methods will appear as enabled
+                    #   because of this custom configuration.
+                    #
+                    return []
+
+            
             # 'DELETE' is not tested! I don't want to remove anything...
             # 'PUT' is not tested! I don't want to overwrite anything...
             methods_to_test = self._supported_methods[:]
+            
+            # remove dups, and dangerous methods.
+            methods_to_test = list(set(methods_to_test))
             methods_to_test.remove('DELETE')
             methods_to_test.remove('PUT')
 
@@ -138,7 +169,6 @@ class allowedMethods(baseDiscoveryPlugin):
                 except:
                     pass
                 else:
-                    id_list.append( response.id )
                     if code not in self._bad_codes:
                         allowed_methods.append( method )
         

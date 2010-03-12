@@ -19,6 +19,7 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
+from __future__ import with_statement
 
 import core.controllers.outputManager as om
 
@@ -30,6 +31,8 @@ from core.controllers.basePlugin.baseAuditPlugin import baseAuditPlugin
 import core.data.parsers.urlParser as urlParser
 from core.data.fuzzer.fuzzer import createMutants, createRandAlNum
 from core.controllers.misc.homeDir import get_home_dir
+from core.controllers.misc.get_local_ip import get_local_ip
+from core.controllers.misc.is_private_site import is_private_site
 
 import core.data.kb.knowledgeBase as kb
 import core.data.kb.vuln as vuln
@@ -40,10 +43,12 @@ from core.controllers.daemons.webserver import webserver
 import core.data.constants.w3afPorts as w3afPorts
 
 import os, time
+import re
 
 CONFIG_ERROR_MSG = 'audit.remoteFileInclude plugin has to be correctly configured to use.'
 CONFIG_ERROR_MSG += ' Please set the local address and port, or use the official w3af site'
 CONFIG_ERROR_MSG += ' as the target server for remote inclusions.'
+
 
 class remoteFileInclude(baseAuditPlugin):
     '''
@@ -62,7 +67,7 @@ class remoteFileInclude(baseAuditPlugin):
         self._rfi_url = ''
         self._rfi_result = ''
         self._listen_port = w3afPorts.REMOTEFILEINCLUDE
-        self._listen_address = ''
+        self._listen_address = get_local_ip() or ''
         self._use_w3af_site = True
         
     def audit(self, freq ):
@@ -85,6 +90,8 @@ class remoteFileInclude(baseAuditPlugin):
             # 2- create a request that will include a file from a local web server        
             if self._use_w3af_site:
                 self._w3af_site_test_inclusion( freq )
+                
+        self._tm.join( self )
     
     def _correctly_configured(self):
         '''
@@ -102,17 +109,29 @@ class remoteFileInclude(baseAuditPlugin):
         @param freq: A fuzzableRequest object
         @return: None, everything is saved to the kb
         '''
-        om.out.debug( 'RFI test using local web server for URL: ' + freq.getURL() )
-        om.out.debug('w3af is running a webserver')
-        self._start_server()             
-        
-        # Perform the real work
-        self._test_inclusion( freq )
+        #
+        #   The listen address is an empty string when I have no default route
+        #
+        #   Only work if:
+        #       - The listen address is private and the target address is private
+        #       - The listen address is public and the target address is public
+        #
+        if self._listen_address == '':
+            return
             
-        self._stop_server()
-        
-        # Wait for threads to finish
-        self._tm.join( self )
+        if (is_private_site(self._listen_address) and is_private_site(urlParser.getDomain(freq.getURL()))) or\
+        (not is_private_site(self._listen_address) and not is_private_site(urlParser.getDomain(freq.getURL()))):
+            om.out.debug( 'RFI test using local web server for URL: ' + freq.getURL() )
+            om.out.debug('w3af is running a webserver')
+            self._start_server()             
+            
+            # Perform the real work
+            self._test_inclusion( freq )
+                
+            self._stop_server()
+            
+            # Wait for threads to finish
+            self._tm.join( self )
             
     def _w3af_site_test_inclusion(self, freq):
         '''
@@ -132,14 +151,18 @@ class remoteFileInclude(baseAuditPlugin):
         
         @return: None
         '''
+        oResponse = self._sendMutant( freq , analyze=False ).getBody()
+        
         rfi_url_list = [ self._rfi_url,  ]
-        mutants = createMutants( freq, rfi_url_list )
+        mutants = createMutants( freq, rfi_url_list, oResponse=oResponse )
         
         for mutant in mutants:
-            if self._hasNoBug( 'remoteFileInclude', 'remoteFileInclude', \
+            
+            # Only spawn a thread if the mutant has a modified variable
+            # that has no reported bugs in the kb
+            if self._hasNoBug( 'remoteFileInclude' , 'remoteFileInclude',\
                                         mutant.getURL() , mutant.getVar() ):
-                # Only spawn a thread if the mutant has a modified variable
-                # that has no reported bugs in the kb
+                
                 targs = (mutant,)
                 self._tm.startFunction( target=self._sendMutant, args=targs , ownerObj=self )
                 
@@ -147,13 +170,43 @@ class remoteFileInclude(baseAuditPlugin):
         '''
         Analyze results of the _sendMutant method.
         '''
-        if self._rfi_result in response:
-            v = vuln.vuln( mutant )
-            v.setId( response.id )
-            v.setSeverity(severity.HIGH)
-            v.setName( 'Remote file inclusion vulnerability' )
-            v.setDesc( 'Remote file inclusion was found at: ' + mutant.foundAt() )
-            kb.kb.append( self, 'remoteFileInclude', v )
+        #
+        #   Only one thread at the time can enter here. This is because I want to report each
+        #   vulnerability only once, and by only adding the "if self._hasNoBug" statement, that
+        #   could not be done.
+        #
+        with self._plugin_lock:
+            
+            #
+            #   I will only report the vulnerability once.
+            #
+            if self._hasNoBug( 'remoteFileInclude' , 'remoteFileInclude' ,\
+                                        mutant.getURL() , mutant.getVar() ):
+                
+                if self._rfi_result in response:
+                    v = vuln.vuln( mutant )
+                    v.setId( response.id )
+                    v.setSeverity(severity.HIGH)
+                    v.setName( 'Remote file inclusion vulnerability' )
+                    v.setDesc( 'Remote file inclusion was found at: ' + mutant.foundAt() )
+                    kb.kb.append( self, 'remoteFileInclude', v )
+                
+                else:
+                    #
+                    #   Analyze some errors that indicate that there is a RFI but with some
+                    #   "configuration problems"
+                    #
+                    rfi_errors = ['php_network_getaddresses: getaddrinfo',
+                                        'failed to open stream: Connection refused in']
+                    for error in rfi_errors:
+                        if error in response and not error in mutant.getOriginalResponseBody():
+                            v = vuln.vuln( mutant )
+                            v.setId( response.id )
+                            v.setSeverity(severity.MEDIUM)
+                            v.addToHighlight(error)
+                            v.setName( 'Remote file inclusion vulnerability' )
+                            v.setDesc( 'Remote file inclusion was found at: ' + mutant.foundAt() )
+                            kb.kb.append( self, 'remoteFileInclude', v )
     
     def end(self):
         '''

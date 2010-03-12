@@ -25,6 +25,8 @@ from core.controllers.w3afException import w3afException
 from core.data.parsers.urlParser import *
 import core.data.kb.knowledgeBase as kb
 import os.path
+from core.controllers.misc.make_leet import make_leet
+
 
 class bruteforcer:
     '''
@@ -35,12 +37,13 @@ class bruteforcer:
 
     def __init__(self):
         # Config params
-        self._usersFile = 'core'+os.path.sep+'controllers'+os.path.sep+'bruteforce'+os.path.sep+'users.txt'
-        self._passwdFile = 'core'+os.path.sep+'controllers'+os.path.sep+'bruteforce'+os.path.sep+'passwords.txt'
+        self._usersFile = os.path.join('core', 'controllers', 'bruteforce','users.txt')
+        self._passwdFile = os.path.join('core','controllers','bruteforce','passwords.txt')
         self._useMailUsers = True
         self._useSvnUsers = True
         self._stopOnFirst = True
         self._passEqUser = True
+        self._l337_p4sswd = True
         self._useMails = True
         self._useProfiling = True
         self._profilingNumber = 50
@@ -53,6 +56,7 @@ class bruteforcer:
         self._eofPasswords = False
         self._eofUsers = False
         self._nextUser = True
+        self._leeted_passwords = []
         
     def init( self ):
         '''
@@ -91,6 +95,8 @@ class bruteforcer:
         if self._useSvnUsers:
             users = kb.kb.getData( 'svnUsers', 'users' )
             self._specialUsers.extend( [ v['user'] for v in users ]  )
+            
+        self._specialUsers = list(set(self._specialUsers))
         
     def _genSpecialPasswords( self ):
         '''
@@ -99,9 +105,20 @@ class bruteforcer:
         self._specialPassIndex = -1
         self._specialPasswords = []
         self._specialPasswords.append( getDomain(self._url) )
+        self._specialPasswords.append( getRootDomain(self._url) )
         if self._useProfiling:
             self._specialPasswords.extend( self._getProfilingResults() )
         
+        # Handle the leet passwords:
+        if self._l337_p4sswd:
+            leet_passwds = []
+            for pwd in self._specialPasswords:
+                leet_passwds.extend( make_leet(pwd) )
+            self._specialPasswords.extend( leet_passwds )
+        
+        # uniq
+        self._specialPasswords = list(set(self._specialPasswords))
+            
     def stop( self ):
         self._passwordsFD.close()
         self._usersFD.close()
@@ -125,10 +142,20 @@ class bruteforcer:
                 self._nextUser = True
             
         else:
-            passwd = self._passwordsFD.readline().strip()
-            if passwd == '' :
-                self._passwordsFD.seek(0)
-                self._eofPasswords = True
+            
+            if self._leeted_passwords and self._l337_p4sswd:
+                # return a leet version of the password that was read from the file a couple
+                # of lines after this one:
+                passwd = self._leeted_passwords.pop()
+            
+            else:
+                passwd = self._passwordsFD.readline().strip()
+                # here we create the leet passwords from the file
+                self._leeted_passwords.extend( make_leet(passwd) )
+                
+                if passwd == '' :
+                    self._passwordsFD.seek(0)
+                    self._eofPasswords = True
 
         return passwd
     
@@ -171,12 +198,36 @@ class bruteforcer:
     
     def getNext( self ):
         '''
-        Get the next user/password combination
+        @return: The next user/password combination
         '''     
         user = self._getUser()
         passwd = self._getPassword( user )
         
         return user, passwd
+        
+    def getNextPassword(self):
+        '''
+        @return: The next password to be tested. 
+        @raise w3afException: when there are no more passwords.
+        
+        This is used by parts of the framework that at some point need passwords, WITHOUT
+        an associated username. If you want a username and password combination, please use
+        getNext().
+        
+        Calling getNextPassword() and getNext() together in the same loop will break things.
+        '''
+        #   This is just for the first call:
+        if self._nextUser:
+            self._nextUser = False
+        
+        #   The _getPassword method will change the self._nextUser variable when there are no more
+        #   passwords for the 'admin' user.
+        password = self._getPassword('admin')
+        
+        if self._nextUser:
+            raise w3afException('No more passwords.')
+        else:
+            return password
     
     def _getProfilingResults(self):
         '''
@@ -190,7 +241,9 @@ class bruteforcer:
         
         listLen = len(items)
         if listLen == 0:
-            om.out.information('No password profiling information collected, please try to enable webSpider plugin and try again.')
+            msg = 'No password profiling information collected, please try to enable webSpider'
+            msg += ' plugin and try again.'
+            om.out.information( msg )
         if listLen > self._profilingNumber:
             xLen = self._profilingNumber
         else:
@@ -227,7 +280,12 @@ class bruteforcer:
         self._useSvnUsers = sv
         
     def getUseSvnUsers( self ): return self._useSvnUsers
-    
+
+    def setLeetPasswd( self, lp ):
+        self._l337_p4sswd = lp
+        
+    def getLeetPasswd( self ): return self._l337_p4sswd
+
     def setUseProfiling( self, tf ):
         self._useProfiling = tf
         
