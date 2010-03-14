@@ -106,7 +106,7 @@ class ProxiedRequests(entries.RememberingWindow):
         # Request-response viewer
         self.reqresp = reqResViewer.reqResViewer(w3af,
                 [self.bt_drop.set_sensitive, self.bt_send.set_sensitive],
-                editableRequest=True)
+                editableRequest=True, layout="splitted")
         self.reqresp.set_sensitive(False)
 
         vbox = gtk.VBox()
@@ -289,7 +289,7 @@ class ProxiedRequests(entries.RememberingWindow):
             self.fuzzable = None
             self.reqresp.response.set_sensitive(True)
             self.reqresp.response.showObject(httpResp)
-            self.reqresp.nb.next_page()
+            self.reqresp.focusResponse()
             self.bt_drop.set_sensitive(False)
             self.bt_send.set_sensitive(False)
 
@@ -307,7 +307,7 @@ class ProxiedRequests(entries.RememberingWindow):
         self.reqresp.response.clearPanes()
         self.reqresp.response.set_sensitive(False)
         self.bt_next.set_sensitive(False)
-        self.reqresp.nb.prev_page()
+        self.reqresp.focusRequest()
         self.waitingRequests = True
 
     def _close(self):
