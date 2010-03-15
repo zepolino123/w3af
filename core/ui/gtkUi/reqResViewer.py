@@ -329,7 +329,7 @@ class requestResponsePart(gtk.Notebook):
 
     def _initHeadersTab(self, editable):
         """Init for Headers tab."""
-        box = gtk.HBox()
+        self.headersBox = gtk.HBox()
 
         self._headersStore = gtk.ListStore(gobject.TYPE_STRING, gobject.TYPE_STRING)
         self._headersTreeview = gtk.TreeView(self._headersStore)
@@ -338,7 +338,7 @@ class requestResponsePart(gtk.Notebook):
         renderer = gtk.CellRendererText()
         renderer.set_property('editable', editable)
         renderer.connect('edited', self._headerNameEdited, self._headersStore)
-        column = gtk.TreeViewColumn(_('Name'), renderer, text=0)
+        column = gtk.TreeViewColumn(_('Header'), renderer, text=0)
         column.set_sort_column_id(0)
         column.set_resizable(True)
         self._headersTreeview.append_column(column)
@@ -354,29 +354,37 @@ class requestResponsePart(gtk.Notebook):
         column.set_sort_column_id(1)
         self._headersTreeview.append_column(column)
         self._headersTreeview.show()
-        box.pack_start(self._headersTreeview)
+        self.headersBox.pack_start(self._headersTreeview)
 
-        # Buttons area
-        buttons = [
-                (gtk.STOCK_GO_UP, self._moveHeaderUp),
-                (gtk.STOCK_GO_DOWN, self._moveHeaderDown),
-                (gtk.STOCK_ADD, self._addHeader),
-                (gtk.STOCK_DELETE, self._deleteHeader)
-                ]
+        # Popup menu to manipulate headers
+        headerActions = []
+        headerActions.append((_('Add Header'), self._addHeader))
+        headerActions.append((_('Delete header'), self._deleteHeader))
 
-        buttonBox = gtk.VBox()
-
-        for button in buttons:
-            b = gtk.Button(stock=button[0])
-            b.connect("clicked", button[1])
-            b.show()
-            buttonBox.pack_start(b, False, False, self.def_padding)
-        buttonBox.show()
+        self._headerMenu = gtk.Menu()
+        for headerAction in headerActions:
+            menuItem = gtk.MenuItem(headerAction[0])
+            self._headerMenu.append(menuItem)
+            menuItem.connect("activate", headerAction[1])
+            menuItem.show()
 
         if editable:
-            box.pack_start(buttonBox, False, False, self.def_padding)
-        box.show()
-        self.append_page(box, gtk.Label(_("Headers")))
+            self._headersTreeview.connect("button_press_event", self._onButtonPressEvent)
+        self.headersBox.show()
+        self.append_page(self.headersBox, gtk.Label(_("Headers")))
+
+    def _onButtonPressEvent(self, treeview, event):
+        if event.button == 3:
+            x = int(event.x)
+            y = int(event.y)
+            time = event.time
+            pthinfo = treeview.get_path_at_pos(x, y)
+            if pthinfo is not None:
+                path, col, cellx, celly = pthinfo
+                treeview.grab_focus()
+                treeview.set_cursor( path, col, 0)
+                self._headerMenu.popup( None, None, None, event.button, time)
+            return True
 
     def _addHeader(self, widget):
         """Add header to header."""
@@ -390,35 +398,6 @@ class requestResponsePart(gtk.Notebook):
         (model, selected) = selection.get_selected()
         if selected:
             model.remove(selected)
-        self._changeHeaderCB()
-        self._synchronize(self.SOURCE_HEADERS)
-
-    def _moveHeaderDown(self, widget):
-        """Move down selected header."""
-        selection = self._headersTreeview.get_selection()
-        (model, selected) = selection.get_selected()
-        if not selected:
-            return
-        next = model.iter_next(selected)
-        if next:
-            model.swap(selected, next)
-        self._changeHeaderCB()
-        self._synchronize(self.SOURCE_HEADERS)
-
-    def _moveHeaderUp(self, widget):
-        """Move up selected header."""
-        selection = self._headersTreeview.get_selection()
-        model, selected = selection.get_selected()
-        if not selected:
-            return
-        path = model.get_path(selected)
-        position = path[-1]
-        if position == 0:
-            return
-        prev_path = list(path)[:-1]
-        prev_path.append(position - 1)
-        prev = model.get_iter(tuple(prev_path))
-        model.swap(selected, prev)
         self._changeHeaderCB()
         self._synchronize(self.SOURCE_HEADERS)
 
@@ -558,7 +537,9 @@ class requestPart(requestResponsePart):
     def __init__(self, w3af, enableWidget=None, editable=False, widgname="default"):
         requestResponsePart.__init__(self, w3af, enableWidget, editable, widgname=widgname+"request")
         self.SOURCE_PARAMS = 3
+        self.SOURCE_COMBI = 4
         self._initParamsTab(editable)
+        self._initCombiTab(editable)
         self.show()
 
     def _initParamsTab(self, editable):
@@ -606,6 +587,12 @@ class requestPart(requestResponsePart):
             box.pack_start(buttonBox, False, False, self.def_padding)
         box.show()
         self.append_page(box, gtk.Label(_("Params")))
+
+    def _initCombiTab(self, editable):
+        hpaned = gtk.HPaned()
+        self.append_page(hpaned, gtk.Label(_("Combi")))
+        hpaned.show()
+        hpaned.add(self.headersBox)
 
     def _addParam(self, widget):
         """Add param to params table."""
