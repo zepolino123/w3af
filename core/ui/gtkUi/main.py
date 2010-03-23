@@ -101,6 +101,7 @@ ui_menu = """
       <menuitem action="SaveAs"/>
       <menuitem action="Revert"/>
       <menuitem action="Delete"/>
+      <menuitem action="Quit"/>
     </menu>
     <menu action="EditMenuScan">
       <menuitem action="EditPlugin"/>
@@ -305,6 +306,8 @@ class MainApp(object):
         # Create actions
         actiongroup.add_actions([
             # xml_name, icon, real_menu_text, accelerator, tooltip, callback
+            ('Quit', gtk.STOCK_QUIT, _('_Quit'), None, _('Exit the program'),
+                lambda w: self.quit(None, None)),
             ('New', gtk.STOCK_NEW, _('_New'), None, _('Create a new profile'), lambda w: self.profileAction("new")),
             ('Save', gtk.STOCK_SAVE, _('_Save'), None, _('Save this configuration'), lambda w: self.profileAction("save")),
             ('SaveAs', gtk.STOCK_SAVE_AS, _('Save _as...'), None, _('Save this configuration in a new profile'), lambda w: self.profileAction("saveAs")),
