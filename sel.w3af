@@ -1,0 +1,8 @@
+plugins
+audit selDomXss
+back
+target
+set target http://localhost/domxss.html?aaa=111
+back
+start
+exit
