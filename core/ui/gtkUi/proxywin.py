@@ -30,6 +30,7 @@ from core.controllers.w3afException import w3afException, w3afProxyException
 from core.data.options.option import option as Option
 from core.controllers.daemons import localproxy
 import core.controllers.outputManager as om
+import threading
 
 ui_proxy_menu = """
 <ui>
@@ -83,7 +84,7 @@ class ProxiedRequests(entries.RememberingWindow):
         actiongroup.add_toggle_actions([
             # xml_name, icon, real_menu_text, accelerator, tooltip, callback, initial_flag
             ('Active', gtk.STOCK_EXECUTE,  _('_Activate'), None, _('Activate/Deactivate the Proxy'),
-                self._toggle_active, True),
+                self._toggle_active, False),
             ('TrapReq', gtk.STOCK_JUMP_TO, _('_Trap Requests'), None, _('Trap the requests or not'),
                 self._toggle_trap, False),
         ])
@@ -106,7 +107,7 @@ class ProxiedRequests(entries.RememberingWindow):
         # Request-response viewer
         self.reqresp = reqResViewer.reqResViewer(w3af,
                 [self.bt_drop.set_sensitive, self.bt_send.set_sensitive],
-                editableRequest=True, layout="splitted")
+                editableRequest=True)
         self.reqresp.set_sensitive(False)
 
         vbox = gtk.VBox()
@@ -146,6 +147,8 @@ class ProxiedRequests(entries.RememberingWindow):
             self.keepChecking = False
             self.nb.set_current_page(2)
         else:
+            activeAction = toolbar.get_nth_item(0)
+            activeAction.set_active(True)
             self.fuzzable = None
             self.waitingRequests = True
             self.keepChecking = True
@@ -199,7 +202,13 @@ class ProxiedRequests(entries.RememberingWindow):
         self.like_initial = like_initial
 
     def reloadOptions(self):
-        """Shutdown/Restart if needed."""
+        """Reload options.
+        1. Stop proxy
+        2. Disactive button
+        3. Try to start proxy with new params
+        4. If can't => alert
+        5. If everything is ok then start proxy and activate button
+        """
         new_ipport = self.proxyoptions.ipport.getValue()
         if new_ipport != self._previous_ipport:
             self.w3af.mainwin.sb(_("Stopping local proxy"))
@@ -210,21 +219,24 @@ class ProxiedRequests(entries.RememberingWindow):
             except w3afProxyException:
                 self.w3af.mainwin.sb(_("Failed to start local proxy"))
                 return
-        # rest of config
+        # Test of config
         try:
             self.proxy.setWhatToTrap(self.proxyoptions.trap.getValue())
             self.proxy.setWhatNotToTrap(self.proxyoptions.notrap.getValue())
             self.proxy.setMethodsToTrap(self.proxyoptions.methodtrap.getValue())
             self.proxy.setFixContentLength(self.proxyoptions.fixlength.getValue())
         except w3afException, w3:
-            msg = _("Invalid configuration!\n" + str(w3))
-            dlg = gtk.MessageDialog(None, gtk.DIALOG_MODAL, gtk.MESSAGE_WARNING, gtk.BUTTONS_OK, msg)
-            opt = dlg.run()
-            dlg.destroy()
+            self.showAlert(_("Invalid configuration!\n" + str(w3)))
+
         self._previous_ipport = new_ipport
         toolbar = self._uimanager.get_widget('/Toolbar')
         activeAction = toolbar.get_nth_item(0)
         activeAction.set_active(True)
+
+    def showAlert(self, msg):
+        dlg = gtk.MessageDialog(None, gtk.DIALOG_MODAL, gtk.MESSAGE_WARNING, gtk.BUTTONS_OK, msg)
+        opt = dlg.run()
+        dlg.destroy()
 
     def _startProxy(self, ip=None, port=None, silent=False):
         """Starts the proxy."""
@@ -232,18 +244,16 @@ class ProxiedRequests(entries.RememberingWindow):
             ipport = self.proxyoptions.ipport.getValue()
             ip, port = ipport.split(":")
         self.w3af.mainwin.sb(_("Starting local proxy"))
-
+        e = threading.Event()
         try:
-            self.proxy = localproxy.localproxy(ip, int(port))
+            self.proxy = localproxy.localproxy(ip, int(port), event=e)
         except w3afProxyException, w3:
             if not silent:
-                msg = _(str(w3))
-                dlg = gtk.MessageDialog(None, gtk.DIALOG_MODAL, gtk.MESSAGE_WARNING, gtk.BUTTONS_OK, msg)
-                opt = dlg.run()
-                dlg.destroy()
+                self.showAlert(_(str(w3)))
             raise w3
         else:
             self.proxy.start2()
+            e.wait()
 
     def _superviseRequests(self, *a):
         """Supervise if there're requests to show.

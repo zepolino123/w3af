@@ -74,7 +74,8 @@ class proxy(w3afThread):
     @author: Andres Riancho ( andres.riancho@gmail.com )
     '''
 
-    def __init__( self, ip, port, urlOpener, proxyHandler=None, proxyCert = 'core/controllers/daemons/mitm.crt' ):
+    def __init__( self, ip, port, urlOpener, proxyHandler=None, proxyCert =
+            'core/controllers/daemons/mitm.crt', event=None):
         '''
         @parameter ip: IP address to bind
         @parameter port: Port to bind
@@ -90,6 +91,7 @@ class proxy(w3afThread):
         self._running = False
         self._urlOpener = urlOpener
         self._tm = tm
+        self._event = event
         
         # User configured parameters
         self._ip = ip
@@ -160,9 +162,12 @@ class proxy(w3afThread):
         
         # Starting to handle requests
         message = 'Proxy server listening on '+ self._ip + ':'+ str(self._port)
+        print message
         om.out.debug( message )
         self._server.w3afLayer = self
         self._running = True
+        if self._event:
+            self._event.set()
         self._server.serve_forever()
         
         # We aren't running anymore
