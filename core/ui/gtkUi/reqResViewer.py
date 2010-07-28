@@ -300,10 +300,9 @@ class reqResViewer(gtk.VBox):
         self.request.set_sensitive(how)
         self.response.set_sensitive(how)
 
-class requestResponsePart(gtk.Notebook):
+class requestResponsePart(gtk.VBox):
     """Request/response common class."""
     SOURCE_RAW = 1
-    SOURCE_HEADERS = 2
 
     def __init__(self, w3af, enableWidget=None, editable=False, widgname="default"):
         super(requestResponsePart, self).__init__()
@@ -311,7 +310,6 @@ class requestResponsePart(gtk.Notebook):
         self._obj = None
         self.childButtons = []
         self._initRawTab(editable)
-        self._initHeadersTab(editable)
 
         if enableWidget:
             self._raw.get_buffer().connect("changed", self._changed, enableWidget)
@@ -325,91 +323,8 @@ class requestResponsePart(gtk.Notebook):
         self._raw.set_editable(editable)
         self._raw.set_border_width(5)
         self._raw.show()
-        self.append_page(self._raw, gtk.Label(_("Raw")))
-
-    def _initHeadersTab(self, editable):
-        """Init for Headers tab."""
-        self.headersBox = gtk.HBox()
-
-        self._headersStore = gtk.ListStore(gobject.TYPE_STRING, gobject.TYPE_STRING)
-        self._headersTreeview = gtk.TreeView(self._headersStore)
-
-        # Column for Name
-        renderer = gtk.CellRendererText()
-        renderer.set_property('editable', editable)
-        renderer.connect('edited', self._headerNameEdited, self._headersStore)
-        column = gtk.TreeViewColumn(_('Header'), renderer, text=0)
-        column.set_sort_column_id(0)
-        column.set_resizable(True)
-        self._headersTreeview.append_column(column)
-
-        # Column for Value
-        renderer = gtk.CellRendererText()
-        renderer.set_property('editable', editable)
-        renderer.set_property('ellipsize', pango.ELLIPSIZE_END)
-        renderer.connect('edited', self._headerValueEdited, self._headersStore)
-        column = gtk.TreeViewColumn(_('Value'), renderer, text=1)
-        column.set_resizable(True)
-        column.set_expand(True)
-        column.set_sort_column_id(1)
-        self._headersTreeview.append_column(column)
-        self._headersTreeview.show()
-        self.headersBox.pack_start(self._headersTreeview)
-
-        # Popup menu to manipulate headers
-        headerActions = []
-        headerActions.append((_('Add Header'), self._addHeader))
-        headerActions.append((_('Delete header'), self._deleteHeader))
-
-        self._headerMenu = gtk.Menu()
-        for headerAction in headerActions:
-            menuItem = gtk.MenuItem(headerAction[0])
-            self._headerMenu.append(menuItem)
-            menuItem.connect("activate", headerAction[1])
-            menuItem.show()
-
-        if editable:
-            self._headersTreeview.connect("button_press_event", self._onButtonPressEvent)
-        self.headersBox.show()
-        self.append_page(self.headersBox, gtk.Label(_("Headers")))
-
-    def _onButtonPressEvent(self, treeview, event):
-        if event.button == 3:
-            x = int(event.x)
-            y = int(event.y)
-            time = event.time
-            pthinfo = treeview.get_path_at_pos(x, y)
-            if pthinfo is not None:
-                path, col, cellx, celly = pthinfo
-                treeview.grab_focus()
-                treeview.set_cursor( path, col, 0)
-                self._headerMenu.popup( None, None, None, event.button, time)
-            return True
-
-    def _addHeader(self, widget):
-        """Add header to header."""
-        i = self._headersStore.append(["", ""])
-        selection = self._headersTreeview.get_selection()
-        selection.select_iter(i)
-
-    def _deleteHeader(self, widget):
-        """Delete selected header."""
-        selection = self._headersTreeview.get_selection()
-        (model, selected) = selection.get_selected()
-        if selected:
-            model.remove(selected)
-        self._changeHeaderCB()
-        self._synchronize(self.SOURCE_HEADERS)
-
-    def _headerNameEdited(self, cell, path, new_text, model):
-        model[path][0] = new_text
-        self._changeHeaderCB()
-        self._synchronize(self.SOURCE_HEADERS)
-
-    def _headerValueEdited(self, cell, path, new_text, model):
-        model[path][1] = new_text
-        self._changeHeaderCB()
-        self._synchronize(self.SOURCE_HEADERS)
+        #self.append_page(self._raw, gtk.Label(_("Raw")))
+        self.pack_start(self._raw)
 
     def set_sensitive(self, how):
         """Sets the pane on/off."""
@@ -536,88 +451,7 @@ class requestPart(requestResponsePart):
 
     def __init__(self, w3af, enableWidget=None, editable=False, widgname="default"):
         requestResponsePart.__init__(self, w3af, enableWidget, editable, widgname=widgname+"request")
-        self.SOURCE_PARAMS = 3
-        self.SOURCE_COMBI = 4
-        self._initParamsTab(editable)
-        self._initCombiTab(editable)
         self.show()
-
-    def _initParamsTab(self, editable):
-        """Init Params tab."""
-        box = gtk.HBox()
-        self._paramsStore = gtk.ListStore(gobject.TYPE_STRING, gobject.TYPE_STRING)
-        self._paramsTreeview = gtk.TreeView(self._paramsStore)
-        # Column for Name
-        renderer = gtk.CellRendererText()
-        renderer.set_property('editable', editable)
-        renderer.connect('edited', self._paramNameEdited, self._paramsStore)
-        column = gtk.TreeViewColumn(_('Name'), renderer, text=0)
-        column.set_sort_column_id(0)
-        column.set_resizable(True)
-        self._paramsTreeview.append_column(column)
-        # Column for Value
-        renderer = gtk.CellRendererText()
-        renderer.set_property('editable', editable)
-        renderer.set_property('ellipsize', pango.ELLIPSIZE_END)
-        renderer.connect('edited', self._paramValueEdited, self._paramsStore)
-        column = gtk.TreeViewColumn(_('Value'), renderer, text=1)
-        column.set_resizable(True)
-        column.set_expand(True)
-        column.set_sort_column_id(1)
-        self._paramsTreeview.append_column(column)
-        self._paramsTreeview.show()
-        box.pack_start(self._paramsTreeview)
-
-        # Buttons area
-        buttons = [
-                (gtk.STOCK_ADD, self._addParam),
-                (gtk.STOCK_DELETE, self._deleteParam)
-                ]
-
-        buttonBox = gtk.VBox()
-
-        for button in buttons:
-            b = gtk.Button(stock=button[0])
-            b.connect("clicked", button[1])
-            b.show()
-            buttonBox.pack_start(b, False, False, self.def_padding)
-        buttonBox.show()
-
-        if editable:
-            box.pack_start(buttonBox, False, False, self.def_padding)
-        box.show()
-        self.append_page(box, gtk.Label(_("Params")))
-
-    def _initCombiTab(self, editable):
-        hpaned = gtk.HPaned()
-        self.append_page(hpaned, gtk.Label(_("Combi")))
-        hpaned.show()
-        hpaned.add(self.headersBox)
-
-    def _addParam(self, widget):
-        """Add param to params table."""
-        i = self._paramsStore.append(["", ""])
-        selection = self._headersTreeview.get_selection()
-        selection.select_iter(i)
-
-    def _deleteParam(self, widget):
-        """Delete selected param."""
-        selection = self._paramsTreeview.get_selection()
-        (model, selected) = selection.get_selected()
-        if selected:
-            model.remove(selected)
-        self._changeParamCB()
-        self._synchronize(self.SOURCE_PARAMS)
-
-    def _paramNameEdited(self, cell, path, new_text, model):
-        model[path][0] = new_text
-        self._changeParamCB()
-        self._synchronize(self.SOURCE_PARAMS)
-
-    def _paramValueEdited(self, cell, path, new_text, model):
-        model[path][1] = new_text
-        self._changeParamCB()
-        self._synchronize(self.SOURCE_PARAMS)
 
     def showObject(self, fuzzableRequest):
         """Show the data from a fuzzableRequest object in the textViews."""
@@ -635,40 +469,7 @@ class requestPart(requestResponsePart):
             self._clear(self._raw)
             buff = self._raw.get_buffer()
             buff.set_text(self._to_utf8(self._obj.dump()))
-        # Headers tab
-        if source != self.SOURCE_HEADERS:
-            self._updateHeadersTab(self._obj.getHeaders())
-        # Params tab
-        if source != self.SOURCE_PARAMS:
-            queryParams = getQueryString(self._obj.getURI())
-            self._updateParamsTab(queryParams)
-
-    def _updateParamsTab(self, queryParams):
-        self._paramsStore.clear()
-        for paramName in queryParams:
-            if isinstance(queryParams[paramName], list):
-                for dubParamValue in queryParams[paramName]:
-                    self._paramsStore.append([paramName, dubParamValue])
-            else:
-                self._paramsStore.append([paramName, queryParams[paramName]])
-
-    def _changeParamCB(self):
-        rQueryString  = queryString()
-        for param in self._paramsStore:
-            if param[0] in rQueryString:
-                rQueryString[param[0]].append(param[1])
-            else:
-                rQueryString[param[0]] = [param[1], ]
-        url = self._obj.getURL()
-        self._obj.setURI(url + "?" + str(rQueryString))
-
-    def _changeHeaderCB(self):
-        headers = {}
-        # TODO Add Cookie processing?!
-        for header in self._headersStore:
-            headers[header[0]] = header[1]
-        self._obj.setHeaders(headers)
-
+    
     def _changeRawCB(self):
         (head, data) = self.getBothTexts()
         try:
@@ -685,9 +486,9 @@ class responsePart(requestResponsePart):
     def __init__(self, w3af, editable=False, widgname="default"):
         requestResponsePart.__init__(self, w3af, editable=editable, widgname=widgname+"response")
         # Second page, only there if html renderer available
-        self._initRenderTab()
+ #       self._initRenderTab()
         # Third page, only if the content is some type of markup language (xml, html)
-        self._initSyntaxTab()
+  #      self._initSyntaxTab()
         self.show()
 
     def _initSyntaxTab(self):
@@ -734,20 +535,13 @@ class responsePart(requestResponsePart):
         self._clear(self._raw)
         buff = self._raw.get_buffer()
         buff.set_text(self._to_utf8(self._obj.dump()))
-        # Headers tab
-        self._updateHeadersTab(self._obj.getHeaders())
         # Render
-        self._showParsed("1.1", self._obj.getCode(), self._obj.getMsg(),\
-                self._obj.dumpResponseHead(), self._obj.getBody(), self._obj.getURI())
+#        self._showParsed("1.1", self._obj.getCode(), self._obj.getMsg(),\
+  #              self._obj.dumpResponseHead(), self._obj.getBody(), self._obj.getURI())
         # Syntax highlighting
-        self._showSyntax(self._obj.getBody())
+ #       self._showSyntax(self._obj.getBody())
 
-    def _changeHeaderCB(self):
-        pass
-
-    def _changeRawCB(self):
-        pass
-
+  
     def _renderGtkHtml2(self, body, mimeType, baseURI):
         # It doesn't make sense to render something empty
         if body == '':
