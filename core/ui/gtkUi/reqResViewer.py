@@ -51,6 +51,8 @@ from extlib.gtkcodebuffer.gtkcodebuffer import CodeBuffer, SyntaxLoader, add_syn
 useMozilla = False
 useGTKHtml2 = True
 
+import gtksourceview2 as gtksourceview
+
 try:
     import gtkmozembed
     withMozilla = True
@@ -119,7 +121,7 @@ class reqResViewer(gtk.VBox):
         nb.append_page(self.request, gtk.Label(_("Request")))
         nb.append_page(self.response, gtk.Label(_("Response")))
         # Info
-        self.info = searchableTextView()
+        self.info = HttpEditorView()
         self.info.set_editable(False)
         self.info.set_border_width(5)
         #self.info.show()
@@ -319,7 +321,7 @@ class requestResponsePart(gtk.VBox):
 
     def _initRawTab(self, editable):
         """Init for Raw tab."""
-        self._raw = searchableTextView()
+        self._raw = HttpEditorView()
         self._raw.set_editable(editable)
         self._raw.set_border_width(5)
         self._raw.show()
@@ -611,23 +613,36 @@ SEVERITY_TO_COLOR={
     severity.HIGH: 'red'}
 SEVERITY_TO_COLOR.setdefault('yellow')
 
-class searchableTextView(gtk.VBox, entries.Searchable):
+class HttpEditorView(gtk.VBox, entries.Searchable):
     """A textview widget that supports searches.
 
     @author: Andres Riancho ( andres.riancho@gmail.com )
     """
     def __init__(self):
         gtk.VBox.__init__(self)
-
         # Create the textview where the text is going to be shown
-        self.textView = gtk.TextView()
+        self.textView = gtksourceview.View(gtksourceview.Buffer())
+        self.textView.set_highlight_current_line(True)
+        self.textView.set_show_line_numbers(True)
         self.textView.set_wrap_mode(gtk.WRAP_WORD)
+        fontDesc = pango.FontDescription('monospace')
+        if fontDesc:
+            self.textView.modify_font(fontDesc)
+
+        lm = gtksourceview.LanguageManager()
+        foo = lm.get_search_path()
+        foo.append('./')
+        lm.set_search_path(foo)
+        lang = lm.get_language('http')
+
+        b = self.textView.get_buffer()
+        b.set_language(lang)
+        b.set_highlight_syntax(True)
 
         self.reset_bg_color()
         for sev in SEVERITY_TO_COLOR:
             self.textView.get_buffer().create_tag(sev, background=SEVERITY_TO_COLOR[sev])
         self.textView.show()
-
         # Scroll where the textView goes
         sw1 = gtk.ScrolledWindow()
         sw1.set_shadow_type(gtk.SHADOW_ETCHED_IN)
@@ -635,7 +650,6 @@ class searchableTextView(gtk.VBox, entries.Searchable):
         sw1.add(self.textView)
         sw1.show()
         self.pack_start(sw1, expand=True, fill=True)
-
         # Create the search widget
         entries.Searchable.__init__(self, self.textView, small=True)
 
