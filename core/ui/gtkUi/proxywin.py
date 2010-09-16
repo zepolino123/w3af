@@ -67,7 +67,6 @@ class ProxiedRequests(entries.RememberingWindow):
         self.set_icon_from_file('core/ui/gtkUi/data/w3af_icon.png')
         self.w3af = w3af
         self.def_padding = 5
-        # Toolbar elements
         self._uimanager = gtk.UIManager()
         accelgroup = self._uimanager.get_accel_group()
         self.add_accel_group(accelgroup)
@@ -92,7 +91,6 @@ class ProxiedRequests(entries.RememberingWindow):
         self.bt_next = toolbar.get_nth_item(4)
         self.bt_next.set_sensitive(False)
         separat = toolbar.get_nth_item(5)
-        #assert toolbar.get_n_items() == 4
         separat.set_draw(False)
         separat.set_expand(True)
         self.vbox.pack_start(toolbar, False)
@@ -164,23 +162,13 @@ class ProxiedRequests(entries.RememberingWindow):
                 Option(_("What not to trap"), ".*\.(gif|jpg|png|css|js|ico|swf|axd|tif)$", _("URLs not to trap"), "regex",
                 _("Regular expression that indicates what URLs not to trap")))
         self.proxyoptions.append("fixlength",
-                Option("Fix content length", False, "Fix content length", "boolean"))
+                Option("Fix content length", True, "Fix content length", "boolean"))
 
         self._previous_ipport = self.proxyoptions.ipport.getValue()
         optionBox = gtk.VBox()
         optionBox.show()
-        # buttons and config panel
-        buttonsArea = gtk.HBox()
-        buttonsArea.show()
-        saveBtn = gtk.Button(_("_Apply"))
-        saveBtn.show()
-        rvrtBtn = gtk.Button(_("_Reset"))
-        buttonsArea.pack_start(rvrtBtn, False, False, padding=self.def_padding)
-        buttonsArea.pack_start(saveBtn, False, False, padding=self.def_padding)
-        rvrtBtn.show()
-        self._optionsPanel = ConfigOptions(self.w3af, self, self.proxyoptions.options, saveBtn, rvrtBtn)
+        self._optionsPanel = ConfigOptions(self.w3af, self, self.proxyoptions.options)
         optionBox.pack_start(self._optionsPanel, False, False)
-        optionBox.pack_start(buttonsArea, False, False)
         tmp = gtk.Label(_("_Options"))
         tmp.set_use_underline(True)
         self.nb.append_page(optionBox, tmp)
@@ -195,10 +183,10 @@ class ProxiedRequests(entries.RememberingWindow):
     def reloadOptions(self):
         """Reload options.
         1. Stop proxy
-        2. Disactive button
-        3. Try to start proxy with new params
-        4. If can't => alert
-        5. If everything is ok then start proxy and activate button
+        2. Try to start proxy with new params
+        3. If can't => alert
+        4. If everything is ok then start proxy
+        5. Set Trap options
         """
         new_ipport = self.proxyoptions.ipport.getValue()
         if new_ipport != self._previous_ipport:
@@ -342,39 +330,43 @@ class ConfigOptions(gtk.VBox):
     @param w3af: The Core
     @param parentWidg: The parentWidg widget
     @param options: The options to configure.
-    @param save_btn: The save button.
-    @param rvrt_btn: The revert button.
 
     @author: Facundo Batista <facundobatista =at= taniquetil.com.ar>
     """
-    def __init__(self, w3af, parentWidg, options, save_btn, rvrt_btn):
+    def __init__(self, w3af, parentWidg, options):
         super(ConfigOptions,self).__init__()
         self.set_spacing(5)
+        self.def_padding = 5
         self.w3af = w3af
         self.parentWidg = parentWidg
         self.widgets_status = {}
         self.tab_widget = {}
         self.propagAnyWidgetChanged = helpers.PropagateBuffer(self._changedAnyWidget)
         self.propagLabels = {}
-
         # options
         self.options = options
-
         # buttons
-        save_btn.connect("clicked", self._savePanel)
-        save_btn.set_sensitive(False)
-        rvrt_btn.set_sensitive(False)
-        rvrt_btn.connect("clicked", self._revertPanel)
-        self.save_btn = save_btn
-        self.rvrt_btn = rvrt_btn
+        buttonsArea = gtk.HBox()
+        buttonsArea.show()
+        self.saveBtn = gtk.Button(_("_Apply"), stock=gtk.STOCK_APPLY)
+        self.saveBtn.show()
+        self.rvrtBtn = gtk.Button(_("_Reset"), stock=gtk.STOCK_REVERT_TO_SAVED)
+        self.rvrtBtn.show()
+        buttonsArea.pack_start(self.rvrtBtn, False, False, padding=self.def_padding)
+        buttonsArea.pack_start(self.saveBtn, False, False, padding=self.def_padding)
+        self.saveBtn.connect("clicked", self._savePanel)
+        self.saveBtn.set_sensitive(False)
+        self.rvrtBtn.set_sensitive(False)
+        self.rvrtBtn.connect("clicked", self._revertPanel)
 
         # middle (the heart of the panel)
         if self.options:
             tabbox = gtk.HBox()
             heart = self._createNotebook()
-            tabbox.pack_start(heart, expand=True)
+            tabbox.pack_start(heart, expand=False)
             tabbox.show()
             self.pack_start(tabbox, expand=True, fill=False)
+        self.pack_start(buttonsArea, False, False)
         self.show()
 
     def _createNotebook(self):
@@ -428,6 +420,8 @@ class ConfigOptions(gtk.VBox):
             titl = gtk.Label(opt.getName())
             titl.set_alignment(0.0, 0.5)
             widg = entries.wrapperWidgets[opt.getType()](self._changedWidget, opt )            
+            if hasattr(widg, 'set_width_chars'):
+                widg.set_width_chars(50)
             opt.widg = widg
             tooltips.set_tip(widg, opt.getDesc())
             if opt.getHelp():
@@ -450,8 +444,8 @@ class ConfigOptions(gtk.VBox):
         It only will be called if any widget changed its state, through
         a propagation buffer.
         """
-        self.save_btn.set_sensitive(not like_initial)
-        self.rvrt_btn.set_sensitive(not like_initial)
+        self.saveBtn.set_sensitive(not like_initial)
+        self.rvrtBtn.set_sensitive(not like_initial)
         self.parentWidg.like_initial = like_initial
 
     def _changedLabelNotebook(self, like_initial, label, text):
