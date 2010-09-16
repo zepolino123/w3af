@@ -17,6 +17,8 @@ gettext.install('w3af', 'locales/')
 # Now we can load all modules and stuff...
 from core.controllers.w3afException import w3afException
 import core.controllers.outputManager as om
+from core.ui.gtkUi.main import main as mainWin
+from core.ui.gtkUi.main import MainAppProxy
 
 try:
     om.out.setOutputPlugins( ['console'] )
@@ -36,8 +38,9 @@ def usage():
     om.out.information('http://w3af.sourceforge.net/')
 
 def main():
+    runProxy = False
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "p:i:he", [] )
+        opts, args = getopt.getopt(sys.argv[1:], "p:i:xhe", [] )
     except getopt.GetoptError:
         # print help information and exit:
         usage()
@@ -50,6 +53,8 @@ def main():
             om.out.information( base64.b64decode( 'R3JhY2lhcyBFdWdlIHBvciBiYW5jYXJtZSB0YW50YXMgaG9yYXMgZGUgZGVzYXJyb2xsbywgdGUgYW1vIGdvcmRhIQ==' ) )
         if o == "-s":
             scriptFile = a
+        if o == "-x":
+            runProxy = True
         if o == "-i":
             # Install the virtual daemon module in the MSF directory
             from core.controllers.vdaemon.install import installVdaemon
@@ -61,15 +66,16 @@ def main():
             usage()
             return 0
     
-
     # go with GTK, but first check about DISPLAY environment variable
     if sys.platform != "win32":
         display = os.getenv("DISPLAY")
         if not display:
             om.out.error("The DISPLAY environment variable is not set! You can not use any graphical program without it...")
             return -1
-    import core.ui.gtkUi.main
-    core.ui.gtkUi.main.main(profile)
+    if runProxy:
+        r = MainAppProxy()
+    else:
+        mainWin(profile)
 
 if __name__ == "__main__":
     errCode = main()

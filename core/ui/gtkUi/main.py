@@ -82,7 +82,7 @@ from . import exception_handler
 
 from core.controllers.misc.homeDir import get_home_dir
 from core.controllers.misc.get_w3af_version import get_w3af_version
-
+from core.ui.gtkUi.proxywin import ProxiedRequests
 import webbrowser, time
 
 MAINTITLE = "w3af - Web Application Attack and Audit Framework"
@@ -847,6 +847,32 @@ class MainApp(object):
 
         helpers.open_help(chapter)
 
-    
+
+class MainAppProxy(ProxiedRequests):
+    '''Convinetnt way to run proxy'''
+    def __init__(self):
+        self.w3af = core.controllers.w3afCore.w3afCore()
+        om.out.setOutputPlugins( ['gtkOutput'] )
+        self.w3af.mainwin = self
+        genconfigfile = os.path.join(get_home_dir(),  "generalconfig.pkl")
+        try:
+            self.generalconfig = shelve.open(genconfigfile)
+        except Exception, e:
+            print "WARNING: something bad happened when trying to open the general config!"
+            print "    File: %r" % genconfigfile
+            print "    Problem:", e
+            self.generalconfig = FakeShelve()
+        self.isRunning = False
+        splash.destroy()
+        super(MainAppProxy,self).__init__(self.w3af)
+        gtk.main()
+
+    def _close(self):
+        super(MainAppProxy,self)._close()
+        gtk.main_quit()
+
+    def sb(self, msg):
+        print 'SB: ',msg
+
 def main(profile):
     MainApp(profile)
