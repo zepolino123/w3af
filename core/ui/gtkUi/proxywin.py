@@ -28,7 +28,9 @@ import webbrowser
 from . import reqResViewer, helpers, entries, httpLogTab
 from core.controllers.w3afException import w3afException, w3afProxyException
 from core.data.options.option import option as Option
+from core.data.options.comboOption import comboOption
 from core.controllers.daemons import localproxy
+from core.ui.gtkUi.entries import ConfigOptions
 import core.controllers.outputManager as om
 
 ui_proxy_menu = """
@@ -163,7 +165,13 @@ class ProxiedRequests(entries.RememberingWindow):
                 _("Regular expression that indicates what URLs not to trap")))
         self.proxyoptions.append("fixlength",
                 Option("Fix content length", True, "Fix content length", "boolean"))
-
+        # HTTP editor
+        # Highlight current line
+        #
+        self.proxyoptions.append("trap_view",
+                comboOption("trap_view", ['Tabbed', 'Splitted'], "ReqRes view of trap tab", "combo"))
+        self.proxyoptions.append("display_line_num",
+                Option("display_line_num", True, "Display line numbers", "boolean"))
         self._previous_ipport = self.proxyoptions.ipport.getValue()
         optionBox = gtk.VBox()
         optionBox.show()
@@ -322,203 +330,3 @@ class ProxiedRequests(entries.RememberingWindow):
         """Shows the help."""
         helpfile = os.path.join(os.getcwd(), "readme/EN/gtkUiHTML/gtkUiUsersGuide.html#Using_the_Proxy")
         webbrowser.open("file://" + helpfile)
-
-
-class ConfigOptions(gtk.VBox):
-    """Only the options for configuration.
-
-    @param w3af: The Core
-    @param parentWidg: The parentWidg widget
-    @param options: The options to configure.
-
-    @author: Facundo Batista <facundobatista =at= taniquetil.com.ar>
-    """
-    def __init__(self, w3af, parentWidg, options):
-        super(ConfigOptions,self).__init__()
-        self.set_spacing(5)
-        self.def_padding = 5
-        self.w3af = w3af
-        self.parentWidg = parentWidg
-        self.widgets_status = {}
-        self.tab_widget = {}
-        self.propagAnyWidgetChanged = helpers.PropagateBuffer(self._changedAnyWidget)
-        self.propagLabels = {}
-        # options
-        self.options = options
-        # buttons
-        buttonsArea = gtk.HBox()
-        buttonsArea.show()
-        self.saveBtn = gtk.Button(_("_Apply"), stock=gtk.STOCK_APPLY)
-        self.saveBtn.show()
-        self.rvrtBtn = gtk.Button(_("_Reset"), stock=gtk.STOCK_REVERT_TO_SAVED)
-        self.rvrtBtn.show()
-        buttonsArea.pack_start(self.rvrtBtn, False, False, padding=self.def_padding)
-        buttonsArea.pack_start(self.saveBtn, False, False, padding=self.def_padding)
-        self.saveBtn.connect("clicked", self._savePanel)
-        self.saveBtn.set_sensitive(False)
-        self.rvrtBtn.set_sensitive(False)
-        self.rvrtBtn.connect("clicked", self._revertPanel)
-
-        # middle (the heart of the panel)
-        if self.options:
-            tabbox = gtk.HBox()
-            heart = self._createNotebook()
-            tabbox.pack_start(heart, expand=False)
-            tabbox.show()
-            self.pack_start(tabbox, expand=True, fill=False)
-        self.pack_start(buttonsArea, False, False)
-        self.show()
-
-    def _createNotebook(self):
-        """This create the notebook with all the options.
-
-        @return: The created notebook if more than one grouping
-        """
-        # let's get the tabs, but in order!
-        tabs = []
-        for o in self.options:
-            t = o.getTabId()
-            if t not in tabs:
-                tabs.append(t)
-
-        # see if we have more than a tab to create a nb
-        if len(tabs) < 2:
-            table = self._makeTable(self.options, None)
-            return table
-
-        # the notebook
-        nb = gtk.Notebook()
-        for tab in tabs:
-            options = [x for x in self.options if x.getTabId() == tab]
-            if not tab:
-                tab = _("General")
-            label = gtk.Label(tab)
-            prop = helpers.PropagateBufferPayload(self._changedLabelNotebook, label, tab)
-            table = self._makeTable(options, prop)
-            nb.append_page(table, label)
-        nb.show()
-        return nb
-
-    def _makeTable(self, options, prop):
-        """Creates the table in which the options are shown.
-
-        @param options: The options to show
-        @param prop: The propagation function for this options
-        @return: The created table
-
-        For each row, it will put:
-
-            - the option label
-            - the configurable widget (textentry, checkbox, etc.)
-            - an optional button to get more help (if the help is available)
-
-        Also, the configurable widget gets a tooltip for a small description.
-        """
-        table = entries.EasyTable(len(options), 3)
-        tooltips = gtk.Tooltips()
-        for i,opt in enumerate(options):
-            titl = gtk.Label(opt.getName())
-            titl.set_alignment(0.0, 0.5)
-            widg = entries.wrapperWidgets[opt.getType()](self._changedWidget, opt )            
-            if hasattr(widg, 'set_width_chars'):
-                widg.set_width_chars(50)
-            opt.widg = widg
-            tooltips.set_tip(widg, opt.getDesc())
-            if opt.getHelp():
-                helpbtn = entries.SemiStockButton("", gtk.STOCK_INFO)
-                cleanhelp = helpers.cleanDescription(opt.getHelp())
-                helpbtn.connect("clicked", self._showHelp, cleanhelp)
-            else:
-                helpbtn = None
-            table.autoAddRow(titl, widg, helpbtn)
-            self.widgets_status[widg] = (titl, opt.getName(), "<b>%s</b>" % opt.getName())
-            self.propagLabels[widg] = prop
-        table.show()
-        return table
-
-    def _changedAnyWidget(self, like_initial):
-        """Adjust the save/revert buttons and alert the tree of the change.
-
-        @param like_initial: if the widgets are modified or not.
-
-        It only will be called if any widget changed its state, through
-        a propagation buffer.
-        """
-        self.saveBtn.set_sensitive(not like_initial)
-        self.rvrtBtn.set_sensitive(not like_initial)
-        self.parentWidg.like_initial = like_initial
-
-    def _changedLabelNotebook(self, like_initial, label, text):
-        if like_initial:
-            label.set_text(text)
-        else:
-            label.set_markup("<b>%s</b>" % text)
-
-    def _changedWidget(self, widg, like_initial):
-        """Receives signal when a widget changed or not.
-
-        @param widg: the widget who changed.
-        @param like_initial: if it's modified or not
-
-        Handles the boldness of the option label and then propagates
-        the change.
-        """
-        (labl, orig, chng) = self.widgets_status[widg]
-        if like_initial:
-            labl.set_text(orig)
-        else:
-            labl.set_markup(chng)
-        self.propagAnyWidgetChanged.change(widg, like_initial)
-        propag = self.propagLabels[widg]
-        if propag is not None:
-            propag.change(widg, like_initial)
-
-    def _showHelp(self, widg, helpmsg):
-        """Shows a dialog with the help message of the config option.
-
-        @param widg: the widget who generated the signal
-        @param helpmsg: the message to show in the dialog
-        """
-        dlg = gtk.MessageDialog(None, gtk.DIALOG_MODAL, gtk.MESSAGE_INFO, gtk.BUTTONS_OK, helpmsg)
-        dlg.set_title('Plugin help')
-        dlg.run()
-        dlg.destroy()
-
-    def _savePanel(self, widg):
-        """Saves the config changes to the plugins.
-
-        @param widg: the widget who generated the signal
-
-        First it checks if there's some invalid configuration, then gets the value of 
-        each option and save them to the plugin.
-        """
-        # check if all widgets are valid
-        invalid = []
-        for opt in self.options:
-            if hasattr(opt.widg, "isValid"):
-                if not opt.widg.isValid():
-                    invalid.append(opt.getName())
-        if invalid:
-            msg = _("The configuration can't be saved, there is a problem in the following parameter(s):\n\n")
-            msg += "\n-".join(invalid)
-            dlg = gtk.MessageDialog(None, gtk.DIALOG_MODAL, gtk.MESSAGE_WARNING, gtk.BUTTONS_OK, msg)
-            dlg.set_title(_('Configuration error'))
-            dlg.run()
-            dlg.destroy()
-            return
-
-        # Get the value from the GTK widget and set it to the option object
-        for opt in self.options:
-            opt.setValue( opt.widg.getValue() )
-
-        for opt in self.options:
-            opt.widg.save()
-        self.w3af.mainwin.sb(_("Configuration saved successfully"))
-        self.parentWidg.reloadOptions()
-
-    def _revertPanel(self, *vals):
-        """Revert all widgets to their initial state."""
-        for widg in self.widgets_status:
-            widg.revertValue()
-        self.w3af.mainwin.sb(_("The configuration was reverted to its last saved state"))
-        self.parentWidg.reloadOptions()
