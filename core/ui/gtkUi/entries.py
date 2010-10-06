@@ -26,6 +26,7 @@ import threading
 
 from core.ui.gtkUi import history
 from core.ui.gtkUi import helpers
+from core.data.options.preferences import Preferences
 
 class ValidatedEntry(gtk.Entry):
     '''Class to perform some validations in gtk.Entry.
@@ -1205,16 +1206,12 @@ class StatusBar(gtk.Statusbar):
             self._timer = None
 
 
-class ConfigOptions(gtk.VBox):
+class ConfigOptions(gtk.VBox, Preferences):
     """Only the options for configuration.
-
     @param w3af: The Core
     @param parentWidg: The parentWidg widget with reloadOptions method
-    @param options: The options to configure.
-
-    @author: Facundo Batista <facundobatista =at= taniquetil.com.ar>
     """
-    def __init__(self, w3af, parentWidg, options):
+    def __init__(self, w3af, parentWidg):
         super(ConfigOptions,self).__init__()
         self.set_spacing(5)
         self.def_padding = 5
@@ -1224,9 +1221,7 @@ class ConfigOptions(gtk.VBox):
         self.tab_widget = {}
         self.propagAnyWidgetChanged = helpers.PropagateBuffer(self._changedAnyWidget)
         self.propagLabels = {}
-        # options
-        self.options = options
-        # buttons
+        # Buttons
         buttonsArea = gtk.HBox()
         buttonsArea.show()
         self.saveBtn = gtk.Button(_("_Apply"), stock=gtk.STOCK_APPLY)
@@ -1240,61 +1235,14 @@ class ConfigOptions(gtk.VBox):
         self.rvrtBtn.set_sensitive(False)
         self.rvrtBtn.connect("clicked", self._revertPanel)
 
-        # middle (the heart of the panel)
-        if self.options:
-            tabbox = gtk.HBox()
-            heart = self._createNotebook()
-            tabbox.pack_start(heart, expand=False)
-            tabbox.show()
-            self.pack_start(tabbox, expand=True, fill=False)
+        tabbox = gtk.HBox()
+        heart = self._initOptionsView()
+        tabbox.pack_start(heart, expand=False)
+        tabbox.show()
+        self.pack_start(tabbox, expand=True, fill=False)
         self.pack_start(buttonsArea, False, False)
-        self.show()
 
-    def _createNotebook(self):
-        """This create the notebook with all the options.
-
-        @return: The created notebook if more than one grouping
-        """
-        # let's get the tabs, but in order!
-        tabs = []
-        for o in self.options:
-            t = o.getTabId()
-            if t not in tabs:
-                tabs.append(t)
-
-        # see if we have more than a tab to create a nb
-        if len(tabs) < 2:
-            table = self._makeTable(self.options, None)
-            return table
-
-        # the notebook
-        nb = gtk.Notebook()
-        for tab in tabs:
-            options = [x for x in self.options if x.getTabId() == tab]
-            if not tab:
-                tab = _("General")
-            label = gtk.Label(tab)
-            prop = helpers.PropagateBufferPayload(self._changedLabelNotebook, label, tab)
-            table = self._makeTable(options, prop)
-            nb.append_page(table, label)
-        nb.show()
-        return nb
-
-    def _makeTable(self, options, prop):
-        """Creates the table in which the options are shown.
-
-        @param options: The options to show
-        @param prop: The propagation function for this options
-        @return: The created table
-
-        For each row, it will put:
-
-            - the option label
-            - the configurable widget (textentry, checkbox, etc.)
-            - an optional button to get more help (if the help is available)
-
-        Also, the configurable widget gets a tooltip for a small description.
-        """
+    def _initOptionsView(self):
         table = EasyTable(len(options), 2)
         tooltips = gtk.Tooltips()
         for i,opt in enumerate(options):
