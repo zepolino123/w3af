@@ -29,6 +29,7 @@ from . import reqResViewer, helpers, entries, httpLogTab
 from core.controllers.w3afException import w3afException, w3afProxyException
 from core.data.options.option import option as Option
 from core.data.options.comboOption import comboOption
+from core.data.options.optionList import optionList
 from core.controllers.daemons import localproxy
 from core.ui.gtkUi.entries import ConfigOptions
 import core.controllers.outputManager as om
@@ -46,15 +47,6 @@ ui_proxy_menu = """
   </toolbar>
 </ui>
 """
-
-class ProxyOptions(object):
-    """Stores the proxy options."""
-    def __init__(self):
-        self.options = []
-
-    def append(self, name, option):
-        self.options.append(option)
-        setattr(self, name, option)
 
 class ProxiedRequests(entries.RememberingWindow):
     """Proxies the HTTP requests, allowing modifications.
@@ -149,37 +141,27 @@ class ProxiedRequests(entries.RememberingWindow):
     def _initOptions(self):
         '''Init options.'''
         self.like_initial = True
-        # Config options
-        self.proxyoptions = ProxyOptions()
-        self.proxyoptions.append("ipport",
-                Option(_("Where to listen"), "localhost:8080", "IP:port",
-                "ipport", _("IP and port where to listen")))
-        self.proxyoptions.append("trap",
-                Option(_("What to trap"), ".*", _("URLs to trap"), "regex",
-                _("Regular expression that indicates what URLs to trap")))
-        self.proxyoptions.append("methodtrap",
-                Option(_("What methods to trap"), "GET,POST",
-                    _("Methods to trap"), "list", _("Common separated methods. Left this field empty to trap all methods.")))
-        self.proxyoptions.append("notrap",
-                Option(_("What not to trap"), ".*\.(gif|jpg|png|css|js|ico|swf|axd|tif)$", _("URLs not to trap"), "regex",
-                _("Regular expression that indicates what URLs not to trap")))
-        self.proxyoptions.append("fixlength",
-                Option("Fix content length", True, "Fix content length", "boolean"))
-        # HTTP editor
-        # Highlight current line
-        #
-        self.proxyoptions.append("trap_view",
-                comboOption("trap_view", ['Tabbed', 'Splitted'], "ReqRes view of trap tab", "combo"))
-        self.proxyoptions.append("display_line_num",
-                Option("display_line_num", True, "Display line numbers", "boolean"))
-        self._previous_ipport = self.proxyoptions.ipport.getValue()
-        optionBox = gtk.VBox()
-        optionBox.show()
-        self._optionsPanel = ConfigOptions(self.w3af, self, self.proxyoptions.options)
-        optionBox.pack_start(self._optionsPanel, False, False)
+        self.pref = ConfigOptions(self.w3af, self)
+        # Proxy options
+        proxyOptions = optionList()
+        proxyOptions.add(Option('ipport', "localhost:8080", "IP:port","ipport"))
+        proxyOptions.add(Option('trap', ".*", _("URLs to trap"), "regex"))
+        proxyOptions.add(Option('methodtrap', "GET,POST", _("Methods to trap"), "list"))
+        proxyOptions.add(Option("notrap",
+            ".*\.(gif|jpg|png|css|js|ico|swf|axd|tif)$"a, _("URLs not to trap"), "regex"))
+        proxyOptions.add(Option("fixlength", True, "Fix content length", "boolean"))
+        proxyOptions.add(comboOption("trap_view", ['Tabbed', 'Splitted'], "ReqRes view of trap tab", "combo"))
+        self.pref.addSection('proxy', _('Proxy Options'), proxyOptions)
+        # HTTP editor options
+        editorOptions = optionList()
+        editorOptions.add(Option("display_line_num", True, "Display line numbers", "boolean"))
+        self.pref.addSection('editor', _('HTTP Editor Options'),
+                editorOptions)
+        self.pref.show()
+        self._previous_ipport = self.pref.getValue('proxy', 'ipport')
         tmp = gtk.Label(_("_Options"))
         tmp.set_use_underline(True)
-        self.nb.append_page(optionBox, tmp)
+        self.nb.append_page(self.pref, tmp)
 
     def configChanged(self, like_initial):
         """Propagates the change from the options.
