@@ -1078,7 +1078,8 @@ class EasyTable(gtk.Table):
         r = self.auto_rowcounter
         for i,widg in enumerate(widgets):
             if widg is not None:
-                self.attach(widg, i, i+1, r, r+1, xpadding=5)
+                #self.attach(widg, i, i+1, r, r+1, xpadding=5)
+                self.attach(widg, i, i+1, r, r+1,  xpadding=5, xoptions=gtk.FILL, yoptions=0)
                 widg.show()
         self.auto_rowcounter += 1
 
@@ -1246,13 +1247,17 @@ class ConfigOptions(gtk.VBox, Preferences):
         tooltips = gtk.Tooltips()
         print self.options
         for section, optList in self.options.items():
-            frame = gtk.Frame(label=section)
+            frame = gtk.Frame()
+            label = gtk.Label('<b>%s</b>' % self.sections[section])
+            label.set_use_markup(True)
+            label.show()
+            frame.set_label_widget(label)
+            frame.set_shadow_type(gtk.SHADOW_NONE)
             frame.show()
             table = EasyTable(len(optList), 2)
             for i, opt in enumerate(optList):
-                print i, opt
                 titl = gtk.Label(opt.getDesc())
-                #titl.set_alignment(0.0, 0.5)
+                titl.set_alignment(xalign=0.0, yalign=0.5)
                 widg = wrapperWidgets[opt.getType()](self._changedWidget, opt)
                 if hasattr(widg, 'set_width_chars'):
                     widg.set_width_chars(50)
@@ -1262,7 +1267,7 @@ class ConfigOptions(gtk.VBox, Preferences):
                 self.widgets_status[widg] = (titl, opt.getName(), "<b>%s</b>" % opt.getName())
                 table.show()
                 frame.add(table)
-            self.pack_start(frame)
+            self.pack_start(frame, False, False)
 
     def _changedAnyWidget(self, like_initial):
         """Adjust the save/revert buttons and alert the tree of the change.
@@ -1297,20 +1302,10 @@ class ConfigOptions(gtk.VBox, Preferences):
         else:
             labl.set_markup(chng)
         self.propagAnyWidgetChanged.change(widg, like_initial)
-        propag = self.propagLabels[widg]
-        if propag is not None:
-            propag.change(widg, like_initial)
+        #propag = self.propagLabels[widg]
+        #if propag is not None:
+         #   propag.change(widg, like_initial)
 
-    def _showHelp(self, widg, helpmsg):
-        """Shows a dialog with the help message of the config option.
-
-        @param widg: the widget who generated the signal
-        @param helpmsg: the message to show in the dialog
-        """
-        dlg = gtk.MessageDialog(None, gtk.DIALOG_MODAL, gtk.MESSAGE_INFO, gtk.BUTTONS_OK, helpmsg)
-        dlg.set_title('Plugin help')
-        dlg.run()
-        dlg.destroy()
 
     def _savePanel(self, widg):
         """Saves the config changes to the plugins.
@@ -1322,7 +1317,7 @@ class ConfigOptions(gtk.VBox, Preferences):
         """
         # check if all widgets are valid
         invalid = []
-        for section, optList in self.options:
+        for section, optList in self.options.items():
             for opt in optList:
                 if hasattr(opt.widg, "isValid"):
                     if not opt.widg.isValid():
@@ -1337,12 +1332,14 @@ class ConfigOptions(gtk.VBox, Preferences):
             return
 
         # Get the value from the GTK widget and set it to the option object
-        #for opt in self.options:
-        #    opt.setValue( opt.widg.getValue() )
+        for section, optList in self.options.items():
+            for opt in optList:
+                opt.setValue(opt.widg.getValue())
 
-        #for opt in self.options:
-        #    opt.widg.save()
-        #self.w3af.mainwin.sb(_("Configuration saved successfully"))
+        for section, optList in self.options.items():
+            for opt in optList:
+                opt.widg.save()
+        self.w3af.mainwin.sb(_("Configuration saved successfully"))
         self.parentWidg.reloadOptions()
 
     def _revertPanel(self, *vals):
@@ -1351,3 +1348,14 @@ class ConfigOptions(gtk.VBox, Preferences):
             widg.revertValue()
         self.w3af.mainwin.sb(_("The configuration was reverted to its last saved state"))
         self.parentWidg.reloadOptions()
+
+    def _showHelp(self, widg, helpmsg):
+        """Shows a dialog with the help message of the config option.
+
+        @param widg: the widget who generated the signal
+        @param helpmsg: the message to show in the dialog
+        """
+        dlg = gtk.MessageDialog(None, gtk.DIALOG_MODAL, gtk.MESSAGE_INFO, gtk.BUTTONS_OK, helpmsg)
+        dlg.set_title('Plugin help')
+        dlg.run()
+        dlg.destroy()
