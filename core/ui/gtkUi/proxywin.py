@@ -120,7 +120,7 @@ class ProxiedRequests(entries.RememberingWindow):
         self.proxy = None
         # Finish it
         try:
-            ipport = self.proxyoptions.ipport.getValue()
+            ipport = self.pref.getValue('proxy', 'ipport')
             ip, port = ipport.split(":")
             self._startProxy(ip, port)
         except w3afProxyException:
@@ -148,7 +148,7 @@ class ProxiedRequests(entries.RememberingWindow):
         proxyOptions.add(Option('trap', ".*", _("URLs to trap"), "regex"))
         proxyOptions.add(Option('methodtrap', "GET,POST", _("Methods to trap"), "list"))
         proxyOptions.add(Option("notrap",
-            ".*\.(gif|jpg|png|css|js|ico|swf|axd|tif)$"a, _("URLs not to trap"), "regex"))
+            ".*\.(gif|jpg|png|css|js|ico|swf|axd|tif)$", _("URLs not to trap"), "regex"))
         proxyOptions.add(Option("fixlength", True, "Fix content length", "boolean"))
         proxyOptions.add(comboOption("trap_view", ['Tabbed', 'Splitted'], "ReqRes view of trap tab", "combo"))
         self.pref.addSection('proxy', _('Proxy Options'), proxyOptions)
@@ -178,7 +178,7 @@ class ProxiedRequests(entries.RememberingWindow):
         4. If everything is ok then start proxy
         5. Set Trap options
         """
-        new_ipport = self.proxyoptions.ipport.getValue()
+        new_ipport = self.pref.getValue('proxy', 'ipport')
         if new_ipport != self._previous_ipport:
             self.w3af.mainwin.sb(_("Stopping local proxy"))
             if self.proxy:
@@ -190,10 +190,10 @@ class ProxiedRequests(entries.RememberingWindow):
                 return
         # Test of config
         try:
-            self.proxy.setWhatToTrap(self.proxyoptions.trap.getValue())
-            self.proxy.setWhatNotToTrap(self.proxyoptions.notrap.getValue())
-            self.proxy.setMethodsToTrap(self.proxyoptions.methodtrap.getValue())
-            self.proxy.setFixContentLength(self.proxyoptions.fixlength.getValue())
+            self.proxy.setWhatToTrap(self.pref.getValue('proxy', 'trap'))
+            self.proxy.setWhatNotToTrap(self.pref.getValue('proxy', 'nortap'))
+            self.proxy.setMethodsToTrap(self.pref.getValue('proxy', 'methodtrap'))
+            self.proxy.setFixContentLength(self.pref.getValue('proxy', 'fixlength'))
         except w3afException, w3:
             self.showAlert(_("Invalid configuration!\n" + str(w3)))
 
@@ -207,7 +207,7 @@ class ProxiedRequests(entries.RememberingWindow):
     def _startProxy(self, ip=None, port=None, silent=False):
         """Starts the proxy."""
         if not ip:
-            ipport = self.proxyoptions.ipport.getValue()
+            ipport = self.pref.getValue('proxy', 'ipport')
             ip, port = ipport.split(":")
         self.w3af.mainwin.sb(_("Starting local proxy"))
         try:
