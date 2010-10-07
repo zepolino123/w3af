@@ -1078,7 +1078,7 @@ class EasyTable(gtk.Table):
         r = self.auto_rowcounter
         for i,widg in enumerate(widgets):
             if widg is not None:
-                self.attach(widg, i, i+1, r, r+1, yoptions=gtk.EXPAND, xpadding=5)
+                self.attach(widg, i, i+1, r, r+1, xpadding=5)
                 widg.show()
         self.auto_rowcounter += 1
 
@@ -1207,20 +1207,25 @@ class StatusBar(gtk.Statusbar):
 
 
 class ConfigOptions(gtk.VBox, Preferences):
-    """Only the options for configuration.
+    """Configuration class.
     @param w3af: The Core
-    @param parentWidg: The parentWidg widget with reloadOptions method
+    @param parentWidg: The parentWidg widget with *reloadOptions* method
     """
     def __init__(self, w3af, parentWidg):
-        super(ConfigOptions,self).__init__()
+        gtk.VBox.__init__(self)
+        Preferences.__init__(self)
+
         self.set_spacing(5)
         self.def_padding = 5
         self.w3af = w3af
         self.parentWidg = parentWidg
         self.widgets_status = {}
-        self.tab_widget = {}
         self.propagAnyWidgetChanged = helpers.PropagateBuffer(self._changedAnyWidget)
         self.propagLabels = {}
+
+    def show(self):
+        # Init options
+        self._initOptionsView()
         # Buttons
         buttonsArea = gtk.HBox()
         buttonsArea.show()
@@ -1234,30 +1239,30 @@ class ConfigOptions(gtk.VBox, Preferences):
         self.saveBtn.set_sensitive(False)
         self.rvrtBtn.set_sensitive(False)
         self.rvrtBtn.connect("clicked", self._revertPanel)
-
-        tabbox = gtk.HBox()
-        heart = self._initOptionsView()
-        tabbox.pack_start(heart, expand=False)
-        tabbox.show()
-        self.pack_start(tabbox, expand=True, fill=False)
         self.pack_start(buttonsArea, False, False)
+        super(ConfigOptions,self).show()
 
     def _initOptionsView(self):
-        table = EasyTable(len(options), 2)
         tooltips = gtk.Tooltips()
-        for i,opt in enumerate(options):
-            titl = gtk.Label(opt.getDesc())
-            titl.set_alignment(0.0, 0.5)
-            widg = wrapperWidgets[opt.getType()](self._changedWidget, opt )            
-            if hasattr(widg, 'set_width_chars'):
-                widg.set_width_chars(50)
-            opt.widg = widg
-            tooltips.set_tip(widg, opt.getHelp())
-            table.autoAddRow(titl, widg)
-            self.widgets_status[widg] = (titl, opt.getName(), "<b>%s</b>" % opt.getName())
-            self.propagLabels[widg] = prop
-        table.show()
-        return table
+        print self.options
+        for section, optList in self.options.items():
+            frame = gtk.Frame(label=section)
+            frame.show()
+            table = EasyTable(len(optList), 2)
+            for i, opt in enumerate(optList):
+                print i, opt
+                titl = gtk.Label(opt.getDesc())
+                #titl.set_alignment(0.0, 0.5)
+                widg = wrapperWidgets[opt.getType()](self._changedWidget, opt)
+                if hasattr(widg, 'set_width_chars'):
+                    widg.set_width_chars(50)
+                opt.widg = widg
+                tooltips.set_tip(widg, opt.getHelp())
+                table.autoAddRow(titl, widg)
+                self.widgets_status[widg] = (titl, opt.getName(), "<b>%s</b>" % opt.getName())
+                table.show()
+                frame.add(table)
+            self.pack_start(frame)
 
     def _changedAnyWidget(self, like_initial):
         """Adjust the save/revert buttons and alert the tree of the change.
@@ -1317,10 +1322,11 @@ class ConfigOptions(gtk.VBox, Preferences):
         """
         # check if all widgets are valid
         invalid = []
-        for opt in self.options:
-            if hasattr(opt.widg, "isValid"):
-                if not opt.widg.isValid():
-                    invalid.append(opt.getName())
+        for section, optList in self.options:
+            for opt in optList:
+                if hasattr(opt.widg, "isValid"):
+                    if not opt.widg.isValid():
+                        invalid.append(opt.getName())
         if invalid:
             msg = _("The configuration can't be saved, there is a problem in the following parameter(s):\n\n")
             msg += "\n-".join(invalid)
@@ -1331,12 +1337,12 @@ class ConfigOptions(gtk.VBox, Preferences):
             return
 
         # Get the value from the GTK widget and set it to the option object
-        for opt in self.options:
-            opt.setValue( opt.widg.getValue() )
+        #for opt in self.options:
+        #    opt.setValue( opt.widg.getValue() )
 
-        for opt in self.options:
-            opt.widg.save()
-        self.w3af.mainwin.sb(_("Configuration saved successfully"))
+        #for opt in self.options:
+        #    opt.widg.save()
+        #self.w3af.mainwin.sb(_("Configuration saved successfully"))
         self.parentWidg.reloadOptions()
 
     def _revertPanel(self, *vals):
