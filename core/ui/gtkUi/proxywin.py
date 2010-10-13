@@ -191,7 +191,7 @@ class ProxiedRequests(entries.RememberingWindow):
         # Test of config
         try:
             self.proxy.setWhatToTrap(self.pref.getValue('proxy', 'trap'))
-            self.proxy.setWhatNotToTrap(self.pref.getValue('proxy', 'nortap'))
+            self.proxy.setWhatNotToTrap(self.pref.getValue('proxy', 'notrap'))
             self.proxy.setMethodsToTrap(self.pref.getValue('proxy', 'methodtrap'))
             self.proxy.setFixContentLength(self.pref.getValue('proxy', 'fixlength'))
         except w3afException, w3:
