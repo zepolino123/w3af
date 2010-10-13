@@ -1245,7 +1245,6 @@ class ConfigOptions(gtk.VBox, Preferences):
 
     def _initOptionsView(self):
         tooltips = gtk.Tooltips()
-        print self.options
         for section, optList in self.options.items():
             frame = gtk.Frame()
             label = gtk.Label('<b>%s</b>' % self.sections[section])
@@ -1264,7 +1263,7 @@ class ConfigOptions(gtk.VBox, Preferences):
                 opt.widg = widg
                 tooltips.set_tip(widg, opt.getHelp())
                 table.autoAddRow(titl, widg)
-                self.widgets_status[widg] = (titl, opt.getName(), "<b>%s</b>" % opt.getName())
+                self.widgets_status[widg] = (titl, opt.getDesc(), "<b>%s</b>" % opt.getDesc())
                 table.show()
                 frame.add(table)
             self.pack_start(frame, False, False)
