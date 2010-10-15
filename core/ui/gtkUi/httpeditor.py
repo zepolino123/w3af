@@ -41,12 +41,10 @@ SEVERITY_TO_COLOR={
 SEVERITY_TO_COLOR.setdefault('yellow')
 
 class HttpEditor(gtk.VBox, Searchable):
-    """A textview widget that supports searches.
-
-    @author: Andres Riancho ( andres.riancho@gmail.com )
-    """
+    """Special class for editing HTTP requests/responses."""
     def __init__(self):
         gtk.VBox.__init__(self)
+        self.is_request = True
         # Create the textview where the text is going to be shown
         self.textView = gtksourceview.View(gtksourceview.Buffer())
         self.textView.set_highlight_current_line(True)
@@ -80,8 +78,9 @@ class HttpEditor(gtk.VBox, Searchable):
         self.pack_start(sw1, expand=True, fill=True)
         # Create the search widget
         Searchable.__init__(self, self.textView, small=True)
-
-    # Interface
+# 
+# Interface
+#
     def clear(self):
         buf = self.textView.get_buffer()
         start, end = buf.get_bounds()
@@ -126,6 +125,34 @@ class HttpEditor(gtk.VBox, Searchable):
         for (ini, fin, iterini, iterfin) in positions:
             text_buffer.apply_tag_by_name(sev, iterini, iterfin)
 
+    def get_text_slitted(self):
+        """Returns data as turple headers + data."""
+        rawText = self.get_text()
+        headers = rawText
+        data = ""
+        tmp = rawText.find("\n\n")
+
+        # It's POST!
+        if tmp != -1:
+            headers = rawText[0:tmp+1]
+            data = rawText[tmp+2:]
+            if data.strip() == "":
+                data = ""
+        return (headers, data)
+# 
+# Inherit SourceView methods
+#
+    def set_highlight_current_line(self, val):
+        self.textView.set_highlight_current_line(val)
+
+    def set_show_line_numbers(self, val):
+        self.textView.set_show_line_numbers(val)
+
+    def set_wrap_mode(val):
+        self.textView.set_wrap_mode(val)
+# 
+# Private methods
+#
     def _to_utf8(self, text):
         """
         This method was added to fix:
