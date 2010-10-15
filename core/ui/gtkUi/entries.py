@@ -1206,7 +1206,6 @@ class StatusBar(gtk.Statusbar):
             self._timer.cancel()
             self._timer = None
 
-
 class ConfigOptions(gtk.VBox, Preferences):
     """Configuration class.
     @param w3af: The Core

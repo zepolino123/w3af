@@ -30,14 +30,9 @@ import pango
 import os
 import sys
 
-try:
-    import gtksourceview2 as gtksourceview
-except Exception, e:
-    print e
-    sys.exit()
-
 from . import entries
 # To show request and responses
+from core.ui.gtkUi.httpeditor import HttpEditorView
 from core.data.db.history import HistoryItem
 from core.data.constants import severity
 from core.controllers.w3afException import w3afException, w3afMustStopException
@@ -455,79 +450,6 @@ class responsePart(requestResponsePart):
         buff = self._raw.get_buffer()
         buff.set_text(self._to_utf8(self._obj.dump()))
 
-SEVERITY_TO_COLOR={
-    severity.INFORMATION: 'green',
-    severity.LOW: 'blue',
-    severity.MEDIUM: 'yellow',
-    severity.HIGH: 'red'}
-SEVERITY_TO_COLOR.setdefault('yellow')
-
-class HttpEditorView(gtk.VBox, entries.Searchable):
-    """A textview widget that supports searches.
-
-    @author: Andres Riancho ( andres.riancho@gmail.com )
-    """
-    def __init__(self):
-        gtk.VBox.__init__(self)
-        # Create the textview where the text is going to be shown
-        self.textView = gtksourceview.View(gtksourceview.Buffer())
-        self.textView.set_highlight_current_line(True)
-        self.textView.set_show_line_numbers(True)
-        self.textView.set_wrap_mode(gtk.WRAP_WORD)
-        fontDesc = pango.FontDescription('monospace')
-        if fontDesc:
-            self.textView.modify_font(fontDesc)
-
-        lm = gtksourceview.LanguageManager()
-        foo = lm.get_search_path()
-        foo.append('core' + os.path.sep+ 'ui' + os.path.sep + 'gtkUi')
-        lm.set_search_path(foo)
-        lang = lm.get_language('http')
-
-        b = self.textView.get_buffer()
-        b.set_language(lang)
-        b.set_highlight_syntax(True)
-
-        self.reset_bg_color()
-        for sev in SEVERITY_TO_COLOR:
-            self.textView.get_buffer().create_tag(sev, background=SEVERITY_TO_COLOR[sev])
-        self.textView.show()
-        # Scroll where the textView goes
-        sw1 = gtk.ScrolledWindow()
-        sw1.set_shadow_type(gtk.SHADOW_ETCHED_IN)
-        sw1.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-        sw1.add(self.textView)
-        sw1.show()
-        self.pack_start(sw1, expand=True, fill=True)
-        # Create the search widget
-        entries.Searchable.__init__(self, self.textView, small=True)
-
-    def get_bounds(self):
-        return self.textView.get_buffer().get_bounds()
-
-    def get_text(self, start,  end):
-        return self.textView.get_buffer().get_text(start, end)
-
-    def get_iter_at_offset(self, position):
-        return self.textView.get_buffer().get_iter_at_offset(position)
-
-    def apply_tag_by_name(self, tag, start, end):
-        return self.textView.get_buffer().apply_tag_by_name(tag, start, end)
-
-    def set_editable(self, e):
-        return self.textView.set_editable(e)
-
-    def set_border_width(self, b):
-        return self.textView.set_border_width(b)
-
-    def set_bg_color(self, color):
-        self.textView.modify_base(gtk.STATE_NORMAL, color)
-
-    def reset_bg_color(self):
-        self.textView.modify_base(gtk.STATE_NORMAL, gtk.gdk.color_parse("#FFFFFF"))
-
-    def get_buffer(self):
-        return self.textView.get_buffer()
 
 class reqResWindow(entries.RememberingWindow):
     """

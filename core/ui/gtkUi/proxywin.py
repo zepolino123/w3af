@@ -150,13 +150,12 @@ class ProxiedRequests(entries.RememberingWindow):
         proxyOptions.add(Option("notrap",
             ".*\.(gif|jpg|png|css|js|ico|swf|axd|tif)$", _("URLs not to trap"), "regex"))
         proxyOptions.add(Option("fixlength", True, "Fix content length", "boolean"))
-        proxyOptions.add(comboOption("trap_view", ['Tabbed', 'Splitted'], "ReqRes view of trap tab", "combo"))
+        #proxyOptions.add(comboOption("trap_view", ['Tabbed', 'Splitted'], "ReqRes view of trap tab", "combo"))
         self.pref.addSection('proxy', _('Proxy Options'), proxyOptions)
         # HTTP editor options
         editorOptions = optionList()
         editorOptions.add(Option("display_line_num", True, "Display line numbers", "boolean"))
-        self.pref.addSection('editor', _('HTTP Editor Options'),
-                editorOptions)
+        #self.pref.addSection('editor', _('HTTP Editor Options'), editorOptions)
         self.pref.show()
         self._previous_ipport = self.pref.getValue('proxy', 'ipport')
         tmp = gtk.Label(_("_Options"))
