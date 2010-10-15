@@ -40,7 +40,7 @@ SEVERITY_TO_COLOR={
     severity.HIGH: 'red'}
 SEVERITY_TO_COLOR.setdefault('yellow')
 
-class HttpEditorView(gtk.VBox, Searchable):
+class HttpEditor(gtk.VBox, Searchable):
     """A textview widget that supports searches.
 
     @author: Andres Riancho ( andres.riancho@gmail.com )
@@ -52,6 +52,7 @@ class HttpEditorView(gtk.VBox, Searchable):
         self.textView.set_highlight_current_line(True)
         self.textView.set_show_line_numbers(True)
         self.textView.set_wrap_mode(gtk.WRAP_WORD)
+        self.textView.set_border_width(5)
         fontDesc = pango.FontDescription('monospace')
         if fontDesc:
             self.textView.modify_font(fontDesc)
@@ -80,11 +81,68 @@ class HttpEditorView(gtk.VBox, Searchable):
         # Create the search widget
         Searchable.__init__(self, self.textView, small=True)
 
-    def get_bounds(self):
-        return self.textView.get_buffer().get_bounds()
+    # Interface
+    def clear(self):
+        buf = self.textView.get_buffer()
+        start, end = buf.get_bounds()
+        buf.delete(start, end)
 
-    def get_text(self, start,  end):
-        return self.textView.get_buffer().get_text(start, end)
+    def get_text(self):
+        buf = self.textView.get_buffer()
+        return buf.get_text(buf.get_start_iter(), buf.get_end_iter())
+
+    def set_text(self, text, fixUtf8=False):
+        buf = self.textView.get_buffer()
+        if fixUtf8:
+            buf.set_text(text)
+        else:
+            buf.set_text(text)
+
+    def set_editable(self, e):
+        return self.textView.set_editable(e)
+
+    def highlight(self, text, sev=severity.MEDIUM):
+        """Find the text, and handle highlight.
+        @return: None
+        """
+        text_buffer = self.textView.get_buffer()
+
+        (ini, fin) = text_buffer.get_bounds()
+        alltext = text_buffer.get_text(ini, fin)
+        # find the positions where the phrase is found
+        positions = []
+        pos = 0
+        while True:
+            try:
+                pos = alltext.index(text, pos)
+            except ValueError:
+                break
+            fin = pos + len(text)
+            iterini = text_buffer.get_iter_at_offset(pos)
+            iterfin = text_buffer.get_iter_at_offset(fin)
+            positions.append((pos, fin, iterini, iterfin))
+            pos += 1
+        # highlight them all
+        for (ini, fin, iterini, iterfin) in positions:
+            text_buffer.apply_tag_by_name(sev, iterini, iterfin)
+
+    def _to_utf8(self, text):
+        """
+        This method was added to fix:
+
+        GtkWarning: gtk_text_buffer_emit_insert: assertion `g_utf8_validate (text, len, NULL)'
+
+        @parameter text: A text that may or may not be in UTF-8.
+        @return: A text, that's in UTF-8, and can be printed in a text view
+        """
+        text = repr(text)
+        text = text[1:-1]
+
+        for special_char in ['\n', '\r', '\t']:
+            text = text.replace( repr(special_char)[1:-1], special_char )
+        text = text.replace("\\'", "'")
+        text = text.replace('\\\\"', '\\"')
+        return text
 
     def get_iter_at_offset(self, position):
         return self.textView.get_buffer().get_iter_at_offset(position)
@@ -92,8 +150,6 @@ class HttpEditorView(gtk.VBox, Searchable):
     def apply_tag_by_name(self, tag, start, end):
         return self.textView.get_buffer().apply_tag_by_name(tag, start, end)
 
-    def set_editable(self, e):
-        return self.textView.set_editable(e)
 
     def set_border_width(self, b):
         return self.textView.set_border_width(b)

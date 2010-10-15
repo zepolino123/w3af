@@ -32,7 +32,7 @@ import sys
 
 from . import entries
 # To show request and responses
-from core.ui.gtkUi.httpeditor import HttpEditorView
+from core.ui.gtkUi.httpeditor import HttpEditor
 from core.data.db.history import HistoryItem
 from core.data.constants import severity
 from core.controllers.w3afException import w3afException, w3afMustStopException
@@ -84,9 +84,8 @@ class reqResViewer(gtk.VBox):
         nb.append_page(self.request, gtk.Label(_("Request")))
         nb.append_page(self.response, gtk.Label(_("Response")))
         # Info
-        self.info = HttpEditorView()
+        self.info = HttpEditor()
         self.info.set_editable(False)
-        self.info.set_border_width(5)
         #self.info.show()
         nb.append_page(self.info, gtk.Label(_("Info")))
 
@@ -271,9 +270,8 @@ class requestResponsePart(gtk.VBox):
 
     def _initRawTab(self, editable):
         """Init for Raw tab."""
-        self._raw = HttpEditorView()
+        self._raw = HttpEditor()
         self._raw.set_editable(editable)
-        self._raw.set_border_width(5)
         self._raw.show()
         #self.append_page(self._raw, gtk.Label(_("Raw")))
         self.pack_start(self._raw)
@@ -286,8 +284,7 @@ class requestResponsePart(gtk.VBox):
 
     def _changed(self, widg, toenable):
         """Supervises if the widget has some text."""
-        rawBuf = self._raw.get_buffer()
-        rawText = rawBuf.get_text(rawBuf.get_start_iter(), rawBuf.get_end_iter())
+        rawText = self._raw.get_text()
 
         for widg in toenable:
             widg(bool(rawText))
@@ -295,29 +292,19 @@ class requestResponsePart(gtk.VBox):
         self._changeRawCB()
         self._synchronize(self.SOURCE_RAW)
 
-    def _clear(self, textView):
-        """Clears a text view."""
-        buff = textView.get_buffer()
-        start, end = buff.get_bounds()
-        buff.delete(start, end)
-
     def clearPanes(self):
         """Public interface to clear both panes."""
-        self._clear(self._raw)
+        self._raw.clear()
 
     def showError(self, text):
         """Show an error.
         Errors are shown in the upper part, with the lower one greyed out.
         """
-        self._clear(self._raw)
-        buff = self._raw.get_buffer()
-        iter = buff.get_end_iter()
-        buff.insert(iter, text)
+        self._raw.set_text(text)
 
     def getBothTexts(self):
         """Returns request data as turple headers + data."""
-        rawBuf = self._raw.get_buffer()
-        rawText = rawBuf.get_text(rawBuf.get_start_iter(), rawBuf.get_end_iter())
+        rawText = self._raw.get_text()
         headers = rawText
         data = ""
         tmp = rawText.find("\n\n")
@@ -330,25 +317,6 @@ class requestResponsePart(gtk.VBox):
                 data = ""
         return (headers, data)
 
-    def _to_utf8(self, text):
-        """
-        This method was added to fix:
-
-        GtkWarning: gtk_text_buffer_emit_insert: assertion `g_utf8_validate (text, len, NULL)'
-
-        @parameter text: A text that may or may not be in UTF-8.
-        @return: A text, that's in UTF-8, and can be printed in a text view
-        """
-        text = repr(text)
-        text = text[1:-1]
-
-        for special_char in ['\n', '\r', '\t']:
-            text = text.replace( repr(special_char)[1:-1], special_char )
-            
-        text = text.replace("\\'", "'")
-        text = text.replace('\\\\"', '\\"')
-        
-        return text
 
     def showObject(self, obj):
         raise w3afException('Child MUST implment a showObject method.')
@@ -418,9 +386,8 @@ class requestPart(requestResponsePart):
     def _synchronize(self, source=None):
         # Raw tab
         if source != self.SOURCE_RAW:
-            self._clear(self._raw)
-            buff = self._raw.get_buffer()
-            buff.set_text(self._to_utf8(self._obj.dump()))
+            self._raw.clear()
+            self._raw.set_text(self._obj.dump(), True)
     
     def _changeRawCB(self):
         (head, data) = self.getBothTexts()
@@ -446,10 +413,8 @@ class responsePart(requestResponsePart):
 
     def _synchronize(self, source=None):
         # Raw tab
-        self._clear(self._raw)
-        buff = self._raw.get_buffer()
-        buff.set_text(self._to_utf8(self._obj.dump()))
-
+        self._raw.clear()
+        self._raw.set_text(self._obj.dump(), True)
 
 class reqResWindow(entries.RememberingWindow):
     """
