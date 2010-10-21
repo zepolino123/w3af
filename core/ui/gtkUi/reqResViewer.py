@@ -304,19 +304,7 @@ class requestResponsePart(gtk.VBox):
 
     def getBothTexts(self):
         """Returns request data as turple headers + data."""
-        rawText = self._raw.get_text()
-        headers = rawText
-        data = ""
-        tmp = rawText.find("\n\n")
-
-        # It's POST!
-        if tmp != -1:
-            headers = rawText[0:tmp+1]
-            data = rawText[tmp+2:]
-            if data.strip() == "":
-                data = ""
-        return (headers, data)
-
+        return self._raw.get_text(splitted=True)
 
     def showObject(self, obj):
         raise w3afException('Child MUST implment a showObject method.')
@@ -345,26 +333,7 @@ class requestResponsePart(gtk.VBox):
         """Find the text, and handle highlight.
         @return: None
         """
-        # highlight the response header and body
-        for text_buffer in [self._raw]:
-            (ini, fin) = text_buffer.get_bounds()
-            alltext = text_buffer.get_text(ini, fin)
-            # find the positions where the phrase is found
-            positions = []
-            pos = 0
-            while True:
-                try:
-                    pos = alltext.index(text, pos)
-                except ValueError:
-                    break
-                fin = pos + len(text)
-                iterini = text_buffer.get_iter_at_offset(pos)
-                iterfin = text_buffer.get_iter_at_offset(fin)
-                positions.append((pos, fin, iterini, iterfin))
-                pos += 1
-            # highlight them all
-            for (ini, fin, iterini, iterfin) in positions:
-                text_buffer.apply_tag_by_name(sev, iterini, iterfin)
+        self._raw.highlight(text, sev)
 
 class requestPart(requestResponsePart):
     """Request part"""

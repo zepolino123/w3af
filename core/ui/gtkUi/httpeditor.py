@@ -86,9 +86,22 @@ class HttpEditor(gtk.VBox, Searchable):
         start, end = buf.get_bounds()
         buf.delete(start, end)
 
-    def get_text(self):
+    def get_text(self, splitted=False):
         buf = self.textView.get_buffer()
-        return buf.get_text(buf.get_start_iter(), buf.get_end_iter())
+        rawText = buf.get_text(buf.get_start_iter(), buf.get_end_iter())
+        if not splitted:
+            return rawText
+        # else return turple headers+data
+        headers = rawText
+        data = ""
+        tmp = rawText.find("\n\n")
+        # It's POST!
+        if tmp != -1:
+            headers = rawText[0:tmp+1]
+            data = rawText[tmp+2:]
+            if data.strip() == "":
+                data = ""
+        return (headers, data)
 
     def set_text(self, text, fixUtf8=False):
         buf = self.textView.get_buffer()
@@ -125,20 +138,6 @@ class HttpEditor(gtk.VBox, Searchable):
         for (ini, fin, iterini, iterfin) in positions:
             text_buffer.apply_tag_by_name(sev, iterini, iterfin)
 
-    def get_text_slitted(self):
-        """Returns data as turple headers + data."""
-        rawText = self.get_text()
-        headers = rawText
-        data = ""
-        tmp = rawText.find("\n\n")
-
-        # It's POST!
-        if tmp != -1:
-            headers = rawText[0:tmp+1]
-            data = rawText[tmp+2:]
-            if data.strip() == "":
-                data = ""
-        return (headers, data)
 # 
 # Inherit SourceView methods
 #

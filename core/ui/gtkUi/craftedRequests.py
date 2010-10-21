@@ -303,7 +303,7 @@ class FuzzyRequests(entries.RememberingWindow):
         helplabel = gtk.Label()
         helplabel.set_selectable(True)
         helplabel.set_markup(FUZZYHELP)
-        self.originalReq.append_page(helplabel, gtk.Label("Syntax help"))
+       # self.originalReq.append_page(helplabel, gtk.Label("Syntax help"))
         helplabel.show()
         self.originalReq.show()
         vbox.pack_start(self.originalReq, True, True, padding=5)
