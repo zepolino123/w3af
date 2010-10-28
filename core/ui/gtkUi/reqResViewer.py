@@ -61,7 +61,7 @@ class reqResViewer(gtk.VBox):
     '''
     def __init__(self, w3af, enableWidget=None, withManual=True, withFuzzy=True,
                         withCompare=True, editableRequest=False, editableResponse=False,
-                        widgname="default"):
+                        widgname="default", layout='Tabbed'):
         super(reqResViewer,self).__init__()
         self.w3af = w3af
         # Request
@@ -70,7 +70,11 @@ class reqResViewer(gtk.VBox):
         # Response
         self.response = responsePart(w3af, editable=editableResponse, widgname=widgname)
         self.response.show()
-        self._initTabbedLayout()
+        self.layout = layout
+        if layout == 'Tabbed':
+            self._initTabbedLayout()
+        else:
+            self._initSplittedLayout()
         # Init req toolbox
         self._initToolBox(withManual, withFuzzy, withCompare)
         self.show()
@@ -78,9 +82,9 @@ class reqResViewer(gtk.VBox):
     def _initTabbedLayout(self):
         '''Init Tabbed layout. It's more convenient for quick view.'''
         nb = gtk.Notebook()
+        nb.show()
         self.nb = nb
         self.pack_start(nb, True, True)
-        nb.show()
         nb.append_page(self.request, gtk.Label(_("Request")))
         nb.append_page(self.response, gtk.Label(_("Response")))
         # Info
@@ -91,17 +95,19 @@ class reqResViewer(gtk.VBox):
 
     def _initSplittedLayout(self):
         '''Init Splitted layout. It's more convenient for intercept.'''
-        vpaned = gtk.VPaned()
-        self.pack_start(vpaned, True, True)
-        vpaned.show()
-        vpaned.add(self.request)
-        vpaned.add(self.response)
+        self._vpaned = entries.RememberingVPaned(self.w3af, 'trap_view')
+        self._vpaned.show()
+        self.pack_start(self._vpaned, True, True)
+        self._vpaned.add(self.request)
+        self._vpaned.add(self.response)
 
     def focusResponse(self):
-        self.nb.set_current_page(1)
+        if self.layout == 'Tabbed':
+            self.nb.set_current_page(1)
 
     def focusRequest(self):
-        self.nb.set_current_page(0)
+        if self.layout == 'Tabbed':
+            self.nb.set_current_page(0)
 
     def _initToolBox(self, withManual, withFuzzy, withCompare):
         # Buttons
@@ -261,7 +267,7 @@ class requestResponsePart(gtk.VBox):
         self._obj = None
         self.childButtons = []
         self._initRawTab(editable)
-
+        # FIXME remove this part to httpeditor class
         if enableWidget:
             self._raw.get_buffer().connect("changed", self._changed, enableWidget)
             for widg in enableWidget:
@@ -315,16 +321,8 @@ class requestResponsePart(gtk.VBox):
     def _synchronize(self):
         raise w3afException('Child MUST implment a _synchronize method.')
 
-    def _changeHeaderCB(self):
-        raise w3afException('Child MUST implment a _changeHeaderCB method.')
-
     def _changeRawCB(self):
         raise w3afException('Child MUST implment a _changeRawCB method.')
-
-    def _updateHeadersTab(self, headers):
-        self._headersStore.clear()
-        for header in headers:
-            self._headersStore.append([header, headers[header]])
 
     def getRawTextView(self):
         return self._raw

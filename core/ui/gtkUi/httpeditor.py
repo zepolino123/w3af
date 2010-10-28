@@ -47,20 +47,22 @@ class HttpEditor(gtk.VBox, Searchable):
         self.is_request = True
         # Create the textview where the text is going to be shown
         self.textView = gtksourceview.View(gtksourceview.Buffer())
-        self.textView.set_highlight_current_line(True)
-        self.textView.set_show_line_numbers(True)
+        # User controlled options
+        self.textView.set_highlight_current_line(False)
+        self.textView.set_show_line_numbers(False)
+        # Other options
+        # Font
         self.textView.set_wrap_mode(gtk.WRAP_WORD)
         self.textView.set_border_width(5)
         fontDesc = pango.FontDescription('monospace')
         if fontDesc:
             self.textView.modify_font(fontDesc)
-
+        # Syntax highlight
         lm = gtksourceview.LanguageManager()
         foo = lm.get_search_path()
         foo.append('core' + os.path.sep+ 'ui' + os.path.sep + 'gtkUi')
         lm.set_search_path(foo)
         lang = lm.get_language('http')
-
         b = self.textView.get_buffer()
         b.set_language(lang)
         b.set_highlight_syntax(True)

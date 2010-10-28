@@ -91,9 +91,11 @@ class ProxiedRequests(entries.RememberingWindow):
         self.vbox.show()
         toolbar.show()
         # Request-response viewer
+        self._initOptions()
+        layout = self.pref.getValue('proxy', 'trap_view')
         self.reqresp = reqResViewer.reqResViewer(w3af,
                 [self.bt_drop.set_sensitive, self.bt_send.set_sensitive],
-                editableRequest=True)
+                editableRequest=True, layout=layout)
         self.reqresp.set_sensitive(False)
         vbox = gtk.VBox()
         vbox.pack_start(self.reqresp, True, True)
@@ -110,7 +112,10 @@ class ProxiedRequests(entries.RememberingWindow):
         tmp.set_use_underline(True)
         self.nb.append_page(self.httplog, tmp)
         # Options
-        self._initOptions()
+        tmp = gtk.Label(_("_Options"))
+        tmp.set_use_underline(True)
+        self.nb.append_page(self.pref, tmp)
+
         self.vbox.pack_start(self.nb, True, True, padding=self.def_padding)
         self.nb.show()
         # Status bar for messages
@@ -150,7 +155,7 @@ class ProxiedRequests(entries.RememberingWindow):
         proxyOptions.add(Option("notrap",
             ".*\.(gif|jpg|png|css|js|ico|swf|axd|tif)$", _("URLs not to trap"), "regex"))
         proxyOptions.add(Option("fixlength", True, "Fix content length", "boolean"))
-        #proxyOptions.add(comboOption("trap_view", ['Tabbed', 'Splitted'], "ReqRes view of trap tab", "combo"))
+        proxyOptions.add(comboOption("trap_view", ['Splitted', 'Tabbed'], "ReqRes view of trap tab", "combo"))
         self.pref.addSection('proxy', _('Proxy Options'), proxyOptions)
         # HTTP editor options
         editorOptions = optionList()
@@ -158,9 +163,6 @@ class ProxiedRequests(entries.RememberingWindow):
         #self.pref.addSection('editor', _('HTTP Editor Options'), editorOptions)
         self.pref.show()
         self._previous_ipport = self.pref.getValue('proxy', 'ipport')
-        tmp = gtk.Label(_("_Options"))
-        tmp.set_use_underline(True)
-        self.nb.append_page(self.pref, tmp)
 
     def configChanged(self, like_initial):
         """Propagates the change from the options.
