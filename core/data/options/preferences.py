@@ -19,13 +19,21 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
+from __future__ import with_statement
+import os
+from ConfigParser import RawConfigParser
+from core.controllers.misc.homeDir import get_home_dir
 
 class Preferences(object):
-    '''Class for grouping option lists.'''
-    def __init__(self):
+    '''Class for grouping option lists.
+
+    It also support saving into files.
+    '''
+    def __init__(self, label=None):
         '''Contructor.'''
         self.sections = {}
         self.options = {}
+        self.filename = os.path.join(get_home_dir(), label + '.cfg')
 
     def addSection(self, section='default', label=None, optionList=None):
         '''Add a section named section to the instance.'''
@@ -67,7 +75,7 @@ class Preferences(object):
         '''If the given section exists, set the given option to the specified value; 
         otherwise raise NoSectionError.'''
         if self.hasSection(section):
-            self.options[section][option.getName()].setValue(value)
+            self.options[section][option].setValue(value)
 
     def removeOption(self, section, option):
         '''Remove the specified option from the specified section.
@@ -84,3 +92,26 @@ class Preferences(object):
             return True
         else:
             return False
+
+    def loadValues(self):
+        '''Read values of options from file.'''
+        config = RawConfigParser()
+        config.read(self.filename)
+        sections = config.sections()
+        for section in sections:
+            if self.hasSection(section):
+                options = config.options(section)
+                for option in options:
+                    if self.hasOption(section, option):
+                        self.setValue(section, option, config.get(section, option))
+
+    def save(self):
+        '''Save values of options to file.'''
+        config = RawConfigParser()
+        for section in self.sections:
+            config.add_section(section)
+            for option in self.options[section]:
+                config.set(section, option.getName(), option.getValueStr())
+
+        with open(self.filename, 'w') as configfile:
+            config.write(configfile)

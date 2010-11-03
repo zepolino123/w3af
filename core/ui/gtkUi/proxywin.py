@@ -146,7 +146,7 @@ class ProxiedRequests(entries.RememberingWindow):
     def _initOptions(self):
         '''Init options.'''
         self.like_initial = True
-        self.pref = ConfigOptions(self.w3af, self)
+        self.pref = ConfigOptions(self.w3af, self, 'proxy_options')
         # Proxy options
         proxyOptions = optionList()
         proxyOptions.add(Option('ipport', "localhost:8080", "IP:port","ipport"))
@@ -161,6 +161,8 @@ class ProxiedRequests(entries.RememberingWindow):
         editorOptions = optionList()
         editorOptions.add(Option("display_line_num", True, "Display line numbers", "boolean"))
         #self.pref.addSection('editor', _('HTTP Editor Options'), editorOptions)
+        # Load values from configfile
+        self.pref.loadValues()
         self.pref.show()
         self._previous_ipport = self.pref.getValue('proxy', 'ipport')
 
@@ -178,6 +180,7 @@ class ProxiedRequests(entries.RememberingWindow):
         3. If can't => alert
         4. If everything is ok then start proxy
         5. Set Trap options
+        6. Save options
         """
         new_ipport = self.pref.getValue('proxy', 'ipport')
         if new_ipport != self._previous_ipport:
@@ -199,6 +202,7 @@ class ProxiedRequests(entries.RememberingWindow):
             self.showAlert(_("Invalid configuration!\n" + str(w3)))
 
         self._previous_ipport = new_ipport
+        self.pref.save()
 
     def showAlert(self, msg):
         dlg = gtk.MessageDialog(None, gtk.DIALOG_MODAL, gtk.MESSAGE_WARNING, gtk.BUTTONS_OK, msg)

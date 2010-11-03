@@ -1211,9 +1211,9 @@ class ConfigOptions(gtk.VBox, Preferences):
     @param w3af: The Core
     @param parentWidg: The parentWidg widget with *reloadOptions* method
     """
-    def __init__(self, w3af, parentWidg):
+    def __init__(self, w3af, parentWidg, label='config'):
         gtk.VBox.__init__(self)
-        Preferences.__init__(self)
+        Preferences.__init__(self, label)
 
         self.set_spacing(5)
         self.def_padding = 5
