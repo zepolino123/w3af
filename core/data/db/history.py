@@ -58,6 +58,7 @@ class HistoryItem:
 
     def __init__(self, db=None):
         '''Construct object.'''
+        self._border = '-#=' * 20
         if db:
             self._db = db
         elif not kb.kb.getData('gtkOutput', 'db') == []:
@@ -65,6 +66,15 @@ class HistoryItem:
             self._db = kb.kb.getData('gtkOutput', 'db')
         else:
             raise w3afException('The database is not initialized yet.')
+
+        self._sessionDir = os.path.join(get_home_dir() , 'sessions', cf.cf.getData('sessionName'))
+        try:
+            os.mkdir(self._sessionDir)
+        except OSError, oe:
+            # [Errno 17] File exists
+            if oe.errno != 17:
+                msg = 'Unable to write to the user home directory: ' + get_home_dir()
+                raise w3afException( msg )
 
     def find(self, searchData, resultLimit=-1, orderData=[]):
         '''Make complex search.
@@ -163,6 +173,15 @@ class HistoryItem:
             sql += ' SET id = ?, url = ?, code = ?, tag = ?, mark = ?, info = ?, raw_pickled_data = ? '
             sql += ' WHERE id = ?'
             self._db.execute(sql, values)
+        # 
+        # Save raw data to file
+        # 
+        data += self.request.dump()
+        data += '\n' + self._border + '\n'
+        data += self.response.dump()
+        with open(os.path.join(self._sessionDir, str(self.response.id) + '.dump'), 'w') as rrfile:
+            rrfile.write(data)
+            rrfile.flush()
         return True
 
     def getColumns(self):
