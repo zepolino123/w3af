@@ -25,19 +25,18 @@
                     <keyword>User-agent</keyword>
                     <keyword>Accept-charset</keyword>
                     <keyword>Host</keyword>
-                    <keyword>Cache-control</keyword>
                     <keyword>Proxy-connection</keyword>
                     <keyword>Cookie</keyword>
-                    <keyword>content-length</keyword>
-                    <keyword>set-cookie</keyword>
-                    <keyword>expires</keyword>
-                    <keyword>server</keyword>
-                    <keyword>last-modified</keyword>
-                    <keyword>connection</keyword>
-                    <keyword>cache-control</keyword>
-                    <keyword>date</keyword>
-                    <keyword>content-type</keyword>
-                    <keyword>transfer-encoding</keyword>
+                    <keyword>Content-Length</keyword>
+                    <keyword>Set-Cookie</keyword>
+                    <keyword>Expires</keyword>
+                    <keyword>Server</keyword>
+                    <keyword>Last-Modified</keyword>
+                    <keyword>Connection</keyword>
+                    <keyword>Cache-Control</keyword>
+                    <keyword>Date</keyword>
+                    <keyword>Content-Type</keyword>
+                    <keyword>Transfer-Encoding</keyword>
                 </context>
             </include>
         </context>
