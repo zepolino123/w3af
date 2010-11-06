@@ -68,7 +68,7 @@ class httpLogTab(entries.RememberingHPaned):
         self._lstore = gtk.ListStore(gobject.TYPE_UINT,gobject.TYPE_BOOLEAN,
                 gobject.TYPE_STRING,gobject.TYPE_STRING,gobject.TYPE_STRING,
                 gobject.TYPE_UINT, gobject.TYPE_STRING,
-                gobject.TYPE_UINT, gobject.TYPE_FLOAT)
+                gobject.TYPE_UINT, gobject.TYPE_STRING,gobject.TYPE_FLOAT)
         # Create tree view
         self._lstoreTreeview = gtk.TreeView(self._lstore)
         self._lstoreTreeview.set_rules_hint(True)
@@ -234,9 +234,13 @@ class httpLogTab(entries.RememberingHPaned):
         column = gtk.TreeViewColumn(_('Content-Length'), gtk.CellRendererText(),text=7)
         column.set_sort_column_id(7)
         treeview.append_column(column)
-        # Column for response time
-        column = gtk.TreeViewColumn(_('Time (ms)'), gtk.CellRendererText(),text=8)
+        # Column for content-type
+        column = gtk.TreeViewColumn(_('Content-Type'), gtk.CellRendererText(),text=8)
         column.set_sort_column_id(8)
+        treeview.append_column(column) 
+        # Column for response time
+        column = gtk.TreeViewColumn(_('Time (ms)'), gtk.CellRendererText(),text=9)
+        column.set_sort_column_id(9)
         treeview.append_column(column)
 
     def toggleBookmark(self, cell, path, model):
@@ -393,9 +397,9 @@ class httpLogTab(entries.RememberingHPaned):
         if not appendMode:
             self._lstore.clear()
         for item in results:
-            self._lstore.append([item.id, item.mark, item.request.getMethod(), item.request.getURI(),
-                item.tag, item.response.getCode(), item.response.getMsg(), len(item.response.getBody()),
-                item.response.getWaitTime()])
+            self._lstore.append([item.id, item.mark, item.method, item.url,
+                item.tag, item.code, item.msg, item.responseSize,item.contentType,
+                item.time])
         # Size search results
         if len(results) < 10:
             position = 13 + 48 * len(results)
