@@ -143,6 +143,10 @@ class HttpEditor(gtk.VBox, Searchable):
 # 
 # Inherit SourceView methods
 #
+    def set_highlight_syntax(self, val):
+        b = self.textView.get_buffer()
+        b.set_highlight_syntax(val)
+
     def set_highlight_current_line(self, val):
         self.textView.set_highlight_current_line(val)
 

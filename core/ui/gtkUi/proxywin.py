@@ -92,6 +92,8 @@ class ProxiedRequests(entries.RememberingWindow):
         toolbar.show()
         # Request-response viewer
         self._initOptions()
+        self._prevIpport = None
+        # We need to make widget (split or tabbed) firstly
         layout = self.pref.getValue('proxy', 'trap_view')
         self.reqresp = reqResViewer.reqResViewer(w3af,
                 [self.bt_drop.set_sensitive, self.bt_send.set_sensitive],
@@ -115,7 +117,6 @@ class ProxiedRequests(entries.RememberingWindow):
         tmp = gtk.Label(_("_Options"))
         tmp.set_use_underline(True)
         self.nb.append_page(self.pref, tmp)
-
         self.vbox.pack_start(self.nb, True, True, padding=self.def_padding)
         self.nb.show()
         # Status bar for messages
@@ -124,22 +125,10 @@ class ProxiedRequests(entries.RememberingWindow):
         self.status_bar.show()
         self.proxy = None
         # Finish it
-        try:
-            ipport = self.pref.getValue('proxy', 'ipport')
-            ip, port = ipport.split(":")
-            self._startProxy(ip, port)
-        except w3afProxyException:
-            # Ups, port looks already used..:(
-            # Let's show alert and focus Options tab
-            self.w3af.mainwin.sb(_("Failed to start local proxy"))
-            self.fuzzable = None
-            self.waitingRequests = False
-            self.keepChecking = False
-            self.nb.set_current_page(2)
-        else:
-            self.fuzzable = None
-            self.waitingRequests = True
-            self.keepChecking = True
+        self.fuzzable = None
+        self.waitingRequests = False
+        self.keepChecking = False
+        self.reloadOptions()
         gobject.timeout_add(200, self._superviseRequests)
         self.show()
 
@@ -159,12 +148,13 @@ class ProxiedRequests(entries.RememberingWindow):
         self.pref.addSection('proxy', _('Proxy Options'), proxyOptions)
         # HTTP editor options
         editorOptions = optionList()
+        editorOptions.add(Option("highlight_current_line", True, "Highlight current line", "boolean"))
+        editorOptions.add(Option("highlight_syntax", True, "Highlight syntax", "boolean"))
         editorOptions.add(Option("display_line_num", True, "Display line numbers", "boolean"))
-        #self.pref.addSection('editor', _('HTTP Editor Options'), editorOptions)
+        self.pref.addSection('editor', _('HTTP Editor Options'), editorOptions)
         # Load values from configfile
         self.pref.loadValues()
         self.pref.show()
-        self._previous_ipport = self.pref.getValue('proxy', 'ipport')
 
     def configChanged(self, like_initial):
         """Propagates the change from the options.
@@ -182,16 +172,27 @@ class ProxiedRequests(entries.RememberingWindow):
         5. Set Trap options
         6. Save options
         """
-        new_ipport = self.pref.getValue('proxy', 'ipport')
-        if new_ipport != self._previous_ipport:
+        newPort = self.pref.getValue('proxy', 'ipport')
+        if newPort != self._prevIpport:
             self.w3af.mainwin.sb(_("Stopping local proxy"))
             if self.proxy:
                 self.proxy.stop()
             try:
                 self._startProxy()
             except w3afProxyException:
+                # Ups, port looks already used..:(
+                # Let's show alert and focus Options tab
                 self.w3af.mainwin.sb(_("Failed to start local proxy"))
+                self.fuzzable = None
+                self.waitingRequests = False
+                self.keepChecking = False
+                # Focus Options tab
+                self.nb.set_current_page(2)
                 return
+            else:
+                self.fuzzable = None
+                self.waitingRequests = True
+                self.keepChecking = True
         # Test of config
         try:
             self.proxy.setWhatToTrap(self.pref.getValue('proxy', 'trap'))
@@ -201,7 +202,11 @@ class ProxiedRequests(entries.RememberingWindow):
         except w3afException, w3:
             self.showAlert(_("Invalid configuration!\n" + str(w3)))
 
-        self._previous_ipport = new_ipport
+        self._prevIpport = newPort
+        httpeditor = self.reqresp.request.getRawTextView()
+        httpeditor.set_show_line_numbers(self.pref.getValue('editor', 'display_line_num'))
+        httpeditor.set_highlight_current_line(self.pref.getValue('editor', 'highlight_current_line'))
+        httpeditor.set_highlight_syntax(self.pref.getValue('editor', 'highlight_syntax'))
         self.pref.save()
 
     def showAlert(self, msg):
