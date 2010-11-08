@@ -221,27 +221,17 @@ class httpLogTab(entries.RememberingHPaned):
         column.set_resizable(True)
         column.set_sizing(gtk.TREE_VIEW_COLUMN_GROW_ONLY)
         treeview.append_column(column)
-        # Column for Code
-        column = gtk.TreeViewColumn(_('Code'), gtk.CellRendererText(),text=5)
-        column.set_sort_column_id(5)
-        treeview.append_column(column)
-        # Column for response message
-        column = gtk.TreeViewColumn(_('Message'), gtk.CellRendererText(),text=6)
-        column.set_sort_column_id(6)
-        column.set_resizable(True)
-        treeview.append_column(column)
-        # Column for content-length
-        column = gtk.TreeViewColumn(_('Content-Length'), gtk.CellRendererText(),text=7)
-        column.set_sort_column_id(7)
-        treeview.append_column(column)
-        # Column for content-type
-        column = gtk.TreeViewColumn(_('Content-Type'), gtk.CellRendererText(),text=8)
-        column.set_sort_column_id(8)
-        treeview.append_column(column) 
-        # Column for response time
-        column = gtk.TreeViewColumn(_('Time (ms)'), gtk.CellRendererText(),text=9)
-        column.set_sort_column_id(9)
-        treeview.append_column(column)
+        extColumns = [
+                (5, _('Code')),
+                (6, _('Message')),
+                (7, _('Content-Length')),
+                (8, _('Content-Type')),
+                (9, _('Time (ms)')),
+                ]
+        for n, title in extColumns:
+            column = gtk.TreeViewColumn(title, gtk.CellRendererText(),text=n)
+            column.set_sort_column_id(n)
+            treeview.append_column(column)
 
     def toggleBookmark(self, cell, path, model):
         """Toggle bookmark."""
