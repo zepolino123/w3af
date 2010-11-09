@@ -114,28 +114,6 @@ class HttpEditor(gtk.VBox, Searchable):
 
     def set_editable(self, e):
         return self.textView.set_editable(e)
-
-    def highlight(self, text, sev=severity.MEDIUM):
-        """Find the text, and handle highlight.
-        @return: None
-        """
-        alltext = self.get_text()
-        # find the positions where the phrase is found
-        positions = []
-        pos = 0
-        while True:
-            try:
-                pos = alltext.index(text, pos)
-            except ValueError:
-                break
-            fin = pos + len(text)
-            iterini = text_buffer.get_iter_at_offset(pos)
-            iterfin = text_buffer.get_iter_at_offset(fin)
-            positions.append((pos, fin, iterini, iterfin))
-            pos += 1
-        # highlight them all
-        for (ini, fin, iterini, iterfin) in positions:
-            text_buffer.apply_tag_by_name(sev, iterini, iterfin)
 # 
 # Inherit SourceView methods
 #
