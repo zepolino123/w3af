@@ -31,7 +31,7 @@ except Exception, e:
     sys.exit()
 
 from core.data.constants import severity
-from core.ui.gtkUi.entries import Searchable
+from core.ui.gtkUi.common.searchable import Searchable
 
 SEVERITY_TO_COLOR={
     severity.INFORMATION: 'green',
@@ -52,7 +52,7 @@ class HttpEditor(gtk.VBox, Searchable):
         self.textView.set_show_line_numbers(False)
         # Other options
         # Font
-        self.textView.set_wrap_mode(gtk.WRAP_WORD)
+#        self.textView.set_wrap_mode(gtk.WRAP_WORD)
         self.textView.set_border_width(5)
         fontDesc = pango.FontDescription('monospace')
         if fontDesc:
@@ -119,10 +119,7 @@ class HttpEditor(gtk.VBox, Searchable):
         """Find the text, and handle highlight.
         @return: None
         """
-        text_buffer = self.textView.get_buffer()
-
-        (ini, fin) = text_buffer.get_bounds()
-        alltext = text_buffer.get_text(ini, fin)
+        alltext = self.get_text()
         # find the positions where the phrase is found
         positions = []
         pos = 0
@@ -139,7 +136,6 @@ class HttpEditor(gtk.VBox, Searchable):
         # highlight them all
         for (ini, fin, iterini, iterfin) in positions:
             text_buffer.apply_tag_by_name(sev, iterini, iterfin)
-
 # 
 # Inherit SourceView methods
 #
