@@ -778,8 +778,10 @@ class Searchable(object):
         butCase = gtk.CheckButton(_('Match case'))
         butCase.set_active(self._matchCaseValue)
         butCase.connect("clicked", self._matchCase)
-        butCase.show()
-        self.srchtab.pack_start(butCase, expand=False, fill=False, padding=3)
+        # FIXME
+        # current version of gtk.TextIter doesn't support SEARCH_CASE_INSENSITIVE
+        #butCase.show()
+        #self.srchtab.pack_start(butCase, expand=False, fill=False, padding=3)
 
         self.pack_start(self.srchtab, expand=False, fill=False)
         self.searching = False
@@ -797,50 +799,40 @@ class Searchable(object):
         # if not searching, don't do anything
         if not self.searching:
             return
-
         # get widgets and info
         self._clean()
         tosearch = self.search_entry.get_text()
         if not tosearch:
             return
-        (ini, fin) = self.textbuf.get_bounds()
-        alltext = self.textbuf.get_slice(ini, fin, True)
-
+        flags = gtk.TEXT_SEARCH_VISIBLE_ONLY
         if not self._matchCaseValue:
-            alltext = alltext.lower()
-            tosearch = tosearch.lower()
-
+            pass
+        startIter =  self.textbuf.get_start_iter()
         # find the positions where the phrase is found
         positions = []
-        pos = 0
         while True:
-            try:
-                pos = alltext.index(tosearch, pos)
-            except ValueError:
+            result = startIter.forward_search(tosearch, flags, None)
+            if result:
+                positions.append((result[0], result[1]))
+                startIter = result[1]
+            else:
                 break
-            fin = pos + len(tosearch)
-            iterini = self.textbuf.get_iter_at_offset(pos)
-            iterfin = self.textbuf.get_iter_at_offset(fin)
-            positions.append((pos, fin, iterini, iterfin))
-            pos += 1
         if not positions:
             self.search_entry.modify_base(gtk.STATE_NORMAL, self.bg_notfnd)
-            self.textbuf.select_range(ini, ini)
+            self.textbuf.select_range(startIter, startIter)
             return
-
         # highlight them all
-        for (ini, fin, iterini, iterfin) in positions:
+        for (iterini, iterfin) in positions:
             self.textbuf.apply_tag_by_name("yellow-background", iterini, iterfin)
-
         # find where's the cursor in the found items
-        cursorpos = self.textbuf.get_property("cursor-position")
-        for ind, (ini, fin, iterini, iterfin) in enumerate(positions):
-            if ini >= cursorpos:
+        cursor = self.textbuf.get_mark("insert")
+        cursorIter = self.textbuf.get_iter_at_mark(cursor)
+        for ind, (iterini, iterfin) in enumerate(positions):
+            if iterini.compare(cursorIter) >=0:
                 keypos = ind
                 break
         else:
             keypos = 0
-
         # go next or previos, and adjust in the border
         if direction == "next":
             keypos += 1
@@ -850,9 +842,8 @@ class Searchable(object):
             keypos -= 1
             if keypos < 0:
                 keypos = len(positions) - 1
-        
         # mark and show it
-        (ini, fin, iterini, iterfin) = positions[keypos]
+        (iterini, iterfin) = positions[keypos]
         self.textbuf.select_range(iterini, iterfin)
         self.textview.scroll_to_iter(iterini, 0, False)
 
