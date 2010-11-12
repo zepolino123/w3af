@@ -310,7 +310,8 @@ class ProxiedRequests(entries.RememberingWindow):
         dlg.destroy()
         if  opt != gtk.RESPONSE_YES:
             return False
-        self.proxy.stop()
+        if self.proxy is not None:
+            self.proxy.stop()
         return True
 
     def _toggle_trap(self, widget):
