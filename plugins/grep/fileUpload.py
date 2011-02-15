@@ -20,17 +20,17 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
-import core.controllers.outputManager as om
+from lxml import etree
+
 # options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
-
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-
+from core.data.bloomfilter.pybloom import ScalableBloomFilter
+from core.data.options.optionList import optionList
 import core.data.kb.knowledgeBase as kb
 import core.data.kb.info as info
 
-import re
+
+FILE_INPUT_XPATH = ".//input[translate(@type,'FILE','file')='file']"
 
 
 class fileUpload(baseGrepPlugin):
@@ -42,17 +42,9 @@ class fileUpload(baseGrepPlugin):
 
     def __init__(self):
         baseGrepPlugin.__init__(self)
-
-        # FIXME: This method sucks, I should do something like
-        # input_elems = html_parser.get_elements_of_type('input')
-        # for input in input_elems:
-        # ...
-        # ...
-        # The bad thing about this is that I have to store all the
-        # response in memory, and right now I only store the parsed
-        # information.
-        self._input = re.compile('< *input(.*?)>', re.IGNORECASE)
-        self._file = re.compile('type= *"file"?', re.IGNORECASE)
+        
+        # Internal variables
+        self._already_inspected = ScalableBloomFilter()
 
     def grep(self, request, response):
         '''
@@ -62,19 +54,30 @@ class fileUpload(baseGrepPlugin):
         @parameter response: The HTTP response object
         @return: None
         '''
-        if response.is_text_or_html():
-            for input_tag in self._input.findall( response.getBody() ):
-                tag = self._file.search( input_tag )
-                if tag:
+        url = response.getURL()
+
+        if response.is_text_or_html() and not url in self._already_inspected:
+
+            self._already_inspected.add(url)
+            dom = response.getDOM()
+
+            # In some strange cases, we fail to normalize the document
+            if dom is not None:
+
+                # Loop through file inputs tags                
+                for input_file in dom.xpath(FILE_INPUT_XPATH):
                     i = info.info()
+                    i.setPluginName(self.getName())
                     i.setName('File upload form')
-                    i.setURL( response.getURL() )
-                    i.setId( response.id )
-                    msg = 'The URL: "' + response.getURL() + '" has form '
-                    msg += 'with file upload capabilities.'
-                    i.setDesc( msg )
-                    i.addToHighlight( tag.group(0) )
-                    kb.kb.append( self , 'fileUpload' , i ) 
+                    i.setURL(url)
+                    i.setId(response.id)
+                    msg = 'The URL: "%s" has form with file upload ' \
+                    'capabilities.' % url
+                    i.setDesc(msg)
+                    to_highlight = etree.tostring(input_file)
+                    i.addToHighlight(to_highlight)
+                    kb.kb.append(self, 'fileUpload', i)
+
     
     def setOptions( self, OptionList ):
         pass

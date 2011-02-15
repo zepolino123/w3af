@@ -34,7 +34,7 @@ import core.data.parsers.urlParser as urlParser
 import core.data.kb.knowledgeBase as kb
 import core.data.kb.info as info
 
-from core.controllers.misc.levenshtein import relative_distance
+from core.controllers.misc.levenshtein import relative_distance_lt
 
 
 class userDir(baseDiscoveryPlugin):
@@ -129,12 +129,12 @@ class userDir(baseDiscoveryPlugin):
             path = mutant.replace( urlParser.baseUrl( mutant ) , '' )
             response_body = response.getBody().replace( path, '')
             
-            ratio = relative_distance( response_body, self._non_existant )
-            if ratio < 0.7:
+            if relative_distance_lt(response_body, self._non_existant, 0.7):
                 
                 # Avoid duplicates
                 if user not in [ u['user'] for u in kb.kb.getData( 'userDir', 'users') ]:
                     i = info.info()
+                    i.setPluginName(self.getName())
                     i.setName('User directory: ' + response.getURL() )
                     i.setId( response.id )
                     i.setDesc( 'A user directory was found at: ' + response.getURL() )
@@ -244,6 +244,7 @@ class userDir(baseDiscoveryPlugin):
             for uDir, user in url_user_list:
                 if self._do_request( uDir, user ):
                     i = info.info()
+                    i.setPluginName(self.getName())
                     if ident == 'os':
                         msg = 'The remote OS can be identified as "' + data_related_to_user
                         msg += '" based on the remote user "'+ user +'".'
@@ -302,7 +303,7 @@ class userDir(baseDiscoveryPlugin):
         '''
         res = []
         
-        if userList == None:
+        if userList is None:
             userList = self._get_users()
             
         for user in userList:
@@ -362,7 +363,7 @@ class userDir(baseDiscoveryPlugin):
             return []
         else:
             # This is the correct return value for this method.
-            return ['discovery.fingerMSN', 'discovery.fingerGoogle', 'discovery.fingerPKS' ]
+            return ['discovery.fingerBing', 'discovery.fingerGoogle', 'discovery.fingerPKS' ]
     
     def getLongDesc( self ):
         '''

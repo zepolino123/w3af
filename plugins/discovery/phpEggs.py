@@ -31,7 +31,7 @@ from core.controllers.misc.levenshtein import relative_distance
 from core.controllers.w3afException import w3afRunOnce, w3afException
 import core.data.parsers.urlParser as urlParser
 
-from core.data.db.temp_persist import disk_list
+from core.data.bloomfilter.pybloom import ScalableBloomFilter
 
 import core.data.kb.knowledgeBase as kb
 import core.data.kb.info as info
@@ -49,7 +49,7 @@ class phpEggs(baseDiscoveryPlugin):
         self._exec = True
         
         # Already analyzed extensions
-        self._already_analyzed_ext = disk_list()
+        self._already_analyzed_ext = ScalableBloomFilter()
         
         # This is a list of hashes and description of the egg for every PHP version.
         self._egg_DB = {}
@@ -92,6 +92,11 @@ class phpEggs(baseDiscoveryPlugin):
                 ("f9b56b361fafd28b668cc3498425a23b", "PHP Credits"), 
                 ("11b9cfe306004fce599a1f8180b61266", "PHP Logo"), 
                 ("da2dae87b166b7709dbd4061375b74cb", "Zend Logo") ]
+        self._egg_DB['4.3.10'] = [
+                ('7b27e18dc6f846b80e2f29ecf67e4133', 'PHP Logo'),
+                ('43af90bcfa66f16af62744e8c599703d', 'Zend Logo'),
+                ('b233cc756b06655f47489aa2779413d7', 'PHP Credits'),
+                ('185386dd4b2eff044bd635d22ae7dd9e', 'PHP Logo 2')] 
         self._egg_DB["4.4.0"] = [ 
                 ("ddf16ec67e070ec6247ec1908c52377e", "PHP Credits"), 
                 ("11b9cfe306004fce599a1f8180b61266", "PHP Logo"), 
@@ -136,6 +141,11 @@ class phpEggs(baseDiscoveryPlugin):
                 ("5518a02af41478cfc492c930ace45ae5", "PHP Credits"), 
                 ("8ac5a686135b923664f64fe718ea55cd", "PHP Logo"), 
                 ("7675f1d01c927f9e6a4752cf182345a2", "Zend Logo") ]
+        self._egg_DB['5.1.2'] = [
+                ('b83433fb99d0bef643709364f059a44a', 'PHP Credits'),
+                ('8ac5a686135b923664f64fe718ea55cd', 'PHP Logo'),
+                ('4b2c92409cf0bcf465d199e93a15ac3f', 'PHP Logo 2'),
+                ('7675f1d01c927f9e6a4752cf182345a2', 'Zend Logo') ]
         self._egg_DB["5.1.6"] = [ 
                 ("4b689316409eb09b155852e00657a0ae", "PHP Credits"), 
                 ("c48b07899917dfb5d591032007041ae3", "PHP Logo"), 
@@ -264,6 +274,7 @@ class phpEggs(baseDiscoveryPlugin):
                     #
                     for response, egg_desc, egg_URL in GET_results:
                         i = info.info()
+                        i.setPluginName(self.getName())
                         i.setName('PHP Egg - ' + egg_desc)
                         i.setURL( egg_URL )
                         desc = 'The PHP framework running on the remote server has a "'
@@ -276,12 +287,12 @@ class phpEggs(baseDiscoveryPlugin):
                         #   Only run once.
                         self._exec = False
                 
-                # analyze the info to see if we can identify the version
-                self._analyze_egg( GET_results )
+                    # analyze the info to see if we can identify the version
+                    self._analyze_egg( GET_results )
                 
                 # Now we save the extension as one of the already analyzed
                 if ext != '':
-                    self._already_analyzed_ext.append(ext)
+                    self._already_analyzed_ext.add(ext)
         
         return []
     
@@ -309,6 +320,7 @@ class phpEggs(baseDiscoveryPlugin):
             
             if matching_versions:
                 i = info.info()
+                i.setPluginName(self.getName())
                 i.setName('PHP Egg')
                 msg = 'The PHP framework version running on the remote server was identified as:'
                 for m_ver in matching_versions:

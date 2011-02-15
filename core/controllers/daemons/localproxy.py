@@ -19,10 +19,6 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
-if __name__ == '__main__':
-    import sys
-    sys.path.insert(0, '/home/dz0/w3af/w3af/trunk')
     
 from core.controllers.daemons.proxy import proxy
 from core.controllers.daemons.proxy import w3afProxyHandler
@@ -74,7 +70,7 @@ class w3afLocalProxyHandler(w3afProxyHandler):
                 head,  body = self.server.w3afLayer._editedRequests[ id(fuzzReq) ]
                 del self.server.w3afLayer._editedRequests[ id(fuzzReq) ]
                 
-                if head == body == None:
+                if head == body is None:
                     # The request was dropped!
                     # We close the connection to the browser and exit
                     self.rfile.close()
@@ -174,44 +170,13 @@ class w3afLocalProxyHandler(w3afProxyHandler):
 
         return True
 
-    def _createFuzzableRequest(self):
-        '''
-        Based on the attributes, return a fuzzable request object.
-        
-        Important variables used here:
-            - self.headers : Stores the headers for the request
-            - self.rfile : A file like object that stores the postdata
-            - self.path : Stores the URL that was requested by the browser
-        '''
-        # See HTTPWrapperClass
-        if hasattr(self.server, 'chainedHandler'):
-            basePath = "https://" + self.server.chainedHandler.path
-            path = basePath + self.path
-        else:
-            path = self.path
-
-        fuzzReq = fuzzableRequest()
-        fuzzReq.setURI(path)
-        fuzzReq.setHeaders(self.headers.dict)
-        fuzzReq.setMethod(self.command)
-            
-        # get the postdata (if any)
-        if self.headers.dict.has_key('content-length'):
-            # most likely a POST request
-            cl = int( self.headers['content-length'] )
-            postData = self.rfile.read( cl )
-            fuzzReq.setData(postData)
-        
-        return fuzzReq
-
 
 class localproxy(proxy):
     '''
     This is the local proxy server that is used by the local proxy GTK user interface to perform all its magic ;)
     '''
     
-    def __init__( self, ip, port, urlOpener=xUrllib(),
-            proxyCert='core/controllers/daemons/mitm.crt',event=None ):
+    def __init__( self, ip, port, urlOpener=xUrllib(), proxyCert='core/controllers/daemons/mitm.crt' ):
         '''
         @parameter ip: IP address to bind
         @parameter port: Port to bind
@@ -219,8 +184,7 @@ class localproxy(proxy):
         @parameter proxyHandler: A class that will know how to handle requests from the browser
         @parameter proxyCert: Proxy certificate to use, this is needed for proxying SSL connections.
         '''
-        proxy.__init__(self,  ip, port, urlOpener, w3afLocalProxyHandler,
-                proxyCert, event)
+        proxy.__init__(self,  ip, port, urlOpener, w3afLocalProxyHandler, proxyCert)
 
         # Internal vars
         self._requestQueue = Queue.Queue()

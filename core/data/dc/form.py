@@ -20,8 +20,12 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
-from core.data.dc.dataContainer import dataContainer
 import copy
+import operator
+import random
+
+import core.controllers.outputManager as om
+from core.data.dc.dataContainer import dataContainer
 from core.data.parsers.encode_decode import urlencode
 
 
@@ -31,6 +35,11 @@ class form(dataContainer):
     
     @author: Andres Riancho ( andres.riancho@gmail.com )
     '''
+    # Max
+    TOP_VARIANTS = 150
+    MAX_VARIANTS_TOTAL = 10**9
+    SEED = 1
+    
     def __init__(self, init_val=(), strict=False):
         dataContainer.__init__(self)
         
@@ -42,7 +51,7 @@ class form(dataContainer):
         self._selects = {}
         self._submitMap = {}
         
-        # it is used for processing checkboxes
+        # This is used for processing checkboxes
         self._secret_value = "3_!21#47w@"
         
     def getAction(self):
@@ -100,7 +109,7 @@ class form(dataContainer):
             # TODO: This does not work if there are different parameters in a form
             # with the same name, and different types
             self._types[name] = 'file'
-
+    
     def __str__( self ):
         '''
         This method returns a string representation of the form Object.
@@ -111,19 +120,11 @@ class form(dataContainer):
             tmp[i] = self._submitMap[i]
         
         #
-        #   FIXME: hmmm I think that we are missing something here... what about self._select values. See FIXME below.
-        #   Maybe we need another for?
+        # FIXME: hmmm I think that we are missing something here... what about
+        # self._select values. See FIXME below. Maybe we need another for?
         #
 
-        return urlencode( tmp )
-    
-    def copy(self):
-        '''
-        This method returns a copy of the form Object.
-        
-        @return: A copy of myself.
-        '''
-        return copy.deepcopy( self )
+        return urlencode(tmp)
         
     def addSubmit( self, name, value ):
         '''
@@ -188,7 +189,7 @@ class form(dataContainer):
 
     def addCheckBox(self, attrs):
         """
-        Adds radio field
+        Adds checkbox field
         """
         name, value = self.addInput(attrs)
 
@@ -219,7 +220,8 @@ class form(dataContainer):
             self._selects[name] = []
 
         #
-        #   FIXME: how do you maintain the same value in self._selects[name] and in self[name] ?
+        # FIXME: how do you maintain the same value in self._selects[name]
+        # and in self[name] ?
         #
         if value not in self._selects[name]:
             self._selects[name].append(value)
@@ -229,6 +231,9 @@ class form(dataContainer):
         Adds one more select field with options
         Options is list of options attrs (tuples)
         """
+        if not name:
+            return
+        
         self._selects[name] = []
         self._types[name] = 'select'
         
@@ -241,38 +246,7 @@ class form(dataContainer):
 
         self._setVar(name, value)
 
-    def getVariantsCount(self, mode="all"):
-        """
-        Return count of variants of current form
-        P.S. Combinatorics rulez!
-        """
-        result = 1
-        if mode in ["t", "b"]:
-            return result
-        for i in self._selects:
-            tmp = len(self._selects[i])
-            if "tb" == mode and tmp > 1:
-                tmp = 2
-            if "tmb" == mode and tmp > 2:
-                tmp = 3
-            result *= tmp
-        return result
-
-    def _needToAdd(self, mode, opt_index, opt_count):
-        """
-        Checks if option with opt_index is needed to be added
-        """
-        if opt_count <= 1 or mode == "all":
-            return True
-        if mode in ["t", "tb", "tmb"] and opt_index == 0:
-            return True
-        if mode in ["tb", "tmb", "b"] and opt_index == (opt_count - 1):
-            return True
-        if "tmb" == mode and opt_index == (opt_count / 2):
-            return True
-        return False
-
-    def getVariants(self, mode="all"):
+    def getVariants(self, mode="tmb"):
         """
         Returns all variants of form by mode:
           "all" - all values
@@ -281,44 +255,148 @@ class form(dataContainer):
           "t" - top values
           "b" - bottom values
         """
-        result = []
-        variants = []
+        
+        if mode not in ("all", "tb", "tmb", "t", "b"):
+            raise ValueError, "mode must be in ('all', 'tb', 'tmb', 't', 'b')"
+        
+        yield self
 
-        for i in self._selects:
-            tmp_result = copy.deepcopy(result)
-            result = []
-            opt_count = len(self._selects[i])
-            opt_index = 0
-            for j in self._selects[i]:
-                if not self._needToAdd(mode, opt_index, opt_count):
-                    opt_index += 1
-                    continue
-                if len(tmp_result) == 0:
-                    tmp = []
-                    tmp.append((i,j))
-                    result.append(tmp)
-                    opt_index += 1
-                    continue
-                for prev in tmp_result:
-                    tmp = []
-                    for prev_i in prev:
-                        tmp.append(prev_i)
-                    tmp.append((i,j))
-                    result.append(tmp)
-                opt_index += 1
+        # Nothing to do
+        if not self._selects:
+            return
+        
+        secret_value = self._secret_value
+        sel_names = self._selects.keys()
+        matrix = self._selects.values()
 
-        for variant in result:
-            tmp = copy.deepcopy(self)
-            for select_variant in variant:
-                if select_variant[1] != self._secret_value:
+        # Build self variant based on `sample_path`
+        for sample_path in self._getSamplePaths(mode, matrix):
+            # Clone self
+            self_variant = copy.deepcopy(self)
+            
+            for row_index, col_index in enumerate(sample_path):
+                sel_name = sel_names[row_index]
+                value = matrix[row_index][col_index]
+                
+                if value != secret_value:
                     # FIXME: Needs to support repeated parameter names
-                    tmp[select_variant[0]] = [select_variant[1], ]
+                    self_variant[sel_name] = [value]
                 else:
                     # FIXME: Is it good solution to simply delete unwant to
-                    # send checkboxes? 
-                    del(tmp[select_variant[0]])
-            variants.append(tmp)
+                    # send checkboxes?
+                    if self_variant.get(sel_name): # We might had removed it b4
+                        del self_variant[sel_name]
+            
+            yield self_variant
 
-        variants.append(self)
+    
+    def _getSamplePaths(self, mode, matrix):
+        if mode in ["t", "tb"]:
+            yield [0] * len(matrix)
 
-        return variants
+        if mode in ["b", "tb"]:
+            yield [-1] * len(matrix)
+        # mode in ["tmb", "all"]
+        elif mode in ["tmb", "all"]:
+            variants_total = self._getVariantsCount(matrix, mode)
+            
+            # Combinatoric explosion. We only want TOP_VARIANTS paths top.
+            # Create random sample. We ensure that random sample is unique
+            # matrix by using `SEED` in the random generation
+            if variants_total > self.TOP_VARIANTS:
+                
+                # Inform user
+                om.out.information("w3af found an HTML form that has several checkbox, radio" \
+                    " and select input tags inside. Testing all combinations of those values" \
+                    " would take too much time, the framework will only test" \
+                    " %s randomly distributed variants."
+                    % self.TOP_VARIANTS)
+
+                # Init random object. Set our seed.
+                rand = random.Random()
+                rand.seed(self.SEED)
+
+                # xrange in python2 has the following issue:
+                # >>> xrange(10**10)
+                # Traceback (most recent call last):
+                # File "<stdin>", line 1, in <module>
+                # OverflowError: long int too large to convert to int
+                #
+                # Which was amazingly reported by one of our users
+                # http://sourceforge.net/apps/trac/w3af/ticket/161481
+                #
+                # Given that we want to test SOME of the combinations we're 
+                # going to settle with a rand.sample from the first 
+                # MAX_VARIANTS_TOTAL (=10**9) items (that works in python2)
+                #
+                # >>> xrange(10**9)
+                # xrange(1000000000)
+                # >>>
+
+                variants_total = min(variants_total, self.MAX_VARIANTS_TOTAL)
+
+                for path in rand.sample(xrange(variants_total),
+                                            self.TOP_VARIANTS):
+                    yield self._decodePath(path, matrix)
+
+            # Less than TOP_VARIANTS elems in matrix
+            else:
+                # Compress matrix dimensions to (N x Mc) where 1 <= Mc <=3
+                if mode == "tmb":
+                    for row, vector in enumerate(matrix):
+                        # Create new 3-length vector
+                        if len(vector) > 3:
+                            new_vector = [vector[0]]
+                            new_vector.append(vector[len(vector)/2])
+                            new_vector.append(vector[-1])
+                            matrix[row] = new_vector
+
+                    # New variants total
+                    variants_total = self._getVariantsCount(matrix, mode)
+
+                # Now get all paths!
+                for path in xrange(variants_total):
+                    decoded_path = self._decodePath(path, matrix)
+                    yield decoded_path
+
+    def _decodePath(self, path, matrix):
+        '''
+        Decode the integer `path` into a tuple of ints where the ith-elem 
+        is the index to select from vector given by matrix[i].
+
+        Diego Buthay (dbuthay@gmail.com) made a significant contribution to
+        the used algorithm.
+        
+        @param path: integer
+        @param matrix: list of lists
+        @return: Tuple of integers
+        '''        
+        # Hack to make the algorithm work.
+        matrix.append([1])
+        get_count = lambda i: reduce(operator.mul, map(len, matrix[i+1:]))
+        remainder = path
+        decoded_path = []
+
+        for i in xrange(len(matrix)-1):
+            base = get_count(i)
+            decoded_path.append(remainder / base)
+            remainder = remainder % base
+
+        # Restore state, pop out [1]
+        matrix.pop()
+
+        return decoded_path
+    
+    def _getVariantsCount(self, matrix, mode):
+        '''
+        
+        @param matrix: 
+        @param tmb: 
+        '''
+        if mode in ["t", "b"]:
+            return 1
+        elif mode == "tb":
+            return 2
+        else:
+            len_fun = (lambda x: min(len(x), 3)) if mode == "tmb" else len
+            return reduce(operator.mul, map(len_fun, matrix))

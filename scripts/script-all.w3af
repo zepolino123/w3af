@@ -10,7 +10,7 @@ back
 output config console
 set verbose False
 back
-discovery all, !fingerMSN, !fingerGoogle, !fingerPKS, !spiderMan
+discovery all, !fingerBing, !fingerGoogle, !fingerPKS, !spiderMan
 discovery
 grep all
 grep
@@ -20,6 +20,6 @@ bruteforce all
 bruteforce
 back
 target
-set target http://localhost/w3af/
+set target http://moth/w3af/
 back
 start

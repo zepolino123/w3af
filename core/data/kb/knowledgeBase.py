@@ -21,7 +21,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 '''
 from __future__ import with_statement
 
-import os,sys
 from core.controllers.w3afException import w3afException
 import threading
 import core.data.kb.vuln as vuln
@@ -97,7 +96,7 @@ class knowledgeBase:
             if name not in self._kb.keys():
                 res = []
             else:
-                if variableName == None:
+                if variableName is None:
                     res = self._kb[name]
                 elif variableName not in self._kb[name].keys():
                     res = []
@@ -142,5 +141,12 @@ class knowledgeBase:
         
     def dump(self):
         return self._kb
+    
+    def cleanup(self):
+        '''
+        Cleanup internal data.
+        '''
+        with self._kb_lock:
+            self._kb.clear()
         
 kb = knowledgeBase()

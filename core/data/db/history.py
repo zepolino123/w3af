@@ -18,10 +18,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 from __future__ import with_statement
-import thread
-import sys
-import re
 import os
+from shutil import rmtree
 
 try:
     from cPickle import Pickler, Unpickler
@@ -40,6 +38,7 @@ from core.controllers.w3afException import w3afException
 from core.controllers.misc.homeDir import get_home_dir
 from core.data.db.db import DB, WhereHelper
 
+
 class HistoryItem:
     '''Represents history item.'''
 
@@ -47,7 +46,7 @@ class HistoryItem:
     _dataTable = 'data_table'
     _columns = [('id','integer'), ('url', 'text'), ('code', 'integer'), ('tag', 'text'),
             ('mark', 'integer'), ('info', 'text'), ('time', 'float'), ('msg', 'text'), ('content_type', 'text'), 
-            ('method', 'text'), ('response_size', 'integer')]
+            ('method', 'text'), ('response_size', 'integer'), ('codef', 'integer')]
     _primaryKeyColumns = ['id',]
     id = None
     request = None
@@ -73,15 +72,27 @@ class HistoryItem:
             self._db = kb.kb.getData('gtkOutput', 'db')
         else:
             raise w3afException('The database is not initialized yet.')
+        self._sessionDir = os.path.join(get_home_dir() , 'sessions', self._db.getFileName() + '_traces')
 
-        self._sessionDir = os.path.join(get_home_dir() , 'sessions', cf.cf.getData('sessionName'))
+    def initStructure(self):
+        '''Init history structure.'''
+        # Init tables
+        self._db.createTable(
+                self.getTableName(),
+                self.getColumns(),
+                self.getPrimaryKeyColumns()
+                )
+
+        # self._db.createIndex( self.getTableName() , self.getPrimaryKeyColumns() )
+
+        # Init dirs
         try:
             os.mkdir(self._sessionDir)
         except OSError, oe:
             # [Errno 17] File exists
             if oe.errno != 17:
                 msg = 'Unable to write to the user home directory: ' + get_home_dir()
-                raise w3afException( msg )
+                raise w3afException(msg)
 
     def find(self, searchData, resultLimit=-1, orderData=[], full=False):
         '''Make complex search.
@@ -138,6 +149,17 @@ class HistoryItem:
         req, res = Unpickler(f).load()
         return (req, res)
 
+    def delete(self, id=None):
+        '''Delete data from DB by ID.'''
+        if not self._db:
+            raise w3afException('The database is not initialized yet.')
+        if not id:
+            id = self.id
+        sql = 'DELETE FROM ' + self._dataTable + ' WHERE id = ? '
+        self._db.execute(sql, (id,))
+        # FIXME 
+        # don't forget about files!
+
     def load(self, id=None, full=True):
         '''Load data from DB by ID.'''
         if not self._db:
@@ -181,17 +203,19 @@ class HistoryItem:
         values.append(self.response.getContentType())
         values.append(self.request.getMethod())
         values.append(len(self.response.getBody()))
+        code = int(self.response.getCode()) / 100
+        values.append(code)
 
         if not self.id:
-            sql = 'INSERT INTO ' + self._dataTable + ' (id, url, code, tag, mark, info, time, msg, content_type, method, response_size)'
-            sql += ' VALUES (?,?,?,?,?,?,?,?,?,?,?)'
+            sql = 'INSERT INTO ' + self._dataTable + ' (id, url, code, tag, mark, info, time, msg, content_type, method, response_size, codef)'
+            sql += ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'
             self._db.execute(sql, values)
             self.id = self.response.getId()
         else:
             values.append(self.id)
             sql = 'UPDATE ' + self._dataTable
             sql += ' SET id = ?, url = ?, code = ?, tag = ?, mark = ?, info = ?, time = ?, msg = ? , content_type = ? '
-            sql += ', method = ?, response_size = ? '
+            sql += ', method = ?, response_size = ?, codef = ? '
             sql += ' WHERE id = ?'
             self._db.execute(sql, values)
         # 
@@ -232,3 +256,13 @@ class HistoryItem:
         self.mark = not self.mark
         if forceDb:
             self._updateField('mark', int(self.mark))
+
+    def clear(self):
+        '''Clear history and delete all trace files.'''
+        if not self._db:
+            raise w3afException('The database is not initialized yet.')
+        # Clear DB
+        sql = 'DELETE FROM ' + self._dataTable
+        self._db.execute(sql)
+        # Delete files
+        rmtree(self._sessionDir)

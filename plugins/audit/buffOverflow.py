@@ -81,14 +81,20 @@ class buffOverflow(baseAuditPlugin):
         om.out.debug( 'bufferOverflow plugin is testing: ' + freq.getURL() )
         
         str_list = self._get_string_list()
-        oResponse = self._sendMutant( freq , analyze=False ).getBody()
-        mutants = createMutants( freq , str_list, oResponse=oResponse )
-            
-        for mutant in mutants:
-            targs = (mutant,)
-            self._tm.startFunction( target=self._sendMutant, args=targs, ownerObj=self )
-            
-        self._tm.join( self )
+        try:
+            oResponse = self._sendMutant( freq , analyze=False ).getBody()
+        except:
+            msg = 'Failed to perform the initial request during buffer'
+            msg += ' overflow testing'
+            om.out.debug( msg )
+        else:
+            mutants = createMutants( freq , str_list, oResponse=oResponse )
+                
+            for mutant in mutants:
+                targs = (mutant,)
+                self._tm.startFunction( target=self._sendMutant, args=targs, ownerObj=self )
+                
+            self._tm.join( self )
             
     def _sendMutant( self, mutant, analyze=True, grepResult=True ):
         '''
@@ -112,6 +118,7 @@ class buffOverflow(baseAuditPlugin):
             res = apply( functor, args, kwdargs )
         except (w3afException,w3afMustStopException):
             i = info.info( mutant )
+            i.setPluginName(self.getName())
             i.setName( 'Possible buffer overflow vulnerability' )
             if data:
                 msg = 'A possible (most probably a false positive than a bug) buffer overflow was'
@@ -153,6 +160,7 @@ class buffOverflow(baseAuditPlugin):
                 if not error not in mutant.getOriginalResponseBody():
                     # vuln, vuln!
                     v = vuln.vuln( mutant )
+                    v.setPluginName(self.getName())
                     v.setId( response.id )
                     v.setSeverity(severity.MEDIUM)
                     v.setName( 'Buffer overflow vulnerability' )

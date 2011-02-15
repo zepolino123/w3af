@@ -36,7 +36,7 @@ import core.data.parsers.urlParser as urlParser
 from core.controllers.w3afException import w3afException
 from core.controllers.w3afException import w3afRunOnce
 
-from core.data.db.temp_persist import disk_list
+from core.data.bloomfilter.pybloom import ScalableBloomFilter
 from core.controllers.coreHelpers.fingerprint_404 import is_404
 
 import os.path
@@ -52,10 +52,11 @@ class pykto(baseDiscoveryPlugin):
     def __init__(self):
         baseDiscoveryPlugin.__init__(self)
         
-        # int_ernal variables
+        # internal variables
         self._exec = True
-        self._already_visited = disk_list()
+        self._already_visited = ScalableBloomFilter()
         self._first_time = True
+        self._show_remote_server = True
         
         # User configured parameters
         self._db_file = 'plugins' + os.path.sep + 'discovery' + os.path.sep + 'pykto'
@@ -96,6 +97,7 @@ class pykto(baseDiscoveryPlugin):
             
             # Run the basic scan (only once)
             if self._first_time:
+                self._first_time = False
                 url = urlParser.baseUrl( fuzzableRequest.getURL() )
                 self._exec = False
                 self.__run( url )
@@ -110,7 +112,7 @@ class pykto(baseDiscoveryPlugin):
                 url = urlParser.getDomainPath( fuzzableRequest.getURL() )
                 if url not in self._already_visited:
                     # Save the directories I already have tested
-                    self._already_visited.append( url )
+                    self._already_visited.add( url )
                     self.__run( url )
 
         return self._new_fuzzable_requests
@@ -316,11 +318,11 @@ class pykto(baseDiscoveryPlugin):
             self._source = 'not available'
             kb_server = 'not available'
         
-        if self._first_time:
+        if self._show_remote_server:
             msg = 'pykto plugin is using "' + kb_server + '" as the remote server type.'
             msg += ' This information was obtained by ' + self._source + ' plugin.'
             om.out.information( msg )
-            self._first_time = False
+            self._show_remote_server = False
             
         if kb_server.upper().count( server.upper() ) or server.upper() == 'GENERIC':
             return True
@@ -443,6 +445,7 @@ class pykto(baseDiscoveryPlugin):
             kb.kb.append( self, 'url', response.getURL() )
             
             v = vuln.vuln()
+            v.setPluginName(self.getName())
             v.setURI( response.getURI() )
             v.setMethod( method )
             vuln_desc = 'pykto plugin found a vulnerability at URL: "' + v.getURL() + '". '
@@ -578,7 +581,7 @@ class pykto(baseDiscoveryPlugin):
         self._cgi_dirs = optionsMap['cgiDirs'].getValue()
         self._admin_dirs = optionsMap['adminDirs'].getValue()
         self._nuke = optionsMap['nukeDirs'].getValue()
-        self._db_file = optionsMap['extra_db_file'].getValue()
+        self._extra_db_file = optionsMap['extra_db_file'].getValue()
         self._db_file = optionsMap['dbFile'].getValue()
         self._mutate_tests = optionsMap['mutateTests'].getValue()
         self._generic_scan = optionsMap['genericScan'].getValue()

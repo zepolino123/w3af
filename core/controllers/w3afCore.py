@@ -22,10 +22,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 import core.controllers.outputManager as om
 
-# Before doing anything, check if I have all needed dependencies
-from core.controllers.misc.dependencyCheck import dependencyCheck
-dependencyCheck()
-
 # Called here to init some variables in the config ( cf.cf.save() )
 # DO NOT REMOVE
 import core.controllers.miscSettings as miscSettings
@@ -36,16 +32,18 @@ from core.controllers.misc.homeDir import create_home_dir, get_home_dir, home_di
 from core.controllers.misc.temp_dir import create_temp_dir, remove_temp_dir, get_temp_dir
 from core.controllers.misc.factory import factory
 from core.controllers.misc.get_local_ip import get_local_ip
+from core.controllers.misc.number_generator import consecutive_number_generator
 
 from core.data.url.xUrllib import xUrllib
 import core.data.parsers.urlParser as urlParser
-from core.controllers.w3afException import w3afException, w3afRunOnce, w3afFileException, w3afMustStopException
+from core.controllers.w3afException import w3afException, w3afRunOnce, \
+    w3afFileException, w3afMustStopException, w3afMustStopByUnknownReasonExc
 from core.controllers.targetSettings import targetSettings as targetSettings
 
 import traceback
 import copy
 import Queue
-import re
+import time
 
 import core.data.kb.knowledgeBase as kb
 import core.data.kb.config as cf
@@ -65,7 +63,7 @@ from core.controllers.coreHelpers.export import export
 from core.data.profile.profile import profile as profile
 
 
-class w3afCore:
+class w3afCore(object):
     '''
     This is the core of the framework, it calls all plugins, handles exceptions,
     coordinates all the work, creates threads, etc.
@@ -162,6 +160,8 @@ class w3afCore:
         kb.kb.save( 'urls', 'urlQueue' ,  Queue.Queue() )
         self._isRunning = False
         self._paused = False
+        # Reset global sequence number generator
+        consecutive_number_generator.reset()
         
         # This indicates if we are doing discovery/audit/exploit/etc...
         self._currentPhase = ''
@@ -296,7 +296,7 @@ class w3afCore:
         '''
         self._initialized = True
         
-        # This is inited before all, to have a full logging facility.
+        # This is inited before all, to have a full logging support.
         om.out.setOutputPlugins( self._strPlugins['output'] )
         
         # First, create an instance of each requested plugin and add it to the plugin list
@@ -353,8 +353,9 @@ class w3afCore:
         res = []
         discovered_fr_list = []
         
-        # this is an identifier to know what call number of _discoverWorker we are working on
-        self._count = 0
+        # this will help identify the total discovery time
+        self._discovery_start_time_epoch = time.time()
+        self._time_limit_reported = False
         
         while go:
             discovered_fr_list = self._discover( tmp_list )
@@ -407,25 +408,33 @@ class w3afCore:
 
     def start(self):
         '''
-        The user interfaces call this method to start the whole scanning process.
-        
-        This method raises almost every possible exception, so please do your error handling!
+        The user interfaces call this method to start the whole scanning
+        process.
+        This method raises almost every possible exception, so please do your
+        error handling!
         '''
         try:
-            self._realStart()
-        except w3afMustStopException, wmse:
-            om.out.error('')
-            om.out.error('**IMPORTANT** The following error was detected by w3af and couldn\'t be resolved: ' + str(wmse) )
-            om.out.error('')
-            self._end()
-        except Exception, e:
-            om.out.error('')
-            om.out.error( 'Unhandled error, traceback: ' + str( traceback.format_exc() ) )
-            om.out.error('')
+            try:
+                self._realStart()
+            except w3afMustStopByUnknownReasonExc:
+                #
+                # TODO: Jan 31, 2011. Temporary workaround. Make w3af crash on
+                # purpose so we can find out the *really* unknown error
+                # conditions.
+                #
+                raise
+            except w3afMustStopException, wmse:
+                om.out.error('\n**IMPORTANT** The following error was ' \
+                 'detected by w3af and couldn\'t be resolved:\n %s\n' % wmse)
+                self._end(wmse)
+            except Exception:
+                om.out.error('\nUnhandled error, traceback: %s\n' % \
+                             traceback.format_exc()) 
+                raise
+            else:
+                om.out.information('Finished scanning process.')
+        finally:
             self.progress.stop()
-            raise
-        else:
-            om.out.information('Finished scanning process.')
             
     def _realStart(self):
         '''
@@ -445,7 +454,7 @@ class w3afCore:
             self.verifyEnvironment()
         except Exception,e:
             error = 'verifyEnvironment() raised an exception: "' + str(e) + '". This should never'
-            error += ' happend, are *you* user interface coder sure that you called'
+            error += ' happen, are *you* user interface coder sure that you called'
             error += ' verifyEnvironment() *before* start() ?'
             om.out.error( error )
             raise e
@@ -454,25 +463,33 @@ class w3afCore:
             try:
                 ###### This is the main section ######
                 # Create the first fuzzableRequestList
+
+                # We only want to scan pages that in current scope
+                get_curr_scope_pages = lambda fr: \
+                    urlParser.getDomain(fr.getURL())==urlParser.getDomain(url)
+
                 for url in cf.cf.getData('targets'):
                     try:
-                        response = self.uriOpener.GET( url, useCache=True )
-                        self._fuzzableRequestList.extend( createFuzzableRequests( response ) )
+                        response = self.uriOpener.GET(url, useCache=True)
+                        self._fuzzableRequestList += filter(
+                            get_curr_scope_pages, createFuzzableRequests(response))
                     except KeyboardInterrupt:
                         self._end()
                         raise
+                    except w3afMustStopException:
+                        raise
                     except w3afException, w3:
-                        om.out.error( 'The target URL: ' + url + ' is unreachable.' )
-                        om.out.error( 'Error description: ' + str(w3) )
+                        om.out.error('The target URL: ' + url + ' is unreachable.')
+                        om.out.error('Error description: ' + str(w3))
                     except Exception, e:
-                        om.out.error( 'The target URL: ' + url + ' is unreachable because of an unhandled exception.' )
-                        om.out.error( 'Error description: "' + str(e) + '". See debug output for more information.')
-                        om.out.error( 'Traceback for this error: ' + str( traceback.format_exc() ) )
+                        om.out.error('The target URL: ' + url + ' is unreachable because of an unhandled exception.')
+                        om.out.error('Error description: "' + str(e) + '". See debug output for more information.')
+                        om.out.error('Traceback for this error: ' + str(traceback.format_exc()))
                     else:
                         #
-                        #   NOTE: I need to perform this test here in order to avoid some wierd
-                        #   thread locking that happens when the webspider calls is_404, and 
-                        #   the function locks in order to calculate the 
+                        # NOTE: I need to perform this test here in order to avoid some weird
+                        # thread locking that happens when the webspider calls is_404, and 
+                        # the function locks in order to calculate the 
                         #
                         from core.controllers.coreHelpers.fingerprint_404 import is_404
                         is_404(response)
@@ -487,7 +504,7 @@ class w3afCore:
                 if cf.cf.getData('exportFuzzableRequests') != '':
                     self.export.exportFuzzableRequestList(self._fuzzableRequestList)
                     
-                if len( self._fuzzableRequestList ) == 0:
+                if not self._fuzzableRequestList:
                     om.out.information('No URLs found by discovery.')
                 else:
                     # del() all the discovery and bruteforce plugins
@@ -612,7 +629,7 @@ class w3afCore:
         @return: None
         '''
         # Clean all data that is stored in the kb
-        reload(kb)
+        kb.kb.cleanup()
 
         # Zero internal variables from the core
         self._initializeInternalVariables()
@@ -660,31 +677,40 @@ class w3afCore:
         '''
         This method is called when the process ends normally or by an error.
         '''
-        # End the xUrllib (clear the cache)
-        self.uriOpener.end()
-        # Create a new one, so it can be used by exploit plugins.
-        self.uriOpener = xUrllib()
-        
-        # Let the progress module know our status.
-        self.progress.stop()
-        
-        if exceptionInstance:
-            om.out.error( str(exceptionInstance) )
-
-        tm.join( joinAll=True )
-        tm.stopAllDaemons()
-        
-        for plugin in self._plugins['grep']:
-            plugin.end()
-        
-        # Now I'm definitly not running:
-        self._isRunning = False
-        
-        # Finally, close the output manager.
-        om.out.endOutputPlugins()
-        
-        # No targets to be scanned.
-        cf.cf.save('targets', [] )
+        try:
+            # End the xUrllib (clear the cache)
+            self.uriOpener.end()
+            # Create a new one, so it can be used by exploit plugins.
+            self.uriOpener = xUrllib()
+            
+            # Let the progress module know our status.
+            self.progress.stop()
+            
+            if exceptionInstance:
+                om.out.error( str(exceptionInstance) )
+            
+            # FIXME: Feb 1, 2011. Next block is potentialy a real source of
+            # errors that turns into crashes if called when w3af has to stop
+            # bc of a previous error. I think it is fine to ignore them in 
+            # those cases; otherwise let the exception pass.
+            try:
+                tm.join(joinAll=True)
+                tm.stopAllDaemons()
+            except:
+                if not exceptionInstance:
+                    raise
+            
+            for plugin in self._plugins['grep']:
+                plugin.end()
+            
+            # Also, close the output manager.
+            om.out.endOutputPlugins()
+        finally:
+            # Now I'm definitly not running:
+            self._isRunning = False
+            
+            # No targets to be scanned.
+            cf.cf.save('targets', [])
         
     def isRunning( self ):
         '''
@@ -698,9 +724,6 @@ class w3afCore:
         self._alreadyWalked = toWalk
         self._urls = []
         self._set_phase('discovery')
-        
-        for fr in toWalk:
-            fr.iterationNumber = 0
         
         result = []
         try:
@@ -724,27 +747,50 @@ class w3afCore:
             except Exception, e:
                 om.out.error('The plugin "'+ p.getName() + '" raised an exception in the end() method: ' + str(e) )
     
+    def get_discovery_time(self):
+        '''
+        @return: The time between now and the start of the discovery phase. In minutes.
+        '''
+        now = time.time()
+        diff = now - self._discovery_start_time_epoch
+        return diff / 60
+    
     def _discoverWorker(self, toWalk):
         om.out.debug('Called _discoverWorker()' )
         
-        while len( toWalk ) and self._count < cf.cf.getData('maxDiscoveryLoops'):
+        while len( toWalk ):
             
             # Progress stuff, do this inside the while loop, because the toWalk variable changes
             # in each loop
             amount_of_tests = len(self._plugins['discovery']) * len(toWalk)
             self.progress.set_total_amount( amount_of_tests )
-        
-            # This variable is for LOOP evasion
-            self._count += 1
             
             plugins_to_remove_list = []
             fuzzableRequestList = []
             
             for plugin in self._plugins['discovery']:
+                
+                #
+                #   I use the self._time_limit_reported variable to break out of two loops
+                #
+                if self._time_limit_reported:
+                    break
+                    
                 for fr in toWalk:
 
-                    if fr.iterationNumber > cf.cf.getData('maxDepth'):
-                        om.out.debug('Avoiding discovery loop in fuzzableRequest: ' + str(fr) )
+                    #
+                    #   Time exceeded?
+                    #
+                    if self.get_discovery_time() > cf.cf.getData('maxDiscoveryTime'):
+                        if not self._time_limit_reported:
+                            #   I use the self._time_limit_reported variable to break out of two loops
+                            self._time_limit_reported = True
+                            om.out.information('Maximum discovery time limit hit.')
+                        
+                        #   Replaced the return [] with this break, so I don't loose all the
+                        #   gathered knowledge.
+                        break
+                        
                     else:
                         self._setRunningPlugin( plugin.getName() )
                         self._setCurrentFuzzableRequest( fr )
@@ -769,7 +815,6 @@ class w3afCore:
                                     fuzzableRequestList.append( (i, plugin.getName()) )
                                     
                         om.out.debug('Ending plugin: ' + plugin.getName() )
-                    #end-if fr.iterationNumber > cf.cf.getData('maxDepth'):
                     
                     # We finished one loop, inc!
                     self.progress.inc()
@@ -778,7 +823,7 @@ class w3afCore:
             #end-for
             
             ##
-            ##  The search has finished, now i'll some mangling with the requests
+            ##  The search has finished, now i'll perform some mangling with the requests
             ##
             newFR = []
             tmp_sort = []
@@ -786,9 +831,6 @@ class w3afCore:
                 # I dont care about fragments ( http://a.com/foo.php#frag ) and I dont really trust plugins
                 # so i'll remove fragments here
                 iFr.setURL( urlParser.removeFragment( iFr.getURL() ) )
-                
-                # Increment the iterationNumber !
-                iFr.iterationNumber = fr.iterationNumber + 1
                 
                 if iFr not in self._alreadyWalked and urlParser.baseUrl( iFr.getURL() ) in cf.cf.getData('baseURLs'):
                     # Found a new fuzzable request
@@ -1291,7 +1333,7 @@ class w3afCore:
         Raise a w3afException if the profile to load has some type of problem.
         '''
         # Clear all enabled plugins if profile_name is None
-        if profile_name == None:
+        if profile_name is None:
             self._zeroSelectedPlugins()
             return
         

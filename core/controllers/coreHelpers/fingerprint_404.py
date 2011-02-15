@@ -29,7 +29,7 @@ import core.data.parsers.urlParser as urlParser
 
 from core.data.fuzzer.fuzzer import createRandAlpha, createRandAlNum
 from core.controllers.w3afException import w3afException, w3afMustStopException
-from core.controllers.misc.levenshtein import relative_distance
+from core.controllers.misc.levenshtein import relative_distance_ge
 from core.controllers.misc.lru import LRU
 
 from core.controllers.threads.threadManager import threadManagerObj as tm
@@ -90,6 +90,10 @@ class fingerprint_404:
         
         @parameter http_response: The HTTP response which we want to know if it is a 404 or not.
         '''
+
+        #   This is here for testing.
+        #return False
+        
         #
         #   First we handle the user configured exceptions:
         #
@@ -103,7 +107,7 @@ class fingerprint_404:
         #   This is the most simple case, we don't even have to think about this.
         #
         #   If there is some custom website that always returns 404 codes, then we are
-        #   fucked, but this is open source, and the pentester working on that site can modify
+        #   screwed, but this is open source, and the pentester working on that site can modify
         #   these lines.
         #
         if http_response.getCode() == 404:
@@ -138,11 +142,10 @@ class fingerprint_404:
         #
         for body_404_db in self._404_bodies:
             
-            ratio = relative_distance( body_404_db, html_body )
-            if ratio > IS_EQUAL_RATIO:
-                msg = '"' + http_response.getURL() + '" is a 404. [' + str(ratio) + ' > '
-                msg += str(IS_EQUAL_RATIO) +']'
-                om.out.debug( msg )
+            if relative_distance_ge(body_404_db, html_body, IS_EQUAL_RATIO):
+                msg = '"%s" is a 404. [similarity_index > %s]' % \
+                    (http_response.getURL(), IS_EQUAL_RATIO)
+                om.out.debug(msg)
                 self._is_404_LRU[ http_response.id ] = True
                 return True
             else:
@@ -154,9 +157,9 @@ class fingerprint_404:
             #
             #   I get here when the for ends and no 404 is matched.
             #
-            msg = '"' + http_response.getURL() + '" is NOT a 404. [' + str(ratio) + ' < '
-            msg += str(IS_EQUAL_RATIO) + ']'
-            om.out.debug( msg )
+            msg = '"%s" is NOT a 404. [similarity_index < %s]' % \
+            (http_response.getURL(), IS_EQUAL_RATIO)
+            om.out.debug(msg)
             self._is_404_LRU[ http_response.id ] = False
             return False
             
@@ -203,8 +206,7 @@ class fingerprint_404:
         for i in self._response_body_list:
             for j in self._response_body_list:
                 
-                ratio = relative_distance( i, j )
-                if ratio > IS_EQUAL_RATIO:
+                if relative_distance_ge(i, j, IS_EQUAL_RATIO):
                     # They are equal, we are ok with that
                     continue
                 else:
@@ -228,21 +230,23 @@ class fingerprint_404:
         try:
             # I don't use the cache, because the URLs are random and the only thing that
             # useCache does is to fill up disk space
-            response = self._urlOpener.GET( url404, useCache=False, grepResult=False )
+            response = self._urlOpener.GET(url404, useCache=False, grepResult=False)
         except w3afException, w3:
-            raise w3afException('Exception while fetching a 404 page, error: ' + str(w3) )
+            raise w3afException('Exception while fetching a 404 page, error: ' + str(w3))
         except w3afMustStopException, mse:
             # Someone else will raise this exception and handle it as expected
             # whenever the next call to GET is done
-            raise w3afException('w3afMustStopException found by _send_404, someone else will handle it.')
+            raise w3afException('w3afMustStopException <%s> found by _send_404,' \
+                                ' someone else will handle it.' % mse)
         except Exception, e:
-            raise w3afException('Unhandled exception while fetching a 404 page, error: ' + str(e) )
-        
+            om.out.error('Unhandled exception while fetching a 404 page, error: ' + str(e))
+            raise
+
         else:
             # I don't want the random file name to affect the 404, so I replace it with a blank space
-            response_body = self._get_clean_body( response )
+            response_body = self._get_clean_body(response)
 
-            self._response_body_list.append( response_body )
+            self._response_body_list.append(response_body)
         
     #
     #

@@ -12,11 +12,11 @@ discovery urlFuzzer
 back
 
 target
-set target http://localhost/w3af/discovery/url_fuzzer/index.html
+set target http://moth/w3af/discovery/url_fuzzer/index.html
 back
 
 start
 
-assert len(kb.kb.getData('urls','urlList')) == 10
+assert len(kb.kb.getData('urls','urlList')) == 5 
 
 exit

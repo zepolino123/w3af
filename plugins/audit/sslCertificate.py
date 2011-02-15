@@ -30,7 +30,7 @@ from core.controllers.basePlugin.baseAuditPlugin import baseAuditPlugin
 from core.controllers.w3afException import w3afException
 from core.data.parsers.urlParser import getProtocol, getNetLocation, getDomain
 
-from core.data.db.temp_persist import disk_list
+from core.data.bloomfilter.pybloom import ScalableBloomFilter
 
 import core.data.kb.knowledgeBase as kb
 import core.data.kb.info as info
@@ -51,7 +51,7 @@ class sslCertificate(baseAuditPlugin):
         baseAuditPlugin.__init__(self)
         
         # Internal variables
-        self._already_tested_domains = disk_list()
+        self._already_tested_domains = ScalableBloomFilter()
 
     def audit(self, freq ):
         '''
@@ -99,13 +99,14 @@ class sslCertificate(baseAuditPlugin):
 
             # Perform the analysis
             self._analyze_cert( cert, ssl_conn, host )
-            self._already_tested_domains.append(domain)
+            self._already_tested_domains.add(domain)
             # Print the SSL information to the log
             desc = 'This is the information about the SSL certificate used in the target site:'
             desc += '\n'
             desc += self._dump_X509(cert)
             om.out.information( desc )
             i = info.info()
+            i.setPluginName(self.getName())
             i.setName('SSL Certificate' )
             i.setDesc( desc )
             kb.kb.append( self, 'certificate', i )
@@ -137,14 +138,15 @@ class sslCertificate(baseAuditPlugin):
         # Check for expired
         if cert.has_expired():
             i = info.info()
+            i.setPluginName(self.getName())
             i.setName('Expired SSL certificate' )
             i.setDesc( 'The certificate with MD5 digest: "' + server_digest_MD5 + '" has expired.' )
             kb.kb.append( self, 'expired', i )
 
         # Check for SSL version
-        # TODO why not '... < 3:'?
-        if cert.get_version() < 2:
+        if cert.get_version() < 3:
             i = info.info()
+            i.setPluginName(self.getName())
             i.setName('Insecure SSL version' )
             desc = 'The certificate is using an old version of SSL (' + str(cert.get_version())
             desc += '), which is insecure.'
@@ -169,6 +171,7 @@ class sslCertificate(baseAuditPlugin):
 
             if wildcardinvalid:
                 i = info.info()
+                i.setPluginName(self.getName())
                 i.setName('Potential wildcard SSL manipulation')
                 desc = 'The certificate is not using wildcard(*) properly'
                 desc += 'Certificate wildcard: '
@@ -187,6 +190,7 @@ class sslCertificate(baseAuditPlugin):
 
         if certinvalid: 
             i = info.info()
+            i.setPluginName(self.getName())
             i.setName('Invalid name of the certificate')
             desc = 'The certificate presented by this website ('
             desc += host
@@ -199,6 +203,7 @@ class sslCertificate(baseAuditPlugin):
             # Check that the certificate is self issued
             if peer == issuer:
                 i = info.info()
+                i.setPluginName(self.getName())
                 i.setName('Self issued SSL certificate')
                 desc = 'The certificate is self issued'
                 i.setDesc( desc )

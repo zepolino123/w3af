@@ -33,8 +33,10 @@ import core.data.parsers.urlParser as urlParser
 from core.controllers.w3afException import w3afException
 
 # Advanced shell stuff
-from core.data.kb.shell import shell as shell
-import plugins.attack.payloads.payloads as payloads
+from core.data.kb.exec_shell import exec_shell as exec_shell
+
+import plugins.attack.payloads.shell_handler as shell_handler
+from plugins.attack.payloads.decorators.exec_decorator import exec_debug
 
 
 class eval(baseAttackPlugin):
@@ -97,7 +99,7 @@ class eval(baseAttackPlugin):
             # Create the shell object
             shell_obj = eval_shell( vuln_obj )
             shell_obj.setUrlOpener( self._urlOpener )
-            shell_obj.setCut( self._header, self._footer )
+            shell_obj.set_cut( self._header_length, self._footer_length )
             shell_obj.setCode( self._shell_code )
             return shell_obj
         else:
@@ -113,7 +115,7 @@ class eval(baseAttackPlugin):
         # Get the shells
         extension = urlParser.getExtension( vuln_obj.getURL() )
         # I get a list of tuples with code and extension to use
-        shell_code_list = payloads.get_shell_code( extension )
+        shell_code_list = shell_handler.get_shell_code( extension )
         
         for code, real_extension in shell_code_list:
             # Prepare for exploitation...
@@ -126,7 +128,7 @@ class eval(baseAttackPlugin):
             except Exception:
                 continue
             else:
-                cut_result = self._defineCut( http_res.getBody(), payloads.SHELL_IDENTIFIER, exact=True )
+                cut_result = self._define_exact_cut( http_res.getBody(), shell_handler.SHELL_IDENTIFIER )
                 if cut_result:
                     self._shell_code = code
                     return True
@@ -215,17 +217,18 @@ class eval(baseAttackPlugin):
             - generateOnlyOne
         '''
         
-class eval_shell(shell):
+class eval_shell(exec_shell):
     
     def setCode(self, code):
         self._shell_code = code
-    
-    def _rexec( self, command ):
-        '''
-        This method is called when a command is being sent to the remote server.
-        This is a NON-interactive shell.
 
-        @parameter command: The command to send ( ie. "ls", "whoami", etc ).
+    @exec_debug    
+    def execute( self, command ):
+        '''
+        This method executes a command in the remote operating system by
+        exploiting the vulnerability.
+
+        @parameter command: The command to handle ( ie. "ls", "whoami", etc ).
         @return: The result of the command.
         '''
         # Lets send the command.

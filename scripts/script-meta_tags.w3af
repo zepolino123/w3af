@@ -17,11 +17,11 @@ back
 back
 
 target
-set target http://localhost/w3af/grep/meta_tags/index.html
+set target http://moth/w3af/grep/meta_tags/index.html
 back
 
 start
 
-assert len(kb.kb.getData('metaTags','metaTags')) == 6
+assert len(kb.kb.getData('metaTags','metaTags')) == 2 
 
 exit

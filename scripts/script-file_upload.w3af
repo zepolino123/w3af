@@ -14,11 +14,11 @@ audit fileUpload
 back
 
 target
-set target http://localhost/w3af/audit/file_upload/
+set target http://moth/w3af/audit/file_upload/
 back
 
 start
 
-assert len( kb.kb.getData('fileUpload', 'fileUpload') ) == 1
+assert len( kb.kb.getData('fileUpload', 'fileUpload') ) > 0
 
 exit

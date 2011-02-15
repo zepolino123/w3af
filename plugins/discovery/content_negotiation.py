@@ -34,7 +34,8 @@ import core.data.kb.info as info
 import core.data.parsers.urlParser as urlParser
 from core.controllers.w3afException import w3afRunOnce
 
-from core.data.db.temp_persist import disk_list
+from core.data.bloomfilter.pybloom import ScalableBloomFilter
+
 import os
 import re
 
@@ -54,8 +55,8 @@ class content_negotiation(baseDiscoveryPlugin):
         
         # Internal variables
         self._exec = True
-        self._already_tested_dir = disk_list()
-        self._already_tested_resource = disk_list()
+        self._already_tested_dir = ScalableBloomFilter()
+        self._already_tested_resource = ScalableBloomFilter()
         self._is_vulnerable_result = None
         self._to_bruteforce = []
         # I want to try 3 times to see if the remote host is vulnerable
@@ -78,7 +79,7 @@ class content_negotiation(baseDiscoveryPlugin):
             
         else:
             
-            if self._is_vulnerable( fuzzableRequest ) == None:
+            if self._is_vulnerable( fuzzableRequest ) is None:
                 # I can't say if it's vulnerable or not (yet), save the current directory to be
                 # included in the bruteforcing process, and return.
                 self._to_bruteforce.append(fuzzableRequest.getURL())
@@ -133,7 +134,7 @@ class content_negotiation(baseDiscoveryPlugin):
             original_headers = fuzzableRequest.getHeaders()
             
             if alternate_resource not in self._already_tested_resource:
-                self._already_tested_resource.append( alternate_resource )
+                self._already_tested_resource.add( alternate_resource )
 
                 alternates = self._request_and_get_alternates( alternate_resource, original_headers)
            
@@ -162,7 +163,7 @@ class content_negotiation(baseDiscoveryPlugin):
         
         # Really bruteforce:
         for directory in to_analyze:
-            self._already_tested_dir.append( directory )
+            self._already_tested_dir.add( directory )
             
             for word in file(self._wordlist):
                 alternate_resource = urlParser.urlJoin( directory, word.strip() )
@@ -227,7 +228,7 @@ class content_negotiation(baseDiscoveryPlugin):
         
         @return: True if vulnerable.
         '''
-        if self._is_vulnerable_result != None:
+        if self._is_vulnerable_result is not None:
             # The test was already performed, we return the old response
             return self._is_vulnerable_result
             
@@ -255,6 +256,7 @@ class content_negotiation(baseDiscoveryPlugin):
                 
                 # Save the result as an info in the KB, for the user to see it:
                 i = info.info()
+                i.setPluginName(self.getName())
                 i.setName('HTTP Content Negotiation enabled')
                 i.setURL( response.getURL() )
                 i.setMethod( 'GET' )

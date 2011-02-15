@@ -103,6 +103,7 @@ class LDAPi(baseAuditPlugin):
                 for ldap_error_regex, ldap_error_string in ldap_error_list:
                     if not ldap_error_regex.search( mutant.getOriginalResponseBody(), re.IGNORECASE ):
                         v = vuln.vuln( mutant )
+                        v.setPluginName(self.getName())
                         v.setId( response.id )
                         v.setSeverity(severity.HIGH)
                         v.setName( 'LDAP injection vulnerability' )
@@ -159,6 +160,9 @@ class LDAPi(baseAuditPlugin):
             error_strings.append('javax.naming.NameNotFoundException')
             error_strings.append('LDAPException')
             error_strings.append('com.sun.jndi.ldap')
+            
+            # PHP
+            error_strings.append('Search: Bad search filter')
             
             # http://support.microsoft.com/kb/218185
             error_strings.append('Protocol error occurred')

@@ -18,11 +18,11 @@ back
 back
 
 target
-set target http://localhost/w3af/grep/ssn/index.html
+set target http://moth/w3af/grep/ssn/index.html
 back
 
 start
 
-assert len(kb.kb.getData('ssn','ssn')) == 3
+assert len(kb.kb.getData('ssn','ssn')) == 1
 
 exit

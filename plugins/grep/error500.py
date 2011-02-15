@@ -52,10 +52,12 @@ class error500(baseGrepPlugin):
         @parameter response: The HTTP response object
         @return: None
         '''
-        if response.is_text_or_html() and response.getCode() in range(400, 600)\
-        and response.getCode() not in (404 , 403, 401, 405, 400, 501)\
-        and not self._falsePositive( response ):
-            self._error_500_responses.append( (request, response) )
+        if response.is_text_or_html() \
+            and response.getCode() in range(400, 600) \
+            and response.getCode() not in (404 , 403, 401, 405, 400, 501)\
+            and not self._falsePositive(response):
+            self._error_500_responses.append((request, response))
+
     
     def _falsePositive( self, response ):
         '''
@@ -103,6 +105,7 @@ class error500(baseGrepPlugin):
             if ( error_500_response.getURI() , request.getDc() ) not in all_vulns_tuples:
                 # Found a err 500 that wasnt identified !!!
                 v = vuln.vuln()
+                v.setPluginName(self.getName())
                 v.setURI( error_500_response.getURI() )
                 v.setURL( error_500_response.getURL() )
                 v.setId( error_500_response.id )

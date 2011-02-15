@@ -144,6 +144,9 @@ class Searchable(object):
         #butCase.show()
         #self.srchtab.pack_start(butCase, expand=False, fill=False, padding=3)
         self.pack_start(self.srchtab, expand=False, fill=False)
+        # Results
+        self._resultsLabel = gtk.Label("")
+        self.srchtab.pack_start(self._resultsLabel, expand=False, fill=False, padding=3)
         self.searching = False
 
     def _matchCase(self, widg):
@@ -164,6 +167,8 @@ class Searchable(object):
         if not tosearch:
             return
         positions = self.highlight(tosearch, "yellow-background", self._matchCaseValue)
+        if not len(positions):
+            return
         # find where's the cursor in the found items
         cursor = self.textbuf.get_mark("insert")
         cursorIter = self.textbuf.get_iter_at_mark(cursor)
@@ -203,7 +208,9 @@ class Searchable(object):
         if not positions:
             self.search_entry.modify_base(gtk.STATE_NORMAL, self.bg_notfnd)
             self.textbuf.select_range(startIter, startIter)
-            return
+            self._resultsLabel.set_text('')
+            return positions
+        self._resultsLabel.set_text(_('Total: ') + str(len(positions)))
         # highlight them all
         for (iterini, iterfin) in positions:
             self.textbuf.apply_tag_by_name(tag, iterini, iterfin)
@@ -222,6 +229,7 @@ class Searchable(object):
         self.textbuf.remove_tag_by_name(tag, ini, fin)
         # entry background
         self.search_entry.modify_base(gtk.STATE_NORMAL, self.bg_normal)
+        self._resultsLabel.set_text('')
 
 
 

@@ -31,7 +31,7 @@ from core.data.kb.shell import shell as shell
 from core.controllers.w3afException import w3afException
 from core.controllers.basePlugin.baseAttackPlugin import baseAttackPlugin
 
-from core.controllers.daemons.webserver import webserver
+import core.controllers.daemons.webserver as webserver
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from core.controllers.threads.w3afThread import w3afThread
 from core.controllers.threads.threadManager import threadManagerObj as tm
@@ -67,6 +67,7 @@ class rfiProxy(baseAttackPlugin, w3afThread):
         baseAttackPlugin.__init__(self)
         w3afThread.__init__( self )
         
+        self._shell = None
         self._proxyAddress = '127.0.0.1'
         self._proxyPort = w3afPorts.RFIPROXY
         self._rfiConnGenerator = ''
@@ -90,8 +91,6 @@ class rfiProxy(baseAttackPlugin, w3afThread):
         @parameter data: A string containing data to send with a mark that defines
         which is the vulnerable parameter ( aa=notMe&bb=almost&cc=[VULNERABLE] )
         '''
-        pass
-        
         return self._shell
     
     def getAttackType(self):
@@ -125,7 +124,6 @@ class rfiProxy(baseAttackPlugin, w3afThread):
         self._variable = vuln.getVar()
         
         self.start2()
-        time.sleep(0.5) # wait for webserver thread to start
         
         p = proxy_rfi_shell( self._proxyAddress + ':' + str(self._proxyPort) )
         
@@ -133,8 +131,6 @@ class rfiProxy(baseAttackPlugin, w3afThread):
         
     def stop(self):
         if self._running:
-            if self._wS != None:
-                self._wS.stop()
             self._proxy.server_close()
             self._go = False
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -145,9 +141,15 @@ class rfiProxy(baseAttackPlugin, w3afThread):
                 pass
             self._running = False
         
-    def rexec( self, command ):
+    def specific_user_input( self, command ):
         '''
-        The only command available is stop, it will stop the web and proxy server.
+        This method is called when a user writes a command in the shell and hits enter.
+        
+        Before calling this method, the framework calls the generic_user_input method
+        from the shell class.
+
+        @parameter command: The command to handle ( ie. "read", "exec", etc ).
+        @return: The result of the command.
         '''
         if command != 'stop' and command != 'exit':
             message = 'Available commands:\n'
@@ -176,19 +178,29 @@ class rfiProxy(baseAttackPlugin, w3afThread):
         if self._rfiConnGenerator == '':
             # If user failed to configure self._rfiConnGenerator we will run a webserver
             # and configure the _rfiConnGenerator attr for him
-            if self._wS == None:
-                om.out.information( 'Running a local httpd to serve the RFI connection generator to remote web app.' )
-                webroot = os.path.join('plugins', 'attack', 'rfiProxy')
-                self._wS = webserver( self._proxyPublicIP, self._httpdPort , webroot )
-                self._wS.start2()
-                self._rfiConnGenerator = 'http://' + self._proxyPublicIP + ':' + str(self._httpdPort) + '/rfip.txt'
+            om.out.information('Running a local httpd to serve the RFI connection generator to remote web app.')
+            webroot = os.path.join('plugins', 'attack', 'rfiProxy')
+            webserver.start_webserver(self._proxyPublicIP, self._httpdPort, webroot)
+            self._rfiConnGenerator = 'http://' + self._proxyPublicIP + ':' + str(self._httpdPort) + '/rfip.txt'
             
-        ### TODO: I really dislike this, if someone knows how to send variables to 
-        ### w3afProxyHandler in a nicer way, please contact me ( andres.riancho@gmail.com )
+        ### TODO: I really dislike this:
         global url
         global exploitData
         global variable
         global rfiConnGenerator
+        #    We should change it to something like this:
+        #
+        #>>> import new
+        #>>> class A(object):
+        #       def foo(self):
+        #               print self.x
+        #>>> B = new.classobj('B', (A,), {'x': 1})
+        #>>> b = B()
+        #>>> b.foo()
+        #1
+        #>>>
+        #
+        #    Kudos to Javier for the nice solution :)
         url = self._url
         exploitData = self._exploitData
         rfiConnGenerator = self._rfiConnGenerator
@@ -304,8 +316,14 @@ class proxy_rfi_shell(shell):
     def __init__(self, proxy_url):
         self._proxy_url = proxy_url
     
-    def _rexec( self, command ):
-        msg = 'This is a placeholder. You should use your browser to interact with this plugin.'
+    def generic_user_input( self, command ):
+        '''
+        This method is called when a user writes a command in the shell and hits enter.
+        
+        @parameter command: The command to handle ( ie. "read", "exec", etc ).
+        @return: The result of the command.
+        '''
+        msg = 'This is a place holder. You should use your browser to interact with this plugin.'
         return msg
     
     def end( self ):

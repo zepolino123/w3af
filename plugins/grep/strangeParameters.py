@@ -32,7 +32,7 @@ import core.data.kb.knowledgeBase as kb
 import core.data.kb.info as info
 import core.data.kb.vuln as vuln
 
-from core.data.db.temp_persist import disk_list
+from core.data.bloomfilter.pybloom import ScalableBloomFilter
 
 from core.controllers.w3afException import w3afException
 import core.data.parsers.dpCache as dpCache
@@ -52,7 +52,7 @@ class strangeParameters(baseGrepPlugin):
         baseGrepPlugin.__init__(self)
         
         # Internal variables
-        self._already_reported = disk_list()
+        self._already_reported = ScalableBloomFilter()
         
     def grep(self, request, response):
         '''
@@ -85,9 +85,10 @@ class strangeParameters(baseGrepPlugin):
                         if self._is_strange( request, param_name, qs[param_name][element_index] )\
                         and ref not in self._already_reported:
                             # Don't repeat findings
-                            self._already_reported.append(ref)
+                            self._already_reported.add(ref)
 
                             i = info.info()
+                            i.setPluginName(self.getName())
                             i.setName('Strange parameter')
                             i.setURI( ref )
                             i.setId( response.id )
@@ -108,9 +109,10 @@ class strangeParameters(baseGrepPlugin):
                         and ref not in self._already_reported:
                             
                             # Don't repeat findings
-                            self._already_reported.append(ref)
+                            self._already_reported.add(ref)
                             
                             v = vuln.vuln()
+                            v.setPluginName(self.getName())
                             v.setName('Parameter has SQL sentence')
                             v.setURI( ref )
                             v.setId( response.id )
@@ -144,7 +146,7 @@ class strangeParameters(baseGrepPlugin):
         '''
         regex = '(SELECT .*? FROM|INSERT INTO .*? VALUES|UPDATE .*? SET .*? WHERE)'
         for match in re.findall( regex, value, re.IGNORECASE):
-            if not self._wasSent(request, match):
+            if not request.sent( match ):
                 return True
         
         return False
@@ -162,12 +164,12 @@ class strangeParameters(baseGrepPlugin):
 
         for regex in _strange_parameter_re:
             for match in re.findall( regex, value ):
-                if not self._wasSent(request, match):
+                if not request.sent( match ):
                     return True
         
         splitted_value = [ x for x in re.split( r'([a-zA-Z0-9. ]+)', value ) if x != '' ]
         if len( splitted_value ) > 4:
-            if not self._wasSent(request, value):
+            if not request.sent( value ):
                 return True
         
         return False

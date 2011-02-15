@@ -1,3 +1,5 @@
+# coding: utf-8
+
 '''
 findComments.py
 
@@ -52,7 +54,9 @@ class findComments(baseGrepPlugin):
         self._interestingWords = ['user', 'pass', 'xxx', 'fix', 'bug', 'broken', 'oops', 'hack', 
         'caution', 'todo', 'note', 'warning', '!!!', '???', 'shit','stupid', 'tonto', 'porqueria',
         'ciudado', 'usuario', 'contrase', 'puta',
-        'secret','@', 'email','security','captcha'
+        'secret','@', 'email','security','captcha',
+        # some in Portuguese
+        'banco', 'bradesco', 'itau', 'visa', 'bancoreal', 'transfêrencia', 'depósito', 'cartão', 'crédito', 'dados pessoais'
         ]
         self._already_reported_interesting = []
 
@@ -80,7 +84,7 @@ class findComments(baseGrepPlugin):
                 for comment in commentList:
                     # This next two lines fix this issue:
                     # audit.ssi + grep.findComments + web app with XSS = false positive
-                    if self._wasSent( request, '<!--'+comment+'>' ):
+                    if request.sent( '<!--'+comment+'>' ):
                         continue
                     
                     # show nice comments ;)
@@ -96,6 +100,7 @@ class findComments(baseGrepPlugin):
                     for word in self._interestingWords:
                         if word in comment and ( word, response.getURL() ) not in self._already_reported_interesting:
                             i = info.info()
+                            i.setPluginName(self.getName())
                             i.setName('HTML comment with "' + word + '" inside')
                             msg = 'A comment with the string "' + word + '" was found in: "'
                             msg += response.getURL() + '". This could be interesting.'
@@ -113,6 +118,7 @@ class findComments(baseGrepPlugin):
                     ( comment, response.getURL() ) not in self._already_reported_interesting:
                         # There is HTML code in the comment.
                         i = info.info()
+                        i.setPluginName(self.getName())
                         i.setName('HTML comment contains HTML code')
                         desc = 'A comment with the string "' +comment + '" was found in: "'
                         desc += response.getURL() + '" . This could be interesting.'
@@ -142,16 +148,23 @@ class findComments(baseGrepPlugin):
     def end(self):
         '''
         This method is called when the plugin wont be used anymore.
+        @return: None
         '''
         inform = []
         for comment in self._comments.keys():
             urls_with_this_comment = self._comments[comment]
-            om.out.information('The comment : "' + comment + '" was found on this URL(s):')
+            stick_comment = ' '.join(comment.split())
+            if len(stick_comment) > 40:
+                msg = 'A comment with the string "%s..." (and %s more bytes) was found on these URL(s):' % (stick_comment[:40], str(len(stick_comment) - 40))
+                om.out.information( msg )
+            else:
+                msg = 'A comment containing "%s" was found on these URL(s):' % (stick_comment)
+                om.out.information( msg )
+             
             for url , request_id in urls_with_this_comment:
-                inform.append('- ' + url + ' (request with id:'+str(request_id)+')' )
+                inform.append('- ' + url + ' (request with id: '+str(request_id)+')' )
         
             inform.sort()
-            inform = list(set(inform))
             for i in inform:
                 om.out.information( i )
 

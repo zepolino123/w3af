@@ -28,10 +28,10 @@ from core.data.options.optionList import optionList
 
 from core.controllers.basePlugin.baseDiscoveryPlugin import baseDiscoveryPlugin
 from core.controllers.w3afException import w3afException
-from core.controllers.misc.levenshtein import relative_distance
+from core.controllers.misc.levenshtein import relative_distance_lt
 import core.data.parsers.urlParser as urlParser
 
-from core.data.db.temp_persist import disk_list
+from core.data.bloomfilter.pybloom import ScalableBloomFilter
 
 from core.controllers.coreHelpers.fingerprint_404 import is_404
 
@@ -46,7 +46,7 @@ class digitSum(baseDiscoveryPlugin):
 
     def __init__(self):
         baseDiscoveryPlugin.__init__(self)
-        self._already_visited = disk_list()
+        self._already_visited = ScalableBloomFilter()
         self._first_time = True
         
         # This is for the Referer
@@ -77,7 +77,7 @@ class digitSum(baseDiscoveryPlugin):
         if original_response.is_text_or_html() or self._fuzz_images:
             for fr in self._mangle_digits( fuzzableRequest ):
                 if fr.getURL() not in self._already_visited:
-                    self._already_visited.append( fr.getURI() )
+                    self._already_visited.add( fr.getURI() )
                     
                     targs = ( fr, original_response)
                     self._tm.startFunction( target=self._do_request, args=targs , ownerObj=self )
@@ -87,20 +87,20 @@ class digitSum(baseDiscoveryPlugin):
             
             # I add myself so the next call to this plugin wont find me ...
             # Example: index1.html ---> index2.html --!!--> index1.html
-            self._already_visited.append( fuzzableRequest.getURI() )
+            self._already_visited.add( fuzzableRequest.getURI() )
                 
         return self._fuzzableRequests
 
-    def _do_request( self, fuzzableRequest, original_response ):
+    def _do_request(self, fuzzableRequest, original_resp):
         '''
         Send the request.
         @parameter fuzzableRequest: The fuzzable request object to modify.
-        @parameter original_response: The response for the original request that was sent.
+        @parameter original_resp: The response for the original request that was sent.
         '''
         try:
-            response = self._urlOpener.GET( fuzzableRequest.getURI(), useCache=True,
-                                                            headers=self._headers )
-        except KeyboardInterrupt,e:
+            response = self._urlOpener.GET(fuzzableRequest.getURI(), useCache=True,
+                                                            headers=self._headers)
+        except KeyboardInterrupt, e:
             raise e
         else:
             if not is_404( response ):
@@ -110,9 +110,9 @@ class digitSum(baseDiscoveryPlugin):
                 #
                 # - If we changed the query string parameters, we have to check the content
                 is_new = False
-                if response.getURL() != original_response.getURL():
+                if response.getURL() != original_resp.getURL():
                     is_new = True
-                elif relative_distance(response.getBody(), original_response.getBody()) < 0.70:
+                elif relative_distance_lt(response.getBody(), original_resp.getBody(), 0.7):
                     is_new = True
                 
                 # Add it to the result.

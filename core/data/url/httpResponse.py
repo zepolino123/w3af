@@ -19,13 +19,18 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
+
+
 import copy
 import re
-import string
 import httplib
+from lxml import etree
 
-# Common imports
-from core.data.parsers.urlParser import *
+import core.controllers.outputManager as om
+from core.data.parsers.urlParser import uri2url
+
+
+
 # Handle codecs
 import codecs
 def _returnEscapedChar(exc):
@@ -33,12 +38,14 @@ def _returnEscapedChar(exc):
     return ( unicode(slash_x_XX) , exc.end)
 codecs.register_error("returnEscapedChar", _returnEscapedChar)
 
+
+DEFAULT_CHARSET = 'utf-8'
 CR = '\r'
 LF = '\n'
 CRLF = CR + LF
 SP = ' '
 
-class httpResponse:
+class httpResponse(object):
     
     def __init__( self, code, read , info, geturl, originalUrl, msg='OK', id=None, time=0.2):
         '''
@@ -47,6 +54,8 @@ class httpResponse:
         # A nice and comfortable default
         self._charset = 'utf-8'
         self._content_type = ''
+        self._dom = None
+        self._clear_text_body = None
         
         # Set the URL variables
         # The URL that we really GET'ed
@@ -58,7 +67,16 @@ class httpResponse:
         
         # Set the rest
         self.setCode(code)
+
+        # Save the type for fast access, so I don't need to calculate the type each time
+        # someone calls the "is_text_or_html" method. This attributes are set in the
+        # setHeaders() method.
+        self._is_text_or_html_response = False
+        self._is_swf_response = False
+        self._is_pdf_response = False
+        self._is_image_response = False
         self.setHeaders(info)
+        
         self.setBody(read)
         self._msg = msg
         self._time = time
@@ -67,13 +85,77 @@ class httpResponse:
         self.id = id
 
         self._fromCache = False
+        
     
     def getId( self ): return self.id
     def getRedirURL( self ): return self._redirectedURL
     def getRedirURI( self ): return self._redirectedURI
     def getCode( self ): return self._code
-    def getBody( self ):
-        return self._body
+    def getBody( self ): return self._body
+
+    def getClearTextBody(self):
+        '''
+        @return: A clear text representation of the HTTP response body. 
+        '''
+        
+        if self._clear_text_body is not None:
+            #
+            #    We already calculated this, we can return it now.
+            #
+            return self._clear_text_body
+        else:
+            #
+            #    Calculate the clear text body
+            #
+            dom = self.getDOM()
+            
+            if dom is None:
+                # return None if we don't have a DOM
+                return None
+                
+            else:
+                self._clear_text_body = ''
+                
+                for elem in dom.getiterator():
+                    
+                    if elem.tag == 'br':
+                        self._clear_text_body += '\n'
+                    else:
+                        # get the text
+                        text = elem.text
+                        if text is not None:
+                            self._clear_text_body += text
+                
+                return self._clear_text_body
+
+    
+    def getDOM(self):
+        '''
+        I don't want to calculate the DOM for all responses, only for those
+        which are needed. This method will first calculate the DOM, and then
+        save it for upcoming calls.
+        
+        @return: The DOM, or None if the HTML normalization failed.
+        '''
+        if self._dom is None:
+            try:
+                parser = etree.HTMLParser(recover=True)
+                self._dom = etree.fromstring(self._body, parser)
+            except Exception:
+                msg = 'The HTTP body for "%s" could NOT be ' \
+                'parsed by libxml2.' % self.getURL()
+                om.out.debug(msg)
+        return self._dom
+    
+    def getNormalizedBody(self):
+        '''
+        @return: A normalized body
+        '''
+        dom = self.getDOM()
+        if dom is not None:
+            return etree.tostring(dom, encoding=self._charset)
+        return None
+    
     def getHeaders( self ): return self._headers
     def getLowerCaseHeaders( self ):
         '''
@@ -107,8 +189,9 @@ class httpResponse:
         @body: A string that represents the body of the HTTP response
         @return: None
         '''
+        #   Sets the self._body attribute
         self._charset_handling(body)
-
+        
     def __contains__(self, string_to_test):
         '''
         Determine if any of the strings inside the string_list match the HTTP response body.
@@ -136,11 +219,11 @@ class httpResponse:
             om.out.debug('hmmm... wtf?! The remote web server failed to send the content-type header.')
             self._body = body
         else:
-            if not re.findall('text/(\w+)', lowerCaseHeaders['content-type'] ):
+            if not self.is_text_or_html():
                 # Not text, save as it is.
                 self._body = body
             else:
-                # According to the web server, the body content is a text/html content
+                # According to the web server, the body content is text, html, xml or something similar
                 
                 # I'll get the charset from the response headers, and the charset from the HTML content meta tag
                 # if the charsets differ, then I'll decode the text with one encoder, and then with the other; comparing
@@ -149,26 +232,26 @@ class httpResponse:
                 
                 # Go for the headers
                 headers_charset = ''
-                reCharset = re.findall('charset=([\w-]+)', lowerCaseHeaders['content-type'] )
-                if reCharset:
+                re_charset = re.findall('charset=([\w-]+)', lowerCaseHeaders['content-type'] )
+                if re_charset:
                     # well... it seems that they are defining a charset in the response headers..
-                    headers_charset = reCharset[0].lower().strip()
+                    headers_charset = re_charset[0].lower().strip()
                     
                 # Now go for the meta tag
                 # I parse <meta http-equiv="Content-Type" content="text/html; charset=utf-8"> ?
                 meta_charset = ''
-                reCharset = re.findall('<meta.*?content=".*?charset=([\w-]+)".*?>', body, re.IGNORECASE )
-                if reCharset:
+                re_charset = re.findall('<meta.*?content=".*?charset=([\w-]+)".*?>', body, re.IGNORECASE )
+                if re_charset:
                     # well... it seems that they are defining a charset in meta tag...
-                    meta_charset = reCharset[0].lower().strip()
+                    meta_charset = re_charset[0].lower().strip()
                 
                 # by default we asume:
-                charset = 'utf-8'
+                charset = DEFAULT_CHARSET
                 if meta_charset == '' and headers_charset != '':
                     charset = headers_charset
                 elif headers_charset == '' and meta_charset != '':
                     charset = meta_charset
-                elif headers_charset == meta_charset and headers_charset != '' and meta_charset != '':
+                elif headers_charset == meta_charset and headers_charset != '':
                     charset = headers_charset
                 elif meta_charset != headers_charset:
                     om.out.debug('The remote web application sent charset="'+ headers_charset + '" in the header, but charset="' +\
@@ -188,7 +271,8 @@ class httpResponse:
                     om.out.debug( msg )
                     
                     # Use the default
-                    unicode_str = body.decode(self._charset, 'returnEscapedChar')
+                    charset = DEFAULT_CHARSET
+                    unicode_str = body.decode(charset, 'returnEscapedChar')
                
                 # Now we use the unicode_str to create a utf-8 string that will be used in all w3af
                 self._body = unicode_str.encode('utf-8')
@@ -198,8 +282,7 @@ class httpResponse:
 
     def setHeaders( self, headers ):
         '''
-        Sets the headers and also analyzes them in order to get the response mime type 
-        (text/html , application/pdf, etc).
+        Sets the headers and also analyzes them in order to get the response mime type (text/html , application/pdf, etc).
 
         @parameter headers: The headers dict.
         '''
@@ -212,11 +295,32 @@ class httpResponse:
         else:
             self._headers = headers
 
-        # Analyze
+        #   Set the type, for easy access.
         for key in headers.keys():
-            if 'Content-Type'.lower() == key.lower():
-                self._content_type = headers[ key ]
-                break
+            if 'content-type' == key.lower():
+                # we need exactly content type but not charset
+                self._content_type = headers[key].split(';', 1)[0]
+                
+                #   Text or HTML?
+                magic_words = ['text', 'html', 'xml', 'txt', 'javascript']
+                for mw in magic_words:
+                    if self._content_type.lower().count(mw):
+                        self._is_text_or_html_response = True
+                        return
+
+                #   PDF?
+                if self._content_type.lower().count('pdf'):
+                    self._is_pdf_response = True
+                
+                #   SWF?
+                if self._content_type.lower().count('x-shockwave-flash'):
+                    self._is_swf_response = True
+
+                #   Image?
+                if self._content_type.lower().count('image'):
+                    self._is_image_response = True
+                
+                return
 
     def getContentType( self ):
         '''
@@ -228,30 +332,25 @@ class httpResponse:
         '''
         @return: True if this response is text or html
         '''
-        magic_words = ['txt', 'text', 'html']
-        for mw in magic_words:
-           if self._content_type.lower().count(mw):
-               return True
-
-        return False
+        return self._is_text_or_html_response
     
     def is_pdf( self ):
         '''
         @return: True if this response is a PDF file
         '''
-        if self._content_type.lower().count('pdf'):
-            return True
-        else:
-            return False
+        return self._is_pdf_response
     
     def is_swf( self ):
         '''
         @return: True if this response is a SWF file
         '''
-        if self._content_type.lower().count('x-shockwave-flash'):
-            return True
-        else:
-            return False
+        return self._is_swf_response
+
+    def is_image( self ):
+        '''
+        @return: True if this response is an image file
+        '''
+        return self._is_image_response
             
     def setURL( self, url ): self._realurl = url
     def setURI( self, uri ): self._uri = uri
@@ -273,7 +372,7 @@ class httpResponse:
         res = '< httpResponse | ' + str(self.getCode()) + ' | ' + self.getURL()
 
         # extra info
-        if self.id != None:
+        if self.id is not None:
             res += ' | id:'+str(self.id)
 
         if self._fromCache != False:
@@ -282,7 +381,11 @@ class httpResponse:
         # aaaand close...
         res += ' >'
         return res
-    
+
+    def getStatusLine(self):
+        '''Return status-line of response.'''
+        return 'HTTP/1.1' + SP + str(self._code) + SP + self._msg + CRLF
+
     def dumpResponseHead( self ):
         '''
         @return: A string with:
@@ -290,10 +393,10 @@ class httpResponse:
             Header1: Value1
             Header2: Value2
         '''
-        strRes = 'HTTP/1.1 ' + str(self._code) + ' ' + self._msg + CRLF
+        strRes = self.getStatusLine()
         strRes += self.dumpHeaders()
         return strRes
-        
+
     def dump( self ):
         '''
         Return a DETAILED str representation of this HTTP response object.
@@ -314,3 +417,5 @@ class httpResponse:
         
     def copy( self ):
         return copy.deepcopy( self )
+
+

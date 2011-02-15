@@ -23,15 +23,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 import core.controllers.outputManager as om
 from core.controllers.w3afException import w3afException
 import core.data.kb.config as cf
-try:
-    import extlib.BeautifulSoup as BeautifulSoup
-    om.out.debug('htmlParser is using the bundled BeautifulSoup library')
-except:
-    try:
-        import BeautifulSoup
-        om.out.debug('htmlParser is using the systems BeautifulSoup library')
-    except:
-        raise w3afException('You have to install BeautifulSoup lib.')
+
+from lxml import etree
 
 from core.data.parsers.sgmlParser import sgmlParser
 import core.data.parsers.urlParser as urlParser
@@ -62,17 +55,20 @@ class htmlParser(sgmlParser):
         
         sgmlParser.__init__(self, httpResponse, normalizeMarkup, verbose)
         
-    def _preParse( self, HTMLDocument ):
-        assert self._baseUrl != '', 'The base URL must be setted.'
+    def _preParse( self, httpResponse ):
+        '''
+        @parameter httpResponse: The HTTP response document that contains the
+        HTML document inside its body.
+        '''
+        assert self._baseUrl, 'The base URL must be set.'
+        
+        HTMLDocument = httpResponse.getBody()
+    
         if self._normalizeMarkup:
-            try:
-                HTMLDocument = str( BeautifulSoup.BeautifulSoup(HTMLDocument) )
-            except Exception,e:
-                om.out.debug('BeautifulSoup raised the exception:' + str(e))
-                om.out.debug('Parsing HTML document without BeautifulSoup normalization.')
+            HTMLDocument = httpResponse.getNormalizedBody() or ''
 
         # Now we are ready to work
-        self._parse ( HTMLDocument )
+        self._parse (HTMLDocument)
         
     def _findForms(self, tag, attrs):
         '''

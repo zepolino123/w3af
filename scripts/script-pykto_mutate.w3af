@@ -15,11 +15,9 @@ discovery pykto,serverHeader
 back
 
 target
-set target http://localhost/w3af/
+set target http://moth/w3af/
 back
 
 start
-
-assert len( kb.kb.getData('pykto','vuln') ) > 1
 
 exit

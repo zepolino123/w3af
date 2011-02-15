@@ -58,6 +58,10 @@ class DB(object):
             raise w3afException('Failed to create the database in file "'\
                     + filenameUtf8 +'". Exception: ' + str(e) )
 
+    def getFileName(self):
+        '''Return DB filename.'''
+        return self._filename
+
     def _commitIfNeeded( self ):
         '''Once every N calls to this method, the data is commited to disk.'''
         self._insertionCount += 1
@@ -106,6 +110,10 @@ class DB(object):
 
     def createTable(self, name, columns=[], primaryKeyColumns=[]):
         '''Create table in convenient way.'''
+
+        #
+        # Lets create the table
+        #
         sql = 'CREATE TABLE ' + name + '('
         for columnData in columns:
             columnName, columnType = columnData
@@ -113,6 +121,20 @@ class DB(object):
         # Finally the PK
         sql += 'PRIMARY KEY (' + ','.join(primaryKeyColumns) + '))'
         c = self._db.cursor()
+
+        c.execute(sql)
+        self._db.commit()
+
+    def createIndex(self, table, columns ):
+        '''
+        Create index for speed and performance
+
+        @parameter table: The table from which you want to create an index from
+        @parameter columns: A list of column names.
+        '''
+        sql = 'CREATE INDEX %s_index ON %s( %s )' % (table, table, ','.join(columns) )
+        c = self._db.cursor()
+
         c.execute(sql)
         self._db.commit()
 
@@ -140,13 +162,8 @@ class WhereHelper(object):
             self.sql()
         return self._values
 
-    def _makePair(self, field, conditions, conjunction='AND'):
+    def _makePair(self, field, value, oper='=',  conjunction='AND'):
         '''Auxiliary method.'''
-        result = ''
-        oper = '='
-        value = conditions[0]
-        if len(conditions) > 1:
-            oper = conditions[1]
         result = ' ' + conjunction + ' ' + field + ' ' + oper + ' ?'
         return (result, value)
 
@@ -155,19 +172,19 @@ class WhereHelper(object):
         result = ''
         self._values = []
 
-        for field in self.conditions.keys():
-            item = self.conditions[field]
-            if field.lower() == 'or':
+        for cond in self.conditions:
+            if isinstance(cond[0], list):
+                item, oper = cond
                 tmpWhere = ''
-                for tmpField in item.keys():
-                    tmpItem = item[tmpField]
-                    sql, value = self._makePair(tmpField, tmpItem, 'OR')
+                for tmpField in item:
+                    tmpName, tmpValue, tmpOper = tmpField
+                    sql, value = self._makePair(tmpName, tmpValue, tmpOper, oper)
                     self._values.append(value)
                     tmpWhere += sql
                 if tmpWhere:
-                    result += " AND (" + tmpWhere[4:] + ")"
+                    result += " AND (" + tmpWhere[len(oper)+1:] + ")"
             else:
-                sql, value = self._makePair(field, item)
+                sql, value = self._makePair(cond[0], cond[1], cond[2])
                 self._values.append(value)
                 result += sql
         result = result[5:]

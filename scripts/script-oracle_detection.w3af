@@ -18,11 +18,11 @@ grep oracle
 back
 
 target
-set target http://localhost/w3af/grep/oracle/index.html
+set target http://moth/w3af/grep/oracle/index.html
 back
 
 start
 
-assert len(kb.kb.getData('oracle','oracle')) == 3
+assert len(kb.kb.getData('oracle','oracle')) == 1 
 
 exit

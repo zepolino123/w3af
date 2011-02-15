@@ -14,12 +14,11 @@ discovery userDir
 back
 
 target
-set target http://localhost/w3af/
+set target http://moth/w3af/
 back
 
 start
 
-assert len(kb.kb.getData('userDir','users')) >= 5
-assert len(kb.kb.getData('userDir','os')) >= 2
+assert len(kb.kb.getData('userDir','users')) == 1
 
 exit

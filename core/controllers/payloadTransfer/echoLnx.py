@@ -21,18 +21,18 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 '''
 
 import core.controllers.outputManager as om
-from core.controllers.w3afException import *
+from core.controllers.payloadTransfer.basePayloadTransfer import basePayloadTransfer as basePayloadTransfer
 
 import time
-from core.controllers.payloadTransfer.basePayloadTransfer import basePayloadTransfer as basePayloadTransfer
+
 
 class echoLnx( basePayloadTransfer ):
     '''
     This is a class that defines how to send a file to a remote server using the "echo" command.
     '''
 
-    def __init__( self , execMethod, os ):
-        self._execMethod = execMethod
+    def __init__( self , exec_method, os ):
+        self._exec_method = exec_method
         self._os = os
         
         # internal configuration parameters
@@ -44,7 +44,7 @@ class echoLnx( basePayloadTransfer ):
         this should transfer 10 bytes and check if they arrived as expected to the other end.
         '''
         # Check if echo exists and works as expected
-        res = self._exec( "/bin/echo -n 'w3af'" )
+        res = self._exec_method( "/bin/echo -n 'w3af'" )
         if 'w3af' != res:
             om.out.debug('Remote server returned: "'+res+'" when expecting "w3af".')
             return False
@@ -56,7 +56,7 @@ class echoLnx( basePayloadTransfer ):
         @return: An estimated transfer time for a file with the specified size.
         '''
         before = time.time()
-        res = self._exec( "echo w3af" )
+        res = self._exec_method( "echo w3af" )
         after = time.time()
         
         # Estimate the time...
@@ -74,7 +74,7 @@ class echoLnx( basePayloadTransfer ):
         self._filename = destination
         
         # Zeroing destination file
-        self._exec( '> ' + self._filename )
+        self._exec_method( '> ' + self._filename )
         
         i = 0
         while i < len( strObject ):
@@ -87,7 +87,9 @@ class echoLnx( basePayloadTransfer ):
             i += self._step
             
             # Send the command to the remote server
-            self._exec( cmd )
+            self._exec_method( cmd )
+                    
+        return self.verify_upload( strObject, self._filename ) 
         
     def getSpeed( self ):
         '''

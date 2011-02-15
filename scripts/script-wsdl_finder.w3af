@@ -13,11 +13,11 @@ discovery wsdlFinder
 back
 
 target
-set target http://localhost/w3af/grep/wsdl_greper/wsdl.html
+set target http://moth/w3af/grep/wsdl_greper/wsdl.html
 back
 
 start
 
-assert len(kb.kb.getData('wsdlGreper','wsdl')) == 3
+assert len(kb.kb.getData('wsdlGreper','wsdl')) == 1
 
 exit

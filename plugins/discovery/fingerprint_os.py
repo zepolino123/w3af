@@ -32,7 +32,7 @@ import core.data.kb.info as info
 
 import core.data.parsers.urlParser as urlParser
 from core.controllers.w3afException import w3afRunOnce,  w3afException
-from core.controllers.misc.levenshtein import relative_distance
+from core.controllers.misc.levenshtein import relative_distance_ge
 
 class fingerprint_os(baseDiscoveryPlugin):
     '''
@@ -80,9 +80,11 @@ class fingerprint_os(baseDiscoveryPlugin):
             
             original_response = self._urlOpener.GET( fuzzableRequest.getURL() )
             self._found_OS = True
-            
-            if relative_distance( original_response.getBody(), windows_response.getBody() ) > 0.98:
+
+            if relative_distance_ge(original_response.getBody(),
+                                    windows_response.getBody(), 0.98):
                 i = info.info()
+                i.setPluginName(self.getName())
                 i.setName('Operating system')
                 i.setURL( windows_response.getURL() )
                 i.setMethod( 'GET' )
@@ -93,6 +95,7 @@ class fingerprint_os(baseDiscoveryPlugin):
                 om.out.information( i.getDesc() )
             else:
                 i = info.info()
+                i.setPluginName(self.getName())
                 i.setName('Operating system')
                 i.setURL( original_response.getURL() )
                 i.setMethod( 'GET' )

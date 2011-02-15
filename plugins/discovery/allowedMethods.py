@@ -31,7 +31,7 @@ from core.controllers.basePlugin.baseDiscoveryPlugin import baseDiscoveryPlugin
 import core.data.kb.knowledgeBase as kb
 import core.data.kb.info as info
 
-from core.data.db.temp_persist import disk_list
+from core.data.bloomfilter.pybloom import ScalableBloomFilter
 
 from core.controllers.w3afException import w3afRunOnce
 import core.data.parsers.urlParser as urlParser
@@ -50,7 +50,7 @@ class allowedMethods(baseDiscoveryPlugin):
 
         # Internal variables
         self._exec = True
-        self._already_tested = disk_list()
+        self._already_tested = ScalableBloomFilter()
         self._bad_codes = [ httpConstants.UNAUTHORIZED, httpConstants.NOT_IMPLEMENTED,
                                     httpConstants.METHOD_NOT_ALLOWED, httpConstants.FORBIDDEN]
         
@@ -95,7 +95,7 @@ class allowedMethods(baseDiscoveryPlugin):
             
             domain_path = urlParser.getDomainPath( fuzzableRequest.getURL() )
             if domain_path not in self._already_tested:
-                self._already_tested.append( domain_path )
+                self._already_tested.add( domain_path )
                 self._check_methods( domain_path )
         return []
     
@@ -123,7 +123,7 @@ class allowedMethods(baseDiscoveryPlugin):
         if with_options:
             id_list.append( res.id )
 
-        if not with_options:
+        else:
             #
             #   Before doing anything else, I'll send a request with a non-existant method
             #   If that request succeds, then all will...
@@ -137,6 +137,7 @@ class allowedMethods(baseDiscoveryPlugin):
                 if non_exist_response.getCode() not in self._bad_codes\
                 and get_response.getBody() == non_exist_response.getBody():
                     i = info.info()
+                    i.setPluginName(self.getName())
                     i.setName( 'Non existent methods default to GET' )
                     i.setURL( url )
                     i.setId( [non_exist_response.getId(), get_response.getId()] )
@@ -180,6 +181,7 @@ class allowedMethods(baseDiscoveryPlugin):
             # dav is enabled!
             # Save the results in the KB so that other plugins can use this information
             i = info.info()
+            i.setPluginName(self.getName())
             i.setName('Allowed methods for ' + url )
             i.setURL( url )
             i.setId( id_list )
@@ -192,6 +194,7 @@ class allowedMethods(baseDiscoveryPlugin):
             # Save the results in the KB so that other plugins can use this information
             # Do not remove these information, other plugins REALLY use it !
             i = info.info()
+            i.setPluginName(self.getName())
             i.setName('Allowed methods for ' + url )
             i.setURL( url )
             i.setId( id_list )

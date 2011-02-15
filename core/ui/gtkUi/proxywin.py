@@ -94,10 +94,10 @@ class ProxiedRequests(entries.RememberingWindow):
         self._initOptions()
         self._prevIpport = None
         # We need to make widget (split or tabbed) firstly
-        layout = self.pref.getValue('proxy', 'trap_view')
+        self._layout = self.pref.getValue('proxy', 'trap_view')
         self.reqresp = reqResViewer.reqResViewer(w3af,
                 [self.bt_drop.set_sensitive, self.bt_send.set_sensitive],
-                editableRequest=True, layout=layout)
+                editableRequest=True, layout=self._layout)
         self.reqresp.set_sensitive(False)
         vbox = gtk.VBox()
         vbox.pack_start(self.reqresp, True, True)
@@ -149,15 +149,16 @@ class ProxiedRequests(entries.RememberingWindow):
         proxyOptions.add(Option('methodtrap', "GET,POST", _("Methods to trap"), "list"))
         proxyOptions.add(Option("notrap",
             ".*\.(gif|jpg|png|css|js|ico|swf|axd|tif)$", _("URLs not to trap"), "regex"))
-        proxyOptions.add(Option("fixlength", True, "Fix content length", "boolean"))
-        proxyOptions.add(comboOption("trap_view", ['Splitted', 'Tabbed'], "ReqRes view of trap tab", "combo"))
-        proxyOptions.add(comboOption("home_tab", ['Intercept', 'History', 'Options'], "Home tab", "combo"))
+        proxyOptions.add(Option("fixlength", True, _("Fix content length"), "boolean"))
+        proxyOptions.add(comboOption("trap_view", ['Splitted', 'Tabbed'], _("View of Intercept tab"), "combo"))
+        proxyOptions.add(comboOption("home_tab", ['Intercept', 'History', 'Options'], _("Home tab"), "combo"))
         self.pref.addSection('proxy', _('Proxy Options'), proxyOptions)
         # HTTP editor options
         editorOptions = optionList()
-        editorOptions.add(Option("highlight_current_line", True, "Highlight current line", "boolean"))
-        editorOptions.add(Option("highlight_syntax", True, "Highlight syntax", "boolean"))
-        editorOptions.add(Option("display_line_num", True, "Display line numbers", "boolean"))
+        editorOptions.add(Option("wrap", True, _("Wrap long lines"), "boolean"))
+        editorOptions.add(Option("highlight_current_line", True, _("Highlight current line"), "boolean"))
+        editorOptions.add(Option("highlight_syntax", True, _("Highlight syntax"), "boolean"))
+        editorOptions.add(Option("display_line_num", True, _("Display line numbers"), "boolean"))
         self.pref.addSection('editor', _('HTTP Editor Options'), editorOptions)
         # Load values from configfile
         self.pref.loadValues()
@@ -210,11 +211,15 @@ class ProxiedRequests(entries.RememberingWindow):
             self.showAlert(_("Invalid configuration!\n" + str(w3)))
 
         self._prevIpport = newPort
-        httpeditor = self.reqresp.request.getRawTextView()
+        httpeditor = self.reqresp.request.getViewById('HttpRawView')
         httpeditor.set_show_line_numbers(self.pref.getValue('editor', 'display_line_num'))
         httpeditor.set_highlight_current_line(self.pref.getValue('editor', 'highlight_current_line'))
         httpeditor.set_highlight_syntax(self.pref.getValue('editor', 'highlight_syntax'))
+        httpeditor.set_wrap(self.pref.getValue('editor', 'wrap'))
         self.pref.save()
+
+        if self._layout != self.pref.getValue('proxy', 'trap_view'):
+            self.showAlert(_("Some of options will take effect after you restart proxy tool"))
 
     def showAlert(self, msg):
         dlg = gtk.MessageDialog(None, gtk.DIALOG_MODAL, gtk.MESSAGE_WARNING, gtk.BUTTONS_OK, msg)
@@ -310,7 +315,7 @@ class ProxiedRequests(entries.RememberingWindow):
         dlg.destroy()
         if  opt != gtk.RESPONSE_YES:
             return False
-        if self.proxy is not None:
+        if self.proxy:
             self.proxy.stop()
         return True
 

@@ -25,7 +25,7 @@ from core.controllers.w3afException import *
 from core.data.fuzzer.fuzzer import *
 from core.controllers.intrusionTools.delayedExecution import delayedExecution
 from core.controllers.intrusionTools.execMethodHelpers import *
-import time
+
 
 class crontabHandler( delayedExecution ):
     '''
@@ -56,8 +56,14 @@ class crontabHandler( delayedExecution ):
         Adds a command to the cron.
         '''
         actualCron = self._exec( 'crontab -l 2>&1' )
+        actualCron = actualCron.strip()
+        
         remoteDate = self._exec( 'date +%d-%m-%H:%M:%S-%u' )
+        remoteDate = remoteDate.strip()
+        
         user = self._exec( 'whoami')
+        user = user.strip()
+        
         newCronLine, waitTime = self._createCronLine( remoteDate, commandToExec )
         
         if 'no crontab for ' + user == actualCron:
@@ -69,7 +75,7 @@ class crontabHandler( delayedExecution ):
         # new lines are \n and with gpc magic quotes that fails
         for line in newCron.split('\n'):
             self._exec( '/bin/echo ' + line + ' >> ' + self._cronFile )
-        applyNewCronRes = self._exec( 'crontab ' + self._cronFile )
+        self._exec( 'crontab ' + self._cronFile )
         self._exec( '/bin/rm ' + self._cronFile )
         
         filename = commandToExec.split(' ')[0]

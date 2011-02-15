@@ -29,9 +29,7 @@ from core.data.parsers.abstractParser import abstractParser as abstractParser
 
 from sgmllib import SGMLParser
 import traceback
-import string
 import re
-import urllib
 
 
 class sgmlParser(abstractParser, SGMLParser):
@@ -75,7 +73,7 @@ class sgmlParser(abstractParser, SGMLParser):
         self._regex_url_parse( httpResponse )
         
         # Now we are ready to work
-        self._preParse( httpResponse.getBody() )
+        self._preParse( httpResponse )
         
     def _preParse(self, document):
         '''
@@ -217,12 +215,12 @@ class sgmlParser(abstractParser, SGMLParser):
         if tag.lower() not in self._tagsContainingURLs:
             return
 
-        for attr in attrs:
-            if attr[0].lower() in self._urlAttrs:
+        for attr_name, attr_val in attrs:
+            if attr_name.lower() in self._urlAttrs:
                 
                 # Only add it to the result of the current URL is not a fragment
-                if len(attr[1]) and attr[1][0] != '#':
-                    url = urlParser.urlJoin(self._baseUrl, attr[1])
+                if attr_val and not attr_val.startswith('#'):
+                    url = urlParser.urlJoin(self._baseUrl, attr_val)
                     url = self._decode_URL(url, self._encoding)
                     url = urlParser.normalizeURL(url)
                     if url not in self._parsed_URLs:
@@ -234,7 +232,7 @@ class sgmlParser(abstractParser, SGMLParser):
         '''
         This method parses the document.
         
-        @parameter s: The document to parse.
+        @parameter s: The document to parse (as a string)
         '''
         try:
             self.findEmails( s )
@@ -244,7 +242,6 @@ class sgmlParser(abstractParser, SGMLParser):
             # The user will call getEmails, getReferences, etc and will get all the information
             # that the parser could find before dieing
             om.out.debug('Exception found while parsing document. Exception: ' + str(e) + '. Document head: "' + s[0:20] +'".' )
-            import traceback
             om.out.debug( 'Traceback for this error: ' + str( traceback.format_exc() ) )
         else:
             # Saves A LOT of memory
@@ -268,7 +265,7 @@ class sgmlParser(abstractParser, SGMLParser):
             - etc.
         
         @return: Two sets, one with the parsed URLs, and one with the URLs that came out of a
-        regular expression. The second list if less trustworthy.
+        regular expression. The second list is less trustworthy.
         '''
         tmp_re_URLs = set(self._re_URLs) - set( self._parsed_URLs )
         return list(set( self._parsed_URLs )), list(tmp_re_URLs)

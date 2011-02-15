@@ -27,6 +27,7 @@ from core.data.options.option import option
 from core.data.options.optionList import optionList
 
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
+from core.data.bloomfilter.pybloom import ScalableBloomFilter
 
 import core.data.kb.knowledgeBase as kb
 import core.data.kb.info as info
@@ -46,6 +47,7 @@ class getMails(baseGrepPlugin):
         baseGrepPlugin.__init__(self)
         # User configured variables
         self._only_target_domain = True
+        self._already_inspected = ScalableBloomFilter()
 
     def grep(self, request, response):
         '''
@@ -55,11 +57,14 @@ class getMails(baseGrepPlugin):
         @parameter request: The HTTP response
         @return: None
         '''
-        self._grep_worker(request, response, 'mails', \
-                urlParser.getRootDomain(response.getURL()))
-
-        if not self._only_target_domain:
-            self._grep_worker(request, response, 'external_mails')
+        uri = response.getURI()
+        if uri not in self._already_inspected:
+            self._already_inspected.add(uri)
+            self._grep_worker(request, response, 'mails', \
+                    urlParser.getRootDomain(response.getURL()))
+    
+            if not self._only_target_domain:
+                self._grep_worker(request, response, 'external_mails')
             
     def _grep_worker(self, request, response, kb_key, domain=None):
         '''
@@ -77,7 +82,7 @@ class getMails(baseGrepPlugin):
             dp = dpCache.dpc.getDocumentParserFor( response )
         except w3afException:
             msg = 'If I can\'t parse the document, I won\'t be able to find any emails.'
-            msg += ' Ignoring the desponse for "' + response.getURL() + '".'
+            msg += ' Ignoring the response for "' + response.getURL() + '".'
             om.out.debug( msg )
             return
 
@@ -85,11 +90,12 @@ class getMails(baseGrepPlugin):
         
         for mail_address in mails:
             # Reduce false positives
-            if self._wasSent( request, mail_address ):
+            if request.sent( mail_address ):
                 continue
                 
             # Email address are case insensitive
             mail_address = mail_address.lower()
+            url = response.getURL()
 
             email_map = {}
             for info_obj in kb.kb.getData( 'mails', 'mails'):
@@ -99,37 +105,38 @@ class getMails(baseGrepPlugin):
             if mail_address not in email_map:
                 # Create a new info object, and report it
                 i = info.info()
-                i.setURL( response.getURL() )
+                i.setPluginName(self.getName())
+                i.setURL(url)
                 i.setId( response.id )
                 i.setName( mail_address )
                 desc = 'The mail account: "'+ mail_address + '" was found in: '
-                desc += '\n- ' + response.getURL() 
+                desc += '\n- ' + url
                 desc += ' - In request with id: '+ str(response.id)
                 i.setDesc( desc )
                 i['mail'] = mail_address
-                i['url_list'] = [ response.getURL(), ]
+                i['url_list'] = [url]
                 i['user'] = mail_address.split('@')[0]
                 i.addToHighlight( mail_address )
-                
                 kb.kb.append( 'mails', kb_key, i )
-                continue
             
-            # Get the corresponding info object.
-            i = email_map[ mail_address ]
-            # And work
-            if response.getURL() not in i['url_list']:
-                # This email was already found in some other URL
-                # I'm just going to modify the url_list and the description message
-                # of the information object.
-                id_list_of_info = i.getId()
-                id_list_of_info.append( response.id )
-                i.setId( id_list_of_info )
-                i.setURL('')
-                desc = i.getDesc()
-                desc += '\n- ' + response.getURL() 
-                desc += ' - In request with id: '+ str(response.id)
-                i.setDesc( desc )
-                i['url_list'].append( response.getURL() )
+            else:
+            
+                # Get the corresponding info object.
+                i = email_map[ mail_address ]
+                # And work
+                if url not in i['url_list']:
+                    # This email was already found in some other URL
+                    # I'm just going to modify the url_list and the description message
+                    # of the information object.
+                    id_list_of_info = i.getId()
+                    id_list_of_info.append( response.id )
+                    i.setId( id_list_of_info )
+                    i.setURL('')
+                    desc = i.getDesc()
+                    desc += '\n- ' + url
+                    desc += ' - In request with id: '+ str(response.id)
+                    i.setDesc( desc )
+                    i['url_list'].append(url)
         
     def setOptions( self, optionsMap ):
         self._only_target_domain = optionsMap['onlyTargetDomain'].getValue()

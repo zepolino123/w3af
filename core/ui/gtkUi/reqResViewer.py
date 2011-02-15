@@ -26,11 +26,10 @@ import signal
 
 import gtk
 import gobject
-import pango
-import os
-import sys
 
-from . import entries
+from core.ui.gtkUi.entries import RememberingVPaned
+from core.ui.gtkUi.entries import RememberingWindow
+from core.ui.gtkUi.entries import SemiStockButton
 # To show request and responses
 from core.ui.gtkUi.httpeditor import HttpEditor
 from core.data.db.history import HistoryItem
@@ -43,6 +42,9 @@ import core.controllers.outputManager as om
 from .export_request import export_request
 # import the throbber for the audit plugin analysis
 from . import helpers
+from core.ui.gtkUi.rrviews.raw import HttpRawView
+from core.ui.gtkUi.rrviews.headers import HttpHeadersView
+from core.ui.gtkUi.rrviews.rendering import getRenderingView
 
 def sigsegv_handler(signum, frame):
     print _('This is a catched segmentation fault!')
@@ -60,15 +62,15 @@ class reqResViewer(gtk.VBox):
 
     '''
     def __init__(self, w3af, enableWidget=None, withManual=True, withFuzzy=True,
-                        withCompare=True, editableRequest=False, editableResponse=False,
+                        withCompare=True, withAudit=True, editableRequest=False, editableResponse=False,
                         widgname="default", layout='Tabbed'):
         super(reqResViewer,self).__init__()
         self.w3af = w3af
         # Request
-        self.request = requestPart(w3af, enableWidget, editable=editableRequest, widgname=widgname)
+        self.request = requestPart(w3af, enableWidget, editableRequest, widgname=widgname)
         self.request.show()
         # Response
-        self.response = responsePart(w3af, editable=editableResponse, widgname=widgname)
+        self.response = responsePart(w3af, editableResponse, widgname=widgname)
         self.response.show()
         self.layout = layout
         if layout == 'Tabbed':
@@ -76,7 +78,7 @@ class reqResViewer(gtk.VBox):
         else:
             self._initSplittedLayout()
         # Init req toolbox
-        self._initToolBox(withManual, withFuzzy, withCompare)
+        self._initToolBox(withManual, withFuzzy, withCompare, withAudit)
         self.show()
 
     def _initTabbedLayout(self):
@@ -88,14 +90,14 @@ class reqResViewer(gtk.VBox):
         nb.append_page(self.request, gtk.Label(_("Request")))
         nb.append_page(self.response, gtk.Label(_("Response")))
         # Info
-        self.info = HttpEditor()
+        self.info = HttpEditor(self.w3af)
         self.info.set_editable(False)
         #self.info.show()
         nb.append_page(self.info, gtk.Label(_("Info")))
 
     def _initSplittedLayout(self):
         '''Init Splitted layout. It's more convenient for intercept.'''
-        self._vpaned = entries.RememberingVPaned(self.w3af, 'trap_view')
+        self._vpaned = RememberingVPaned(self.w3af, 'trap_view')
         self._vpaned.show()
         self.pack_start(self._vpaned, True, True)
         self._vpaned.add(self.request)
@@ -109,33 +111,32 @@ class reqResViewer(gtk.VBox):
         if self.layout == 'Tabbed':
             self.nb.set_current_page(0)
 
-    def _initToolBox(self, withManual, withFuzzy, withCompare):
+    def _initToolBox(self, withManual, withFuzzy, withCompare, withAudit):
         # Buttons
         hbox = gtk.HBox()
         if withManual or withFuzzy or withCompare:
             from .craftedRequests import ManualRequests, FuzzyRequests
             
             if withManual:
-                b = entries.SemiStockButton("", gtk.STOCK_INDEX, _("Send Request to Manual Editor"))
+                b = SemiStockButton("", gtk.STOCK_INDEX, _("Send Request to Manual Editor"))
                 b.connect("clicked", self._sendRequest, ManualRequests)
                 self.request.childButtons.append(b)
                 b.show()
                 hbox.pack_start(b, False, False, padding=2)
             if withFuzzy:
-                b = entries.SemiStockButton("", gtk.STOCK_PROPERTIES, _("Send Request to Fuzzy Editor"))
+                b = SemiStockButton("", gtk.STOCK_PROPERTIES, _("Send Request to Fuzzy Editor"))
                 b.connect("clicked", self._sendRequest, FuzzyRequests)
                 self.request.childButtons.append(b)
                 b.show()
                 hbox.pack_start(b, False, False, padding=2)
             if withCompare:
-                b = entries.SemiStockButton("", gtk.STOCK_ZOOM_100, _("Send Request and Response to Compare Tool"))
+                b = SemiStockButton("", gtk.STOCK_ZOOM_100, _("Send Request and Response to Compare Tool"))
                 b.connect("clicked", self._sendReqResp)
                 self.response.childButtons.append(b)
                 b.show()
-                hbox.pack_end(b, False, False, padding=2)
-
+                hbox.pack_start(b, False, False, padding=2)
         # I always can export requests
-        b = entries.SemiStockButton("", gtk.STOCK_COPY, _("Export Request"))
+        b = SemiStockButton("", gtk.STOCK_COPY, _("Export Request"))
         b.connect("clicked", self._sendRequest, export_request)
         self.request.childButtons.append(b)
         b.show()
@@ -143,14 +144,14 @@ class reqResViewer(gtk.VBox):
         self.pack_start(hbox, False, False, padding=5)
         hbox.show()
 
-        # Add everything I need for the audit request thing:
-        # The button that shows the menu
-        b = entries.SemiStockButton("", gtk.STOCK_EXECUTE, _("Audit Request with..."))
-        b.connect("button-release-event", self._popupMenu)
-        self.request.childButtons.append(b)
-        b.show()
-        hbox.pack_start(b, False, False, padding=2)
-        
+        if withAudit:
+            # Add everything I need for the audit request thing:
+            # The button that shows the menu
+            b = SemiStockButton("", gtk.STOCK_EXECUTE, _("Audit Request with..."))
+            b.connect("button-release-event", self._popupMenu)
+            self.request.childButtons.append(b)
+            b.show()
+            hbox.pack_start(b, False, False, padding=2)
         # The throbber (hidden!)
         self.throbber = helpers.Throbber()
         hbox.pack_start(self.throbber, True, True)
@@ -219,8 +220,7 @@ class reqResViewer(gtk.VBox):
                 for itemId in result.getId():
                     historyItem = HistoryItem()
                     historyItem.load(itemId)
-                    print 'tagging', result.plugin_name
-                    historyItem.tag = result.plugin_name
+                    historyItem.updateTag(historyItem.tag + result.plugin_name)
                     historyItem.info = result.getDesc()
                     historyItem.save()
         else:
@@ -257,145 +257,112 @@ class reqResViewer(gtk.VBox):
         self.request.set_sensitive(how)
         self.response.set_sensitive(how)
 
-class requestResponsePart(gtk.VBox):
+class requestResponsePart(gtk.Notebook):
     """Request/response common class."""
-    SOURCE_RAW = 1
-
-    def __init__(self, w3af, enableWidget=None, editable=False, widgname="default"):
+    def __init__(self, w3af, enableWidget=[], editable=False, widgname="default"):
         super(requestResponsePart, self).__init__()
-        self.def_padding = 5
         self._obj = None
+        self.w3af = w3af
         self.childButtons = []
-        self._initRawTab(editable)
-        # FIXME remove this part to httpeditor class
-        if enableWidget:
-            self._raw.get_buffer().connect("changed", self._changed, enableWidget)
-            for widg in enableWidget:
-                widg(False)
-        self.show()
+        self._views = []
+        self.enableWidget = enableWidget
+    def addView(self, view):
+        self._views.append(view)
+        self.append_page(view, gtk.Label(view.label))
 
-    def _initRawTab(self, editable):
-        """Init for Raw tab."""
-        self._raw = HttpEditor()
-        self._raw.set_editable(editable)
-        self._raw.show()
-        #self.append_page(self._raw, gtk.Label(_("Raw")))
-        self.pack_start(self._raw)
+    def show(self):
+        for view in self._views:
+            view.show()
+        super(requestResponsePart, self).show()
 
     def set_sensitive(self, how):
-        """Sets the pane on/off."""
         super(requestResponsePart, self).set_sensitive(how)
         for but in self.childButtons:
             but.set_sensitive(how)
 
-    def _changed(self, widg, toenable):
-        """Supervises if the widget has some text."""
-        rawText = self._raw.get_text()
+    def getViewById(self, viewId):
+        for view in self._views:
+            if view.id == viewId:
+                return view
+        return None
 
-        for widg in toenable:
-            widg(bool(rawText))
-
-        self._changeRawCB()
-        self._synchronize(self.SOURCE_RAW)
+    def synchronize(self, viewId=None):
+        for view in self._views:
+            if view.id != viewId:
+                view.initial = True
+                view.showObject(self._obj)
+                view.initial = False
+        if self.enableWidget:
+            for widg in self.enableWidget:
+                widg(bool(len(self._obj.getHeaders())))
 
     def clearPanes(self):
-        """Public interface to clear both panes."""
-        self._raw.clear()
+        for view in self._views:
+            view.initial = True
+            view.clear()
+            view.initial = False
 
     def showError(self, text):
-        """Show an error.
-        Errors are shown in the upper part, with the lower one greyed out.
-        """
-        self._raw.set_text(text)
-
-    def getBothTexts(self):
-        """Returns request data as turple headers + data."""
-        return self._raw.get_text(splitted=True)
+        print text
 
     def showObject(self, obj):
-        raise w3afException('Child MUST implment a showObject method.')
+        self._obj = obj
+        self.synchronize()
 
+    def setObject(self, obj):
+        self._obj = obj
     def getObject(self):
         return self._obj
 
-    def _synchronize(self):
-        raise w3afException('Child MUST implment a _synchronize method.')
-
-    def _changeRawCB(self):
-        raise w3afException('Child MUST implment a _changeRawCB method.')
-
-    def getRawTextView(self):
-        return self._raw
-
     def highlight(self, text, sev=severity.MEDIUM):
-        """Find the text, and handle highlight.
-        @return: None
-        """
-        self._raw.highlight(text, sev)
+        for view in self._views:
+            view.highlight(text, sev)
 
 class requestPart(requestResponsePart):
-    """Request part"""
-
-    def __init__(self, w3af, enableWidget=None, editable=False, widgname="default"):
-        requestResponsePart.__init__(self, w3af, enableWidget, editable, widgname=widgname+"request")
-        self.show()
-
-    def showObject(self, fuzzableRequest):
-        """Show the data from a fuzzableRequest object in the textViews."""
-        self._obj = fuzzableRequest
-        self._synchronize()
-
+    def __init__(self, w3af, enableWidget=[], editable=False, widgname="default"):
+        requestResponsePart.__init__(self, w3af, enableWidget,editable, widgname=widgname+"request")
+        self.addView(HttpRawView(w3af, self, editable))
+        self.addView(HttpHeadersView(w3af, self, editable))
+    def getBothTexts(self):
+        data = ''
+        if self._obj.getData():
+            data = str(self._obj.getData())
+        return (self._obj.dumpRequestHead(), data)
     def showRaw(self, head, body):
-        """Show the raw data."""
         self._obj = httpRequestParser(head, body)
-        self._synchronize()
-
-    def _synchronize(self, source=None):
-        # Raw tab
-        if source != self.SOURCE_RAW:
-            self._raw.clear()
-            self._raw.set_text(self._obj.dump(), True)
-    
-    def _changeRawCB(self):
-        (head, data) = self.getBothTexts()
-        try:
-            if not len(head):
-                raise w3afException("Empty HTTP Request head")
-            self._obj = httpRequestParser(head, data)
-            self._raw.reset_bg_color()
-        except w3afException, ex:
-            self._raw.set_bg_color(gtk.gdk.color_parse("#FFCACA"))
+        self.synchronize()
 
 class responsePart(requestResponsePart):
-    """Response part"""
-
-    def __init__(self, w3af, editable=False, widgname="default"):
+    def __init__(self, w3af, editable, widgname="default"):
         requestResponsePart.__init__(self, w3af, editable=editable, widgname=widgname+"response")
-        self.show()
+        http = HttpRawView(w3af, self, editable)
+        http.is_request = False
+        self.addView(http)
+        headers = HttpHeadersView(w3af, self, editable)
+        headers.is_request = False
+        self.addView(headers)
+        try:
+            rend = getRenderingView(w3af, self)
+            self.addView(rend)
+        except Exception, ex:
+            print ex
 
-    def showObject(self, httpResp):
-        """Show the data from a httpResp object."""
-        self._obj = httpResp
-        self._synchronize()
+    def getBothTexts(self):
+        return (self._obj.dumpResponseHead(), str(self._obj.getBody()))
 
-    def _synchronize(self, source=None):
-        # Raw tab
-        self._raw.clear()
-        self._raw.set_text(self._obj.dump(), True)
-
-class reqResWindow(entries.RememberingWindow):
+class reqResWindow(RememberingWindow):
     """
     A window to show a request/response pair.
     """
     def __init__(self, w3af, request_id, enableWidget=None, withManual=True,
-                 withFuzzy=True, withCompare=True, editableRequest=False,
+                 withFuzzy=True, withCompare=True, withAudit=True, editableRequest=False,
                  editableResponse=False, widgname="default"):
         # Create the window
-        entries.RememberingWindow.__init__(
+        RememberingWindow.__init__(
             self, w3af, "reqResWin", _("w3af - HTTP Request/Response"), "Browsing_the_Knowledge_Base")
 
         # Create the request response viewer
-        rrViewer = reqResViewer(w3af, enableWidget, withManual, withFuzzy, withCompare, editableRequest, editableResponse, widgname)
+        rrViewer = reqResViewer(w3af, enableWidget, withManual, withFuzzy, withCompare, withAudit, editableRequest, editableResponse, widgname)
 
         # Search the id in the DB
         historyItem = HistoryItem()

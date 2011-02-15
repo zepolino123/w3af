@@ -27,6 +27,7 @@ from core.data.options.option import option
 from core.data.options.optionList import optionList
 
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
+from core.data.bloomfilter.pybloom import ScalableBloomFilter
 
 import core.data.kb.knowledgeBase as kb
 import core.data.kb.vuln as vuln
@@ -44,7 +45,7 @@ class svnUsers(baseGrepPlugin):
 
     def __init__(self):
         baseGrepPlugin.__init__(self)
-        
+        self._already_inspected = ScalableBloomFilter()
         # Add the regex to match something like this:
         #
         #   $Id: lzio.c,v 1.24 2003/03/20 16:00:56 roberto Exp $
@@ -62,22 +63,27 @@ class svnUsers(baseGrepPlugin):
         @parameter response: The HTTP response object
         @return: None, all results are saved in the kb.
         '''
-        if response.is_text_or_html():
-            
+        uri = response.getURI()
+        if response.is_text_or_html() and uri not in self._already_inspected:
+
+            # Don't repeat URLs
+            self._already_inspected.add(uri)
+
             for regex in self._regex_list:
-                for m in regex.findall( response.getBody() ):
+                for m in regex.findall(response.getBody()):
                     v = vuln.vuln()
-                    v.setURL( response.getURL() )
-                    v.setId( response.id )
-                    msg = 'The URL: "'+ response.getURL()  + '" contains a SVN versioning '
-                    msg += 'signature with the username: "' + m[0] + '" .' 
-                    v.setDesc( msg )
+                    v.setPluginName(self.getName())
+                    v.setURI(uri)
+                    v.setId(response.id)
+                    msg = 'The URL: "' + uri + '" contains a SVN versioning '
+                    msg += 'signature with the username: "' + m[0] + '" .'
+                    v.setDesc(msg)
                     v['user'] = m[0]
                     v.setSeverity(severity.LOW)
-                    v.setName( 'SVN user disclosure vulnerability' )
-                    v.addToHighlight( m[0] )
-                    
-                    kb.kb.append( self, 'users', v )
+                    v.setName('SVN user disclosure vulnerability')
+                    v.addToHighlight(m[0])
+                    kb.kb.append(self, 'users', v)
+
         
     def setOptions( self, OptionList ):
         pass

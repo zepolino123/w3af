@@ -18,11 +18,11 @@ back
 back
 
 target
-set target http://localhost/w3af/grep/hash_find/index.html
+set target http://moth/w3af/grep/hash_find/index.html
 back
 
 start
 
-assert len( kb.kb.getData( 'hashFind', 'hashFind' ) ) == 6
+assert len( kb.kb.getData( 'hashFind', 'hashFind' ) ) == 2 
 
 exit

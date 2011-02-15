@@ -20,22 +20,22 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
+import cStringIO
+import traceback
+import time
+import socket
+import select
+import httplib
+import SocketServer
+from OpenSSL import SSL
+from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
+
 from core.controllers.threads.w3afThread import w3afThread
 from core.controllers.threads.threadManager import threadManagerObj as tm
-
 from core.controllers.w3afException import w3afException, w3afProxyException
 import core.controllers.outputManager as om
 from core.data.parsers.urlParser import uri2url, getQueryString
-
-from OpenSSL import SSL
-
-import traceback
-from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
-import SocketServer 
-
-import time
-import socket, select
-import httplib
+from core.data.request.fuzzableRequest import fuzzableRequest
 
 class proxy(w3afThread):
     '''
@@ -74,8 +74,7 @@ class proxy(w3afThread):
     @author: Andres Riancho ( andres.riancho@gmail.com )
     '''
 
-    def __init__( self, ip, port, urlOpener, proxyHandler=None, proxyCert =
-            'core/controllers/daemons/mitm.crt', event=None):
+    def __init__( self, ip, port, urlOpener, proxyHandler=None, proxyCert = 'core/controllers/daemons/mitm.crt' ):
         '''
         @parameter ip: IP address to bind
         @parameter port: Port to bind
@@ -91,7 +90,6 @@ class proxy(w3afThread):
         self._running = False
         self._urlOpener = urlOpener
         self._tm = tm
-        self._event = event
         
         # User configured parameters
         self._ip = ip
@@ -150,7 +148,7 @@ class proxy(w3afThread):
         """
         Starts the proxy daemon; usually this method isn't called directly. In most cases you'll call start2()
         """
-        if self._proxyHandler == None:
+        if self._proxyHandler is None:
             self._proxyHandler = w3afProxyHandler
         
         # Timeout to wait for thread starting
@@ -165,8 +163,6 @@ class proxy(w3afThread):
         om.out.debug( message )
         self._server.w3afLayer = self
         self._running = True
-        if self._event:
-            self._event.set()
         self._server.serve_forever()
         
         # We aren't running anymore
@@ -207,6 +203,46 @@ class w3afProxyHandler(BaseHTTPRequestHandler):
             ### FIXME: Maybe I should perform some more detailed error handling...
             om.out.debug('An exception ocurred in w3afProxyHandler.handle_one_request() :' + str(e) )
 
+    def _getPostData(self):
+        '''
+        @return: Post data preserving rfile
+        '''
+        postData = None
+        if self.headers.dict.has_key('content-length'):
+            cl = int(self.headers['content-length'])
+            postData = self.rfile.read(cl)
+            # rfile is not seekable, so a little trick
+            if not hasattr(self.rfile, 'reset'):
+                rfile = cStringIO.StringIO(postData)
+                self.rfile = rfile
+            self.rfile.reset()
+        return postData
+
+    def _createFuzzableRequest(self):
+        '''
+        Based on the attributes, return a fuzzable request object.
+        
+        Important variables used here:
+            - self.headers : Stores the headers for the request
+            - self.rfile : A file like object that stores the postdata
+            - self.path : Stores the URL that was requested by the browser
+        '''
+        # See HTTPWrapperClass
+        if hasattr(self.server, 'chainedHandler'):
+            basePath = "https://" + self.server.chainedHandler.path
+            path = basePath + self.path
+        else:
+            path = self.path
+
+        fuzzReq = fuzzableRequest()
+        fuzzReq.setURI(path)
+        fuzzReq.setHeaders(self.headers.dict)
+        fuzzReq.setMethod(self.command)
+        postData = self._getPostData()
+        if postData:
+            fuzzReq.setData(postData)
+        return fuzzReq
+
     def doAll( self ):
         '''
         This method handles EVERY request that were send by the browser.
@@ -246,8 +282,8 @@ class w3afProxyHandler(BaseHTTPRequestHandler):
         # Do the request to the remote server
         if self.headers.dict.has_key('content-length'):
             # most likely a POST request
-            cl = int( self.headers['content-length'] )
-            postData = self.rfile.read( cl )
+            postData = self._getPostData()
+
             try:
                 httpCommandMethod = getattr( self._urlOpener, self.command )
                 res = httpCommandMethod( path, data=postData, headers=self.headers )

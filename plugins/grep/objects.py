@@ -31,9 +31,7 @@ from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
 import core.data.kb.knowledgeBase as kb
 import core.data.kb.info as info
 
-from core.data.db.temp_persist import disk_list
-
-import re
+from core.data.bloomfilter.pybloom import ScalableBloomFilter
 
 
 class objects(baseGrepPlugin):
@@ -45,10 +43,12 @@ class objects(baseGrepPlugin):
 
     def __init__(self):
         baseGrepPlugin.__init__(self)
-        self._object = re.compile(r'< *object([^>]*)>', re.IGNORECASE)
-        self._applet = re.compile(r'< *applet([^>]*)>', re.IGNORECASE)
-        self._already_added_object = disk_list()
-        self._already_added_applet = disk_list()
+        
+        self._tag_names = []
+        self._tag_names.append('object')
+        self._tag_names.append('applet')
+        
+        self._already_analyzed = ScalableBloomFilter()
 
     def grep(self, request, response):
         '''
@@ -58,34 +58,31 @@ class objects(baseGrepPlugin):
         @parameter response: The HTTP response object
         @return: None
         '''
+        url = response.getURL()
+        if response.is_text_or_html() and url not in self._already_analyzed:
 
-        if response.is_text_or_html() and response.getURL() not in self._already_added_object:
-            res = self._object.findall( response.getBody() )
-            if res:
-                i = info.info()
-                i.setName('Object tag')
-                i.setURL( response.getURL() )
-                i.setId( response.id )
-                i.setDesc( 'The URL: "' + i.getURL() + '" has an object tag.' )          
-                for finding in res:
-                    i.addToHighlight( finding )
+            self._already_analyzed.add(url)
+            
+            dom = response.getDOM()
 
-                kb.kb.append( self, 'object', i )
-                self._already_added_object.append( response.getURL() )
-        
-        if response.getURL() not in self._already_added_applet:
-            res = self._applet.findall( response.getBody() )
-            if res:
-                i = info.info()
-                i.setName('Applet tag')
-                i.setURL( response.getURL() )
-                i.setId( response.id )
-                i.setDesc( 'The URL: "' + i.getURL() + '" has an applet tag.' )          
-                for finding in res:
-                    i.addToHighlight( finding )
+            # In some strange cases, we fail to normalize the document
+            if dom is not None:
+            
+                for tag_name in self._tag_names:
+                    
+                    # Find all input tags with a type file attribute
+                    element_list = dom.xpath('//%s' % tag_name )
+                    
+                    if element_list:
+                        i = info.info()
+                        i.setPluginName(self.getName())
+                        i.setName(tag_name.title() + ' tag')
+                        i.setURL(url)
+                        i.setId( response.id )
+                        i.setDesc( 'The URL: "' + i.getURL() + '" has an '+ tag_name + ' tag.' )          
+                        i.addToHighlight( tag_name )
 
-                kb.kb.append( self, 'applet', i )
-                self._already_added_applet.append( response.getURL() )
+                        kb.kb.append( self, tag_name, i )
     
     def setOptions( self, OptionList ):
         pass

@@ -21,26 +21,14 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 '''
 
 from __future__ import with_statement
-import sqlite3
-
-import threading
-import os
-import sys
-
 from random import choice
+import os
+import sqlite3
 import string
+import sys
+import threading
 
-try:
-   import cPickle as pickle
-except:
-   import pickle
-
-try:
-    from core.controllers.misc.temp_dir import get_temp_dir
-except:
-    def get_temp_dir():
-        return '/tmp/'
-
+from core.controllers.misc.temp_dir import get_temp_dir
 
 class disk_list(object):
     '''
@@ -64,17 +52,20 @@ class disk_list(object):
     @author: Andres Riancho ( andres.riancho@gmail.com )
     '''
     
-    def __init__(self):
+    def __init__(self, text_factory=sqlite3.OptimizedUnicode):
         '''
         Create the sqlite3 database and the thread lock.
         
-        @return: None
+        @param text_factory: A callable object to handle strings.
         '''
         # Init some attributes
         self._conn = None
         self._filename = None
         self._current_index = 0
         
+        # text factory for the connection
+        self._text_factory = text_factory
+
         # Create the lock
         self._db_lock = threading.RLock()
         
@@ -85,22 +76,33 @@ class disk_list(object):
             filename = ''.join([choice(string.letters) for i in range(12)]) + '.w3af.temp_db'
             self._filename = os.path.join(tempdir, filename)
             
-            # https://sourceforge.net/tracker/?func=detail&aid=2828136&group_id=170274&atid=853652
-            if (sys.platform=='win32') or (sys.platform=='cygwin'):
-                self._filename = self._filename.decode( "MBCS" ).encode("utf-8" )
+            if sys.platform in ('win32', 'cygwin'):
+                self._filename = self._filename.decode("MBCS").encode("utf-8")
 
             try:
                 # Create the database
                 self._conn = sqlite3.connect(self._filename, check_same_thread=False)
+                
+                # Set up the text_factory to the connection
+                self._conn.text_factory = self._text_factory
+
                 # Create table
-                self._conn.execute('''create table data (index_ real, information text)''')
+                self._conn.execute(
+                    '''CREATE TABLE data (index_ real, information text)''')
+
+                # Create index
+                self._conn.execute(
+                    '''CREATE INDEX data_index ON data(information)''')
 
             except Exception,  e:
-                self._filename = None
                 
                 fail_count += 1
                 if fail_count == 5:
-                    raise Exception('Failed to create databse file. Original exception: ' + str(e))
+                    raise Exception('Failed to create database file. '
+                        'Original exception: "%s %s"' % (e, self._filename))
+
+                self._filename = None
+
             else:
                 break
                 
@@ -126,14 +128,18 @@ class disk_list(object):
     def __contains__(self, value):
         with self._db_lock:
             t = (value, )
-            cursor = self._conn.execute('select count(*) from data where information=?', t)
+            # Adding the "limit 1" to the query makes it faster, as it won't 
+            # have to scan through all the table/index, it just stops on the
+            # first match.
+            cursor = self._conn.execute(
+                    'SELECT count(*) FROM data WHERE information=? limit 1', t)
             return cursor.fetchone()[0]
     
     def append(self, value):
         # thread safe here!
         with self._db_lock:
             t = (self._current_index, value)
-            self._conn.execute("insert into data values (?, ?)", t)
+            self._conn.execute("INSERT INTO data VALUES (?, ?)", t)
             self._current_index += 1
     
     def __iter__(self):
@@ -146,33 +152,13 @@ class disk_list(object):
                 r = self._cursor.next()
                 return r[0]
         
-        cursor = self._conn.execute('select information from data')
+        cursor = self._conn.execute('SELECT information FROM data')
         mc = my_cursor(cursor)
         return mc
         
     def __len__(self):
         with self._db_lock:
-            cursor = self._conn.execute('select count(*) from data')
+            cursor = self._conn.execute('SELECT count(*) FROM data')
             return cursor.fetchone()[0]
         
-if __name__ == '__main__':
-    def create_string():
-        strr = ''
-        for i in xrange(300):
-            strr += choice(string.letters)
-        return strr
-    
-    print ''
-    print 'Testing disk_list:'
-    dlist = disk_list()
-    
-    print '1- Loading items...'
-    for i in xrange(5000):
-        r = create_string()
-        dlist.append( r )
-    
-    print '2- Assert statements...'
-    assert len(dlist) == 5000
-    assert r in dlist
-    assert not 'abc' in dlist
-    print 'Done!'
+

@@ -22,6 +22,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 
 import core.controllers.outputManager as om
+from core.controllers.w3afException import w3afException
 
 # options
 from core.data.options.option import option
@@ -33,6 +34,7 @@ import core.data.kb.knowledgeBase as kb
 import core.data.kb.info as info
 import core.data.kb.vuln as vuln
 import core.data.constants.severity as severity
+import core.data.parsers.dpCache as dpCache
 
 import re
 
@@ -57,7 +59,8 @@ class httpAuthDetect(baseGrepPlugin):
         @parameter response: The HTTP response object
         @return: None
         '''
-        already_reported = [ u.getURL() for u in kb.kb.getData( 'httpAuthDetect', 'auth' ) ]
+        already_reported = [u.getURL() for u in \
+                            kb.kb.getData('httpAuthDetect', 'auth')]
         
         # If I have a 401 code, and this URL wasn't already reported...
         if response.getCode() == 401 and \
@@ -77,40 +80,61 @@ class httpAuthDetect(baseGrepPlugin):
         Analyze a 200 response and report any findings of http://user:pass@domain.com/
         @return: None
         '''
-        if self._auth_uri_regex.match( response.getURI() ):
-            # An authentication URI was found!
-            
-            v = vuln.vuln()
-            v.setURL( response.getURL() )
-            v.setId( response.id )
-            desc = 'The resource: "'+ response.getURI() + '" has a user and password in the URI.'
-            v.setDesc( desc )
-            v.setSeverity(severity.HIGH)
-            v.setName( 'Basic HTTP credentials' )
-            v.addToHighlight( response.getURI() )
-            
-            kb.kb.append( self , 'userPassUri' , v )
-            om.out.vulnerability( v.getDesc(), severity=v.getSeverity() )
-            
-        # I also search for authentication URI's in the body
-        # I know that by doing this I loose the chance of finding hashes in PDF files, but...
-        # This is much faster
-        if response.is_text_or_html():
-            for authURI in self._auth_uri_regex.findall( response.getBody() ):
+        #
+        #   Analyze the HTTP URL
+        #
+        if '@' in response.getURI():
+
+            if self._auth_uri_regex.match(response.getURI()):
+                # An authentication URI was found!
                 v = vuln.vuln()
-                v.setURL( response.getURL() )
+                v.setPluginName(self.getName())
+                v.setURL(response.getURL())
+                v.setId(response.id)
+                desc = 'The resource: "%s" has a user and password in ' \
+                'the URI.' % response.getURI()
+                v.setDesc(desc)
+                v.setSeverity(severity.HIGH)
+                v.setName('Basic HTTP credentials')
+                v.addToHighlight(response.getURI())
+                
+                kb.kb.append(self, 'userPassUri', v)
+                om.out.vulnerability(v.getDesc(), severity=v.getSeverity())
+
+
+        #
+        #   Analyze the HTTP response body
+        #
+        url_list = []
+        try:
+            documentParser = dpCache.dpc.getDocumentParserFor(response)
+        except w3afException, w3:
+            msg = 'Failed to find a suitable document parser. ' \
+            'Exception: ' + str(w3)
+            om.out.debug(msg)
+        else:
+            parsed_references, re_references = documentParser.getReferences()
+            url_list.extend(parsed_references)
+            url_list.extend(re_references)
+
+        for url in url_list:
+                
+            if self._auth_uri_regex.match(url):
+                v = vuln.vuln()
+                v.setPluginName(self.getName())
+                v.setURL(response.getURL())
                 v.setId( response.id )
                 msg = 'The resource: "'+ response.getURL() + '" has a user and password in the'
-                msg += ' body. The offending URL is: "' + authURI + '".'
-                v.setDesc( msg )
+                msg += ' body. The offending URL is: "' + url + '".'
+                v.setDesc(msg)
                 
                 v.setSeverity(severity.HIGH)
-                v.setName( 'Basic HTTP credentials' )
-                v.addToHighlight( authURI )
+                v.setName('Basic HTTP credentials')
+                v.addToHighlight(url)
                 
-                kb.kb.append( self , 'userPassUri' , v )
-                om.out.vulnerability( v.getDesc(), severity=v.getSeverity() )
-                
+                kb.kb.append(self, 'userPassUri', v)
+                om.out.vulnerability(v.getDesc(), severity=v.getSeverity())
+                    
     def _analyze_401(self, response):
         '''
         Analyze a 401 response and report it.
@@ -122,10 +146,12 @@ class httpAuthDetect(baseGrepPlugin):
             if key.lower() == 'www-authenticate':
                 realm = response.getHeaders()[ key ]
                 break
-                
-        if realm == None:
+        
+        
+        if realm is None:
             # Report this strange case
             i = info.info()
+            i.setPluginName(self.getName())
             i.setName('Authentication without www-authenticate header')
             i.setURL( response.getURL() )
             i.setId( response.id )
@@ -137,6 +163,7 @@ class httpAuthDetect(baseGrepPlugin):
         else:
             # Report the common case, were a realm is set.
             i = info.info()
+            i.setPluginName(self.getName())
             if 'ntlm' in realm.lower():
                 i.setName('NTLM authentication')
             else:

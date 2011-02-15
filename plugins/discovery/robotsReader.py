@@ -27,7 +27,7 @@ from core.data.options.option import option
 from core.data.options.optionList import optionList
 
 from core.controllers.basePlugin.baseDiscoveryPlugin import baseDiscoveryPlugin
-from core.controllers.w3afException import w3afRunOnce
+from core.controllers.w3afException import w3afRunOnce, w3afException
 import core.data.parsers.urlParser as urlParser
 from core.controllers.coreHelpers.fingerprint_404 import is_404
 
@@ -71,6 +71,7 @@ class robotsReader(baseDiscoveryPlugin):
             if not is_404( http_response ):
                 # Save it to the kb!
                 i = info.info()
+                i.setPluginName(self.getName())
                 i.setName('robots.txt file')
                 i.setURL( robots_url )
                 i.setId( http_response.id )
@@ -103,13 +104,6 @@ class robotsReader(baseDiscoveryPlugin):
         
         return self._new_fuzzable_requests
     
-    def _get_and_parse(self, url):
-        '''
-        GET and URL that was found in the robots.txt file, and parse it.
-        
-        @parameter url: The URL to GET.
-        @return: None, everything is saved to self._new_fuzzable_requests.
-        '''
     def _get_and_parse(self, url):
         '''
         GET and URL that was found in the robots.txt file, and parse it.

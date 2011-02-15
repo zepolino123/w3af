@@ -71,7 +71,7 @@ class FullKBTree(kbtree.KBTree):
 
         success = False
         if hasattr(instance, "getId" ):
-            if instance.getId() != None:
+            if instance.getId() is not None:
                 #
                 # We have two different cases:
                 #
@@ -93,7 +93,7 @@ class FullKBTree(kbtree.KBTree):
 
                     # This handles a special case, where the plugin writer made a mistake and
                     # failed to set an id to the info / vuln object:
-                    if instance.getId()[0] == None:
+                    if instance.getId()[0] is None:
                         raise Exception('Exception - The id should not be None! "' + str(instance._desc) + '".')
                         success = False
                     else:
@@ -189,7 +189,7 @@ class KBBrowser(entries.RememberingHPaned):
         scrollwin22.show()
 
         # The request/response viewer
-        self.rrV = reqResViewer.reqResViewer(w3af)
+        self.rrV = reqResViewer.reqResViewer(w3af, withAudit=False)
         self.rrV.set_sensitive(False)
 
         # Create the title label to show the request id

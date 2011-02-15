@@ -23,7 +23,10 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 import urllib2
 import core.controllers.outputManager as om
 import core.data.request.fuzzableRequest as fuzzableRequest
+
 import core.data.url.httpResponse as httpResponse
+from core.data.url.HTTPRequest import HTTPRequest as HTTPRequest
+
 from core.data.url.handlers.keepalive import HTTPResponse as kaHTTPResponse
 import core.data.url.handlers.logHandler
 from core.data.parsers.urlParser import getDomain
@@ -57,7 +60,7 @@ class mangleHandler(urllib2.BaseHandler):
             headers[ i ] = request.unredirected_hdrs[ i ]
         fr.setHeaders( headers )
         
-        if request.get_data() == None:
+        if request.get_data() is None:
             fr.setData( '' )
         else:
             fr.setData( request.get_data() )
@@ -77,7 +80,7 @@ class mangleHandler(urllib2.BaseHandler):
             data = None
         else:
             data = fuzzableRequest.getData()
-        req = urllib2.Request( fuzzableRequest.getURI(), data=data\
+        req = HTTPRequest( fuzzableRequest.getURI(), data=data\
         , headers=fuzzableRequest.getHeaders(), origin_req_host=host )
         return req
         
@@ -104,7 +107,7 @@ class mangleHandler(urllib2.BaseHandler):
             for plugin in self._pluginList:
                 plugin.mangleResponse( httpRes )
             
-            if response._connection.sock == None:
+            if response._connection.sock is None:
                 # This fixes bug #1982106
                 # https://sourceforge.net/tracker/index.php?func=detail&aid=1982106&group_id=170274&atid=853652
                 # Returning None is like saying "I don't know what to do with this, let the next handler manage it".

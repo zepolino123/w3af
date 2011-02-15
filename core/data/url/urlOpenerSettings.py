@@ -36,7 +36,6 @@ import core.data.url.handlers.logHandler as logHandler
 import core.data.url.handlers.mangleHandler as mangleHandler
 from core.data.url.handlers.urlParameterHandler import URLParameterHandler
 
-from extlib.ntlm import ntlm
 import core.data.url.handlers.HTTPNtlmAuthHandler as HTTPNtlmAuthHandler
 
 from core.controllers.configurable import configurable
@@ -94,7 +93,7 @@ class urlOpenerSettings( configurable ):
         self._manglePlugins = []
 
         # User configured variables
-        if cf.cf.getData('timeout') == None:
+        if cf.cf.getData('timeout') is None:
             # This is the first time we are executed...
         
             cf.cf.save('timeout', 15 )
@@ -112,6 +111,7 @@ class urlOpenerSettings( configurable ):
 
             cf.cf.save('ntlmAuthUser', '' )
             cf.cf.save('ntlmAuthPass', '' )
+            cf.cf.save('ntlmAuthURL', '' )
             
             cf.cf.save('ignoreSessCookies', False )
             cf.cf.save('maxFileSize', 400000 )
@@ -202,17 +202,41 @@ class urlOpenerSettings( configurable ):
         return cf.cf.getData('User-Agent')
         
     def setProxy( self, ip , port):
-        om.out.debug( 'Called SetProxy(' + ip + ',' + str(port) + ')')
+        '''
+        Saves the proxy information and creates the handler.
+        
+        If the information is invalid it will set self._proxyHandler to None,
+        so no proxy is used.
+        
+        @return: None
+        '''
+        om.out.debug( 'Called setProxy(%s,%s)' % (ip, port) )
+        
+        if not ip:
+            #    The user doesn't want a proxy anymore
+            cf.cf.save('proxyAddress', '' )
+            cf.cf.save('proxyPort', '' )         
+            self._proxyHandler = None
+            return
+            
         if port > 65535 or port < 1:
+            #    The user entered something invalid
+            self._proxyHandler = None
             raise w3afException('Invalid port number: '+ str(port) )
 
+        #
+        #    Great, we have all valid information.
+        #
         cf.cf.save('proxyAddress', ip )
         cf.cf.save('proxyPort', port )         
         
-        # Remember that this line:
+        #
+        #    Remember that this line:
+        #
         #proxyMap = { 'http' : "http://" + ip + ":" + str(port) , 'https' : "https://" + ip + ":" + str(port) }
-        # makes no sense, because urllib2.ProxyHandler doesn't support HTTPS proxies with CONNECT.
-        # The proxying with CONNECT is implemented in keep-alive handler. (nasty!)
+        #
+        #    makes no sense, because urllib2.ProxyHandler doesn't support HTTPS proxies with CONNECT.
+        #    The proxying with CONNECT is implemented in keep-alive handler. (nasty!)
         proxyMap = { 'http' : "http://" + ip + ":" + str(port) }
         self._proxyHandler = self._ulib.ProxyHandler( proxyMap )
 
@@ -260,8 +284,9 @@ class urlOpenerSettings( configurable ):
     
     def setNtlmAuth( self, url, username, password ):
 
-        cf.cf.save('ntlmAuthPass',  password)
+        cf.cf.save('ntlmAuthPass', password )
         cf.cf.save('ntlmAuthUser', username )
+        cf.cf.save('ntlmAuthURL', url )
         
         om.out.debug( 'Called SetNtlmAuth')
 
@@ -284,35 +309,35 @@ class urlOpenerSettings( configurable ):
         self.needUpdate = True
                         
     def buildOpeners(self):
-        om.out.debug( 'Called buildOpeners')
+        om.out.debug('Called buildOpeners')
         
-        if self._cookieHandler == None and not cf.cf.getData('ignoreSessCookies'):
+        if self._cookieHandler is None and not cf.cf.getData('ignoreSessCookies'):
             cj = self._cookielib.MozillaCookieJar()
             self._cookieHandler = self._ulib.HTTPCookieProcessor(cj)
         
-        # Instanciate the handlers passing the proxy as parameter
+        # Instantiate the handlers passing the proxy as parameter
         self._kAHTTP = kAHTTP()
         self._kAHTTPS = kAHTTPS(self.getProxy())
         
         # Prepare the list of handlers
         handlers = []
-        for handler in [ self._proxyHandler, self._basicAuthHandler,  \
-                                self._ntlmAuthHandler, self._cookieHandler, \
-                                MultipartPostHandler.MultipartPostHandler, \
-                                self._kAHTTP, self._kAHTTPS, logHandler.logHandler, \
-                                mangleHandler.mangleHandler( self._manglePlugins ), \
-                                HTTPGzipProcessor, self._urlParameterHandler ]:
+        for handler in [self._proxyHandler, self._basicAuthHandler,
+                        self._ntlmAuthHandler, self._cookieHandler,
+                        MultipartPostHandler.MultipartPostHandler,
+                        self._kAHTTP, self._kAHTTPS, logHandler.logHandler,
+                        mangleHandler.mangleHandler(self._manglePlugins),
+                        HTTPGzipProcessor, self._urlParameterHandler]:
             if handler:
                 handlers.append(handler)
         
-        self._nonCacheOpener = apply( self._ulib.build_opener, tuple(handlers) )
+        self._nonCacheOpener = self._ulib.build_opener(*handlers)
         
         # Prevent the urllib from putting his user-agent header
         self._nonCacheOpener.addheaders = [ ('Accept', '*/*') ]
         
         # Add the local cache to the list of handlers
-        handlers.append( localCache.CacheHandler() )
-        self._cacheOpener = apply( self._ulib.build_opener, tuple(handlers) )
+        handlers.append(localCache.CacheHandler())
+        self._cacheOpener = self._ulib.build_opener(*handlers)
         
         # Prevent the urllib from putting his user-agent header
         self._cacheOpener.addheaders = [ ('Accept', '*/*') ]
@@ -390,6 +415,12 @@ class urlOpenerSettings( configurable ):
 
         d7 = 'Set the NTLM authentication password for HTTP requests'
         o7 = option('ntlmAuthPass', cf.cf.getData('ntlmAuthPass'), d7, 'string', tabid='NTLM Authentication')
+
+        d7b = 'Set the NTLM authentication domain for HTTP requests'
+        h7b = 'This configures on which requests to send the authentication settings configured'
+        h7b += ' in ntlmAuthPass and ntlmAuthUser. If you are unsure, just set it to the'
+        h7b += ' target domain name.'
+        o7b = option('ntlmAuthURL', cf.cf.getData('ntlmAuthURL'), d7b, 'string', tabid='NTLM Authentication')
                 
         d8 = 'Set the cookiejar filename.'
         h8 = 'The cookiejar file must be in mozilla format.'
@@ -411,7 +442,7 @@ class urlOpenerSettings( configurable ):
         d11 = 'Proxy IP address'
         h11 = 'IP address for the remote proxy server to use. On Microsoft Windows systems, w3af'
         h11 += ' will use the proxy settings that are configured in Internet Explorer.'
-        o11 = option('proxyAddress', cf.cf.getData('proxyAddress'), d11, 'string', help=d11, tabid='Outgoing proxy')
+        o11 = option('proxyAddress', cf.cf.getData('proxyAddress'), d11, 'string', help=h11, tabid='Outgoing proxy')
 
         d12 = 'User Agent header'
         h12 = 'User Agent header to send in request.'
@@ -446,6 +477,7 @@ class urlOpenerSettings( configurable ):
         ol.add(o5)
         ol.add(o6)
         ol.add(o7)
+        ol.add(o7b)
         ol.add(o8)
         ol.add(o9)
         ol.add(o10)
@@ -476,6 +508,12 @@ class urlOpenerSettings( configurable ):
             self.setBasicAuth( optionsMap['basicAuthDomain'].getValue(),
                                         optionsMap['basicAuthUser'].getValue(),
                                         optionsMap['basicAuthPass'].getValue()  )
+        
+        if optionsMap['ntlmAuthUser'].getValue() != cf.cf.getData('ntlmAuthUser') or\
+        optionsMap['ntlmAuthPass'].getValue() != cf.cf.getData('ntlmAuthPass') or\
+        optionsMap['ntlmAuthURL'].getValue() != cf.cf.getData('ntlmAuthURL'):
+            self.setNtlmAuth( optionsMap['ntlmAuthURL'].getValue(), optionsMap['ntlmAuthUser'].getValue() ,
+                              optionsMap['ntlmAuthPass'].getValue())
 
         # Only apply changes if they exist
         if optionsMap['proxyAddress'].getValue() != cf.cf.getData('proxyAddress') or\

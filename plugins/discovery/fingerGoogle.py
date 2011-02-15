@@ -50,7 +50,6 @@ class fingerGoogle(baseDiscoveryPlugin):
         self._accounts = []
         
         # User configured 
-        self._key = ''
         self._result_limit = 300
         self._fast_search = False
         
@@ -66,7 +65,7 @@ class fingerGoogle(baseDiscoveryPlugin):
             # This plugin will only run one time. 
             self._run = False
             
-            self._google = google( self._urlOpener, self._key )
+            self._google = google(self._urlOpener)
             self._domain = domain = urlParser.getDomain( fuzzableRequest.getURL() )
             self._domain_root = urlParser.getRootDomain( domain )
             
@@ -119,12 +118,12 @@ class fingerGoogle(baseDiscoveryPlugin):
         @return: A list of valid accounts
         '''
         try:
-            om.out.debug('Searching for mails in: ' + googlePage.getURL() )
-            if self._domain == urlParser.getDomain( googlePage.getURL() ):
-                response = self._urlOpener.GET( googlePage.getURL(), useCache=True, \
+            om.out.debug('Searching for mails in: ' + googlePage.getURI() )
+            if self._domain == urlParser.getDomain( googlePage.getURI() ):
+                response = self._urlOpener.GET( googlePage.getURI(), useCache=True, \
                                                                 grepResult=True )
             else:
-                response = self._urlOpener.GET( googlePage.getURL(), useCache=True, \
+                response = self._urlOpener.GET( googlePage.getURI(), useCache=True, \
                                                                 grepResult=False )
         except KeyboardInterrupt, e:
             raise e
@@ -152,6 +151,7 @@ class fingerGoogle(baseDiscoveryPlugin):
                     self._accounts.append( mail )
                     
                     i = info.info()
+                    i.setPluginName(self.getName())
                     i.setName(mail)
                     i.setURL( response.getURI() )
                     msg = 'The mail account: "'+ mail + '" was found in: "'
@@ -159,6 +159,7 @@ class fingerGoogle(baseDiscoveryPlugin):
                     i.setDesc( msg )
                     i['mail'] = mail
                     i['user'] = mail.split('@')[0]
+                    i['url_list'] = [response.getURI(), ]
                     kb.kb.append( 'mails', 'mails', i )
                     kb.kb.append( self, 'mails', i )
     
@@ -166,13 +167,6 @@ class fingerGoogle(baseDiscoveryPlugin):
         '''
         @return: A list of option objects for this plugin.
         '''
-        d1 = 'Google API License key'
-        h1 = 'To use this plugin you have to own your own google API license key OR you can'
-        h1 += ' directly use the search engine using clasic HTTP. If this parameter is left'
-        h1 += ' blank, the search engine will be used, otherwise the google webservice will'
-        h1 += ' be used.Go to http://www.google.com/apis/ to get more information.'
-        o1 = option('key', self._key, d1, 'string', help=h1)
-        
         d2 = 'Fetch the first "resultLimit" results from the Google search'
         o2 = option('resultLimit', self._result_limit, d2, 'integer')
         
@@ -182,7 +176,6 @@ class fingerGoogle(baseDiscoveryPlugin):
         o3 = option('fastSearch', self._fast_search, d3, 'boolean', help=h3)
         
         ol = optionList()
-        ol.add(o1)
         ol.add(o2)
         ol.add(o3)
         return ol
@@ -195,7 +188,6 @@ class fingerGoogle(baseDiscoveryPlugin):
         @parameter OptionList: A dictionary with the options for the plugin.
         @return: No value is returned.
         ''' 
-        self._key = optionsMap['key'].getValue()
         self._result_limit = optionsMap['resultLimit'].getValue()
         self._fast_search = optionsMap['fastSearch'].getValue()
             
@@ -214,7 +206,6 @@ class fingerGoogle(baseDiscoveryPlugin):
         This plugin finds mail addresses in google.
         
         Two configurable parameters exist:
-            - key
             - resultLimit
             - fastSearch
         
@@ -222,6 +213,4 @@ class fingerGoogle(baseDiscoveryPlugin):
         search results and parses them in order   to find new mail addresses. If the fastSearch 
         configuration parameter is set to True, only mail addresses that appear on the google 
         result page are parsed and added to the list, the result links are\'nt visited.
-        
-        Valid google API licenses are only the *old ones*.
         '''

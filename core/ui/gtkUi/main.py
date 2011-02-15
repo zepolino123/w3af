@@ -21,6 +21,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 '''
 from __future__ import absolute_import
 
+import pprint
+import StringIO
 import sys
 
 # I perform the GTK UI dependency check here
@@ -34,6 +36,7 @@ dependencyCheck.gtkui_dependency_check()
 # Now that I know that I have them, import them!
 import pygtk
 import gtk, gobject
+
 
 # This is just general info, to help people knowing their system
 print "Starting w3af, running on:"
@@ -70,6 +73,7 @@ except ImportError:
 import threading, shelve, os
 import core.controllers.w3afCore
 import core.controllers.miscSettings
+from core.controllers.auto_update import VersionMgr, SVNError
 from core.controllers.w3afException import w3afException
 import core.data.kb.config as cf
 import core.data.parsers.urlParser as urlParser
@@ -78,11 +82,10 @@ from . import scanrun, exploittab, helpers, profiles, craftedRequests, compare, 
 from . import export_request
 from . import entries, encdec, messages, logtab, pluginconfig, confpanel
 from . import wizard, guardian, proxywin
-from . import exception_handler
 
 from core.controllers.misc.homeDir import get_home_dir
 from core.controllers.misc.get_w3af_version import get_w3af_version
-from core.ui.gtkUi.proxywin import ProxiedRequests
+
 import webbrowser, time
 
 MAINTITLE = "w3af - Web Application Attack and Audit Framework"
@@ -249,13 +252,55 @@ class MainApp(object):
     @author: Facundo Batista <facundobatista =at= taniquetil.com.ar>
     '''
 
-    def __init__(self, profile):
+    def __init__(self, profile, do_upd):
+        w3af_icon = 'core/ui/gtkUi/data/w3af_icon.png'
         # Create a new window
         self.window = gtk.Window(gtk.WINDOW_TOPLEVEL)
-        self.window.set_icon_from_file('core/ui/gtkUi/data/w3af_icon.png')
+        self.window.set_icon_from_file(w3af_icon)
         self.window.connect("delete_event", self.quit)
         self.window.connect('key_press_event', self.helpF1)
         splash.push(_("Loading..."))
+        
+        if do_upd in (None, True):
+            # Do SVN update stuff
+            vmgr = VersionMgr(log=splash.push)
+            
+            #  Set callbacks
+            def ask(msg):
+                dlg = gtk.MessageDialog(None, gtk.DIALOG_MODAL, 
+                                gtk.MESSAGE_QUESTION, gtk.BUTTONS_YES_NO, msg)
+                dlg.set_icon_from_file(w3af_icon)
+                opt = dlg.run()
+                dlg.destroy()
+                return opt == gtk.RESPONSE_YES
+            vmgr.callback_onupdate_confirm = ask
+            
+            #  Event registration
+            def notify(msg):
+                dlg = gtk.MessageDialog(None, gtk.DIALOG_MODAL, 
+                                    gtk.MESSAGE_QUESTION, gtk.BUTTONS_OK, msg)
+                dlg.set_icon_from_file(w3af_icon)
+                dlg.run()
+                dlg.destroy()
+            vmgr.register(VersionMgr.ON_ACTION_ERROR, notify, 'Error occured.')
+            msg = 'At least one new dependency was included in w3af. Please ' \
+            'update manually.'
+            vmgr.register(VersionMgr.ON_UPDATE_ADDED_DEP, notify, msg)
+            
+            #  If an error occurred and the error the result is None
+            resp = vmgr.update(force=do_upd)
+            if resp:
+                files, lrev, rrev = resp
+                if rrev:
+                    tabnames=("Updated Files", "Latest Changes")
+                    dlg = entries.TextDialog("Update report", 
+                                             tabnames=tabnames,
+                                             icon=w3af_icon)
+                    dlg.addMessage(str(files), page_num=0)
+                    dlg.addMessage(str(vmgr.show_summary(lrev, rrev)),
+                                   page_num=1)
+                    dlg.done()
+                    dlg.dialog_run()
 
         # title and positions
         self.window.set_title(MAINTITLE)
@@ -306,8 +351,7 @@ class MainApp(object):
         # Create actions
         actiongroup.add_actions([
             # xml_name, icon, real_menu_text, accelerator, tooltip, callback
-            ('Quit', gtk.STOCK_QUIT, _('_Quit'), None, _('Exit the program'),
-                lambda w: self.quit(None, None)),
+            ('Quit', gtk.STOCK_QUIT, _('_Quit'), None, _('Exit the program'), lambda w: self.quit(None, None)),
             ('New', gtk.STOCK_NEW, _('_New'), None, _('Create a new profile'), lambda w: self.profileAction("new")),
             ('Save', gtk.STOCK_SAVE, _('_Save'), None, _('Save this configuration'), lambda w: self.profileAction("save")),
             ('SaveAs', gtk.STOCK_SAVE_AS, _('Save _as...'), None, _('Save this configuration in a new profile'), lambda w: self.profileAction("saveAs")),
@@ -324,12 +368,12 @@ class MainApp(object):
             ('Miscellaneous', None, _('_Miscellaneous'), None, _('Miscellaneous configuration'), self.menu_config_misc),
             ('ConfigurationMenu', None, _('_Configuration')),
             
-            ('ManualRequest', gtk.STOCK_INDEX, _('_Manual Request'), None, _('Generate manual HTTP request'), self._manual_request),
-            ('FuzzyRequest', gtk.STOCK_PROPERTIES, _('_Fuzzy Request'), None, _('Generate fuzzy HTTP requests'), self._fuzzy_request),
-            ('EncodeDecode', gtk.STOCK_CONVERT, _('_Encode/Decode'), None, _('Encodes and Decodes in different ways'), self._encode_decode),
+            ('ManualRequest', gtk.STOCK_INDEX, _('_Manual Request'), '<Control>m', _('Generate manual HTTP request'), self._manual_request),
+            ('FuzzyRequest', gtk.STOCK_PROPERTIES, _('_Fuzzy Request'), '<Control>u', _('Generate fuzzy HTTP requests'), self._fuzzy_request),
+            ('EncodeDecode', gtk.STOCK_CONVERT, _('Enc_ode/Decode'), '<Control>o', _('Encodes and Decodes in different ways'), self._encode_decode),
             ('ExportRequest', gtk.STOCK_COPY, _('_Export Request'), '<Control>e', _('Export HTTP request'), self._export_request),
-            ('Compare', gtk.STOCK_ZOOM_100, _('_Compare'), None, _('Compare different requests and responses'), self._compare),
-            ('Proxy', gtk.STOCK_CONNECT, _('_Proxy'), None, _('Proxies the HTTP requests, allowing their modification'), self._proxy_tool),
+            ('Compare', gtk.STOCK_ZOOM_100, _('_Compare'), '<Control>r', _('Compare different requests and responses'), self._compare),
+            ('Proxy', gtk.STOCK_CONNECT, _('_Proxy'), '<Control>p', _('Proxies the HTTP requests, allowing their modification'), self._proxy_tool),
             ('ToolsMenu', None, _('_Tools')),
 
             ('Wizards', gtk.STOCK_SORT_ASCENDING, _('_Wizards'), None, _('Point & Click Penetration Test'), self._wizards),
@@ -493,7 +537,7 @@ class MainApp(object):
         
         # We know that we have focus.... but... is the selection a plugin ?
         (path, column) = treeToUse.get_cursor()
-        if path != None and len(path) > 1:
+        if path is not None and len(path) > 1:
             # Excellent! it is over a plugin!
             # enable the menu option
             ag = self._actiongroup.get_action("EditPlugin")
@@ -590,14 +634,35 @@ class MainApp(object):
             try:
                 self.w3af.start()
             except KeyboardInterrupt:
-#                print 'Ctrl+C found, exiting!'
+                # print 'Ctrl+C found, exiting!'
                 pass
-            except Exception, e:
+            except Exception:
                 gobject.idle_add(self._scan_stopfeedback)
-                exception_class = type(e)
-                exception_instance = e
-                exception_traceback = sys.exc_traceback
-                exception_handler.handle_crash(exception_class, exception_instance, exception_traceback)
+                
+                def pprint_plugins():
+                    # Return a pretty-printed string from the plugins dicts
+                    import copy
+                    from itertools import chain
+                    plugs_opts = copy.deepcopy(self.w3af._pluginsOptions)
+                    plugs = self.w3af._strPlugins
+
+                    for ptype, plist in plugs.iteritems():
+                        for p in plist:
+                            if p not in chain(*(pt.keys() for pt in \
+                                                    plugs_opts.itervalues())):
+                                plugs_opts[ptype][p] = {}
+                    
+                    plugins = StringIO.StringIO()
+                    pprint.pprint(plugs_opts, plugins)
+                    return  plugins.getvalue()
+                
+                plugins_str = pprint_plugins()
+                try:
+                    exc_class, exc_inst, exc_tb = sys.exc_info()
+                    exception_handler.handle_crash(exc_class, exc_inst,
+                                                   exc_tb, plugins=plugins_str)
+                finally:
+                    del exc_tb
         
         # start real work in background, and start supervising if it ends                
         threading.Thread(target=startScanWrap).start()
@@ -847,32 +912,6 @@ class MainApp(object):
 
         helpers.open_help(chapter)
 
-
-class MainAppProxy(ProxiedRequests):
-    '''Convinetnt way to run proxy'''
-    def __init__(self):
-        self.w3af = core.controllers.w3afCore.w3afCore()
-        om.out.setOutputPlugins( ['gtkOutput'] )
-        self.w3af.mainwin = self
-        genconfigfile = os.path.join(get_home_dir(),  "generalconfig.pkl")
-        try:
-            self.generalconfig = shelve.open(genconfigfile)
-        except Exception, e:
-            print "WARNING: something bad happened when trying to open the general config!"
-            print "    File: %r" % genconfigfile
-            print "    Problem:", e
-            self.generalconfig = FakeShelve()
-        self.isRunning = False
-        splash.destroy()
-        super(MainAppProxy,self).__init__(self.w3af)
-        gtk.main()
-
-    def _close(self):
-        super(MainAppProxy,self)._close()
-        gtk.main_quit()
-
-    def sb(self, msg):
-        print 'SB: ',msg
-
-def main(profile):
-    MainApp(profile)
+    
+def main(profile, do_upd):
+    MainApp(profile, do_upd)

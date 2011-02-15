@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# -*- coding: UTF-8 -*-
 '''
 abstractParser.py
 
@@ -30,7 +30,7 @@ import re
 import urllib
 
 
-class abstractParser:
+class abstractParser(object):
     '''
     This class is an abstract document parser.
     
@@ -86,7 +86,7 @@ class abstractParser:
         @return: None. The findings are stored in self._re_URLs.
         '''
         #url_regex = '((http|https):[A-Za-z0-9/](([A-Za-z0-9$_.+!*(),;/?:@&~=-])|%[A-Fa-f0-9]{2})+(#([a-zA-Z0-9][a-zA-Z0-9$_.+!*(),;/?:@&~=%-]*))?)'
-        url_regex = '((http|https)://([a-zA-Z0-9_\-\./]*?)/[^ \n\r\t"\'<>]*)'
+        url_regex = '((http|https)://([a-zA-Z0-9_:@\-\./]*?)/[^ \n\r\t"\'<>]*)'
         for url in re.findall(url_regex, httpResponse.getBody() ):
             # This try is here because the _decode_URL method raises an exception
             # whenever it fails to decode a url.
@@ -153,6 +153,7 @@ class abstractParser:
             return [ i for i in self._emails if domain in i.split('@')[1] ]
         else:
             return self._emails
+            
     def getForms( self ):
         '''
         @return: A list of forms.
@@ -222,8 +223,8 @@ class abstractParser:
         to get "http://host.tld/é".
         
         Something small to remember:
-        >>> print urllib.unquote('ind%c3%a9x.html').decode('utf-8').encode('utf-8')
-        indéx.html
+        >>> urllib.unquote('ind%c3%a9x.html').decode('utf-8').encode('utf-8') == 'ind\xc3\xa9x.html'
+        True
         '''
         
         # Avoid the double decoding performed by httpResponse._charset_handling() and

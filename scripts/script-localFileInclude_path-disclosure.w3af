@@ -16,7 +16,7 @@ back
 back
 
 target
-set target http://localhost/w3af/audit/local_file_inclusion/trivial_lfi.php?file=index.html
+set target http://moth/w3af/audit/local_file_inclusion/trivial_lfi.php?file=index.html
 back
 
 start
@@ -26,10 +26,12 @@ exploit localFileReader
 
 interact 0
 
-cat /etc/passwd
+read /etc/passwd
+payload tcp
+
 list
 
-endInteraction
+exit
 back
 
 assert len(kb.kb.getData('localFileInclude','localFileInclude')) == 3

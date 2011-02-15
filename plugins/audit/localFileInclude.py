@@ -101,7 +101,7 @@ class localFileInclude(baseAuditPlugin):
 
         extension = urlParser.getExtension(origUrl)
 
-        # I will only try to open this files, they are easy to identify of they 
+        # I will only try to open these files, they are easy to identify of they 
         # echoed by a vulnerable web app and they are on all unix or windows default installs.
         # Feel free to mail me ( Andres Riancho ) if you know about other default files that
         # could be installed on AIX ? Solaris ? and are not /etc/passwd
@@ -172,6 +172,7 @@ class localFileInclude(baseAuditPlugin):
                 for file_pattern_regex, file_content in file_content_list:
                     if not file_pattern_regex.search( mutant.getOriginalResponseBody() ):
                         v = vuln.vuln( mutant )
+                        v.setPluginName(self.getName())
                         v.setId( response.id )
                         v.setName( 'Local file inclusion vulnerability' )
                         v.setSeverity(severity.MEDIUM)
@@ -193,12 +194,20 @@ class localFileInclude(baseAuditPlugin):
                         #   We were able to read the source code of the file that is vulnerable to
                         #   local file read
                         v = vuln.vuln( mutant )
+                        v.setPluginName(self.getName())
                         v.setId( response.id )
                         v.setName( 'Local file read vulnerability' )
                         v.setSeverity(severity.MEDIUM)
                         msg = 'An arbitrary local file read vulnerability was found at: '
                         msg += mutant.foundAt()
                         v.setDesc( msg )
+                        
+                        #
+                        #    Set which part of the source code to match
+                        #
+                        match_source_code = match.group(0)
+                        v['file_pattern'] = match_source_code
+                        
                         kb.kb.append( self, 'localFileInclude', v )
                         return
                         
@@ -212,6 +221,7 @@ class localFileInclude(baseAuditPlugin):
                     if match and not \
                     regex.search( mutant.getOriginalResponseBody() ):
                         i = info.info( mutant )
+                        i.setPluginName(self.getName())
                         i.setId( response.id )
                         i.setName( 'File read error' )
                         i.setDesc( 'A file read error was found at: ' + mutant.foundAt() )

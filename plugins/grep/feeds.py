@@ -27,11 +27,10 @@ from core.data.options.option import option
 from core.data.options.optionList import optionList
 
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
+from core.data.bloomfilter.pybloom import ScalableBloomFilter
 
 import core.data.kb.knowledgeBase as kb
 import core.data.kb.info as info
-
-import re
 
 class feeds(baseGrepPlugin):
     '''
@@ -42,20 +41,12 @@ class feeds(baseGrepPlugin):
     
     def __init__(self):
         baseGrepPlugin.__init__(self)
-        self._compiledRegex = []
-        
-    def _get_feeds( self ):
-        if not self._compiledRegex:
-            # rss 0.9, rss 2.0
-            self._compiledRegex.append( (re.compile('<rss version="(.*?)">', re.IGNORECASE), 'RSS') )
-            # rss 1.0
-            self._compiledRegex.append( (re.compile('xmlns="http://purl.org/rss/(.*?)/"', re.IGNORECASE), 'RSS') )
-            # OPML
-            self._compiledRegex.append( (re.compile('<feed version="(.*?)"', re.IGNORECASE), 'OPML') )
-            self._compiledRegex.append( (re.compile('<opml version="(.*?)">', re.IGNORECASE), 'OPML') )
-            
-        return self._compiledRegex
-        
+        self._rss_tag_attr = [('rss', 'version', 'RSS'),# <rss version="...">
+                              ('feed', 'version', 'OPML'),# <feed version="..."
+                              ('opml', 'version', 'OPML') # <opml version="...">
+                              ]
+        self._already_inspected = ScalableBloomFilter()
+                
     def grep(self, request, response):
         '''
         Plugin entry point, find feeds.
@@ -64,25 +55,34 @@ class feeds(baseGrepPlugin):
         @parameter response: The HTTP response object
         @return: None
         '''
+        dom = response.getDOM()
+        uri = response.getURI()
+        
+        # In some strange cases, we fail to normalize the document
+        if uri not in self._already_inspected and dom is not None:
 
-        # Performance enhancement
-        # (this was the longer string I could find that intersecter all the feed strings)
-        if '="' in response.getBody():
+            self._already_inspected.add(uri)
 
-            # Now do the real work
-            for regex, feed_type in self._get_feeds():
-                match = regex.search( response.getBody() )
-                if match:
-                    match_string = match.group(0)
-                    i = info.info()
-                    i.setName(feed_type +' feed')
-                    i.setURL( response.getURL() )
-                    msg = 'The URL: "' + i.getURL() + '" is a ' + feed_type + ' version "' 
-                    msg += match_string + '" feed.'
-                    i.setDesc( msg )
-                    i.setId( response.id )
-                    i.addToHighlight( feed_type )
-                    kb.kb.append( self, 'feeds', i )
+            for tag_name, attr_name, feed_type in self._rss_tag_attr:
+                
+                # Find all tags with tag_name
+                element_list = dom.xpath('//%s' % tag_name)
+            
+                for element in element_list:
+                    
+                    if attr_name in element.attrib:
+                        
+                        version = element.attrib[attr_name]                        
+                        i = info.info()
+                        i.setPluginName(self.getName())
+                        i.setName(feed_type +' feed')
+                        i.setURI(uri)
+                        msg = 'The URL: "' + uri + '" is a ' + feed_type + ' version "' 
+                        msg += version + '" feed.'
+                        i.setDesc( msg )
+                        i.setId( response.id )
+                        i.addToHighlight( feed_type )
+                        kb.kb.append( self, 'feeds', i )
     
     def setOptions( self, OptionList ):
         pass
