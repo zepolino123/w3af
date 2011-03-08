@@ -18,14 +18,11 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
-import time
-import os
 import smtplib
 from email.mime.text import MIMEText
 
 from core.controllers.basePlugin.baseOutputPlugin import baseOutputPlugin
 from core.controllers.w3afException import w3afException
-from core.controllers.falsePositiveManager import falsePositiveManager
 import core.data.kb.knowledgeBase as kb
 import core.data.kb.config as cf
 from core.data.options.option import option
@@ -38,7 +35,8 @@ Target: %s has some vulnerabilities.
 '''
 
 class emailReport(baseOutputPlugin):
-    '''Email reporter class.'''
+    '''Email report to specified addresses.
+    '''
 
     def __init__(self):
         baseOutputPlugin.__init__(self)
@@ -48,22 +46,24 @@ class emailReport(baseOutputPlugin):
         self.smtpPort = 25
         self.toAddrs = ''
         self.fromAddr = ''
-        self._fpManager = falsePositiveManager()
         self._exec = False
 
     def logEnabledPlugins(self, pluginsDict, optionsDict):
         self.targets = cf.cf.getData('targets')
 
     def setOptions(self, OptionList):
-        smtpServer = OptionList['smtpServer'].getValue()
-        self.smtpServer, self.smtpPort = smtpServer.split(":")
+        self.smtpServer = OptionList['smtpServer'].getValue()
+        self.smtpPort = OptionList['smtpPort'].getValue()
         self.fromAddr = OptionList['fromAddr'].getValue()
         self.toAddrs = OptionList['toAddrs'].getValue()
 
     def getOptions(self):
         ol = optionList()
-        d = 'SMTP server:port to send notifications through'
-        o = option('smtpServer', self.smtpServer+':'+str(self.smtpPort), d, 'ipport')
+        d = 'SMTP server ADDRESS to send notifications through, e.g. smtp.yourdomain.com'
+        o = option('smtpServer', self.smtpServer, d, 'string')
+        ol.add(o)
+        d = 'SMTP server PORT'
+        o = option('smtpPort', self.smtpPort, d, 'integer')
         ol.add(o)
         d = 'Recipient email address'
         o = option('toAddrs', self.toAddrs, d, 'list')
@@ -77,26 +77,33 @@ class emailReport(baseOutputPlugin):
         if not self.targets or self._exec:
             return
         self._exec = True
+
         data = self.tpl % (self.targets[0])
         vulns = kb.kb.getAllVulns()
-        realVulns = 0
+
         for v in vulns:
-            if not self._fpManager.isFalsePositive(v.getURI()):
-                realVulns += 1
-                data += v.getDesc() + '\n'
-        if not realVulns:
-            return
+            data += v.getDesc() + '\n'
+
         msg = MIMEText(data)
         msg['From'] = self.fromAddr
         msg['To'] = ', '.join(self.toAddrs)
-        msg['Subject'] = 'W3AF report on %s' % self.targets[0]
-        server = smtplib.SMTP(self.smtpServer, int(self.smtpPort))
+        msg['Subject'] = 'w3af report on %s' % self.targets[0]
+
+        server = smtplib.SMTP(self.smtpServer, self.smtpPort)
         server.sendmail(self.fromAddr, self.toAddrs, msg.as_string())
         server.quit()
 
     def getLongDesc(self):
-        '''Return a DETAILED description of the plugin functions and features.'''
-        return '''This plugin send short report by email.'''
+        return '''
+            This plugin sends short report (only vulnerabilities)
+            by email to specified addresses.
+
+            There are some configurable parameters:
+            - smtpServer
+            - smtpPort
+            - toAddrs
+            - fromAddr
+            '''
 
     def debug(self, message, newLine = True):
         pass
