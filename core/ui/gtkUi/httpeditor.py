@@ -89,6 +89,23 @@ class HttpEditor(gtk.VBox, Searchable):
         l = b.get_language()
         return l.get_id()
 
+    def get_string_payloads(self):
+        '''Give the list of payloads.
+        Taken from: http://ha.ckers.org/xss.html
+        '''
+        return [
+                '\'\';!--"<XSS>=&{()}',
+                '''';alert(String.fromCharCode(88,83,83))//\\\';
+                alert(String.fromCharCode(88,83,83))//";alert(String.fromCharCode(88,83,83))//\";
+                alert(String.fromCharCode(88,83,83))//--></SCRIPT>">'><SCRIPT>alert(String.fromCharCode(88,83,83))
+                </SCRIPT>''',
+                '<SCRIPT SRC=http://ha.ckers.org/xss.js></SCRIPT>'
+                ]
+
+    def _insert_payload(self, widg, payload):
+        b = self.get_buffer()
+        b.insert_at_cursor(payload)
+
     def get_languages(self):
         return ['http', 'html', 'xml', 'css']
         #return self._lm.get_language_ids()
@@ -98,9 +115,11 @@ class HttpEditor(gtk.VBox, Searchable):
 
     def _populate_popup(self, textview, menu):
         menu.append(gtk.SeparatorMenuItem())
+        # Enc/Dec
         encdec = gtk.MenuItem(_('Send selected text to Encode/Decode tool'))
         encdec.connect("activate", self._send2enc)
         menu.append(encdec)
+        # Syntax menu
         syntaxMenu = gtk.Menu()
         for i in self.get_languages():
             langItem = gtk.MenuItem(i)
@@ -108,6 +127,14 @@ class HttpEditor(gtk.VBox, Searchable):
             syntaxMenu.append(langItem)
         opc = gtk.MenuItem(_("Syntax highlighting"))
         opc.set_submenu(syntaxMenu)
+        # Strings payloads
+        payloadMenu = gtk.Menu()
+        for i in self.get_string_payloads():
+            payloadItem = gtk.MenuItem(i)
+            payloadItem.connect("activate", self._insert_payload, i)
+            payloadMenu.append(payloadItem)
+        opc = gtk.MenuItem(_("String payloads"))
+        opc.set_submenu(payloadMenu)
         menu.append(opc)
         menu.show_all()
         Searchable._populate_popup(self, textview, menu)
