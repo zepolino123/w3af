@@ -19,12 +19,8 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-import sys
-import re
-import os
 import urllib2
 import httplib
-import unittest
 import hashlib
 from core.controllers.misc.homeDir import get_home_dir
 
@@ -75,10 +71,23 @@ class CacheHandler(urllib2.BaseHandler):
         
         method = request.get_method().upper()
         if ( ( method in CACHE_METHODS ) and 
-            (CachedResponse.ExistsInCache(self.cacheLocation, getId( request ) ))):
-            return CachedResponse(self.cacheLocation, request ) 
+             ( CachedResponse.ExistsInCache(self.cacheLocation, getId( request )) )):
+            try:
+                cache_response_obj = CachedResponse(self.cacheLocation, request )
+            except:
+                # Sometimes the cache gets corrupted, or the initial HTTP request
+                # that's saved to disk doesn't completely respect the RFC and
+                # when we try to read it, it crashes.
+
+                # Send None to the urllib2 framework, which means that we don't
+                # know how to handle the request, and we forward it to the next
+                # handler in the list.
+                return None 
+            else:
+                return cache_response_obj
         else:
-            return None # let the next handler try to handle the request
+            # Let the next handler try to handle the request
+            return None 
 
     def http_response(self, request, response):
         method = request.get_method().upper()
@@ -138,6 +147,11 @@ class CachedResponse(StringIO.StringIO):
             
         try:
             f = open(cacheLocation + os.path.sep + id + ".code", "w")
+
+            # minimal validation before storing the data to disk
+            int(response.code)
+
+            # store data to disk
             f.write(str(response.code))
             f.close()
         except KeyboardInterrupt, e:
@@ -178,7 +192,7 @@ class CachedResponse(StringIO.StringIO):
         except KeyboardInterrupt, e:
             raise e
         except Exception, e:
-            om.out.error('localCache.py : Could not open cache for request.')
+            om.out.error('localCache.py : Could not open cache for request. Error: ' + str(e) )
             raise e
         else:
             self.url = request.get_full_url()
