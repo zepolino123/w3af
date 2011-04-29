@@ -35,7 +35,7 @@ from core.controllers.misc.get_local_ip import get_local_ip
 from core.controllers.misc.number_generator import consecutive_number_generator
 
 from core.data.url.xUrllib import xUrllib
-import core.data.parsers.urlParser as urlParser
+from core.data.parsers.urlParser import url_object
 from core.controllers.w3afException import w3afException, w3afRunOnce, \
     w3afFileException, w3afMustStopException, w3afMustStopByUnknownReasonExc
 from core.controllers.targetSettings import targetSettings as targetSettings
@@ -44,6 +44,7 @@ import traceback
 import copy
 import Queue
 import time
+import datetime
 
 import core.data.kb.knowledgeBase as kb
 import core.data.kb.config as cf
@@ -432,7 +433,33 @@ class w3afCore(object):
                              traceback.format_exc()) 
                 raise
             else:
-                om.out.information('Finished scanning process.')
+
+                time_diff = time.time() - self._discovery_start_time_epoch
+                time_delta = datetime.timedelta(seconds=time_diff)
+
+                weeks, days = divmod(time_delta.days, 7)
+
+                minutes, seconds = divmod(time_delta.seconds, 60)
+                hours, minutes = divmod(minutes, 60)
+
+                msg =  'Scan finished in '
+
+                if weeks == days == hours == minutes == seconds == 0:
+                    msg += '0 seconds.'
+                else:
+                    if weeks:
+                        msg += str(weeks) + ' week%s ' % ('s' if weeks > 1 else '')
+                    if days:
+                        msg += str(days) + ' day%s ' % ('s' if days > 1 else '')
+                    if hours:
+                        msg += str(hours) + ' hour%s ' % ('s' if hours > 1 else '')
+                    if minutes:
+                        msg += str(minutes) + ' minute%s ' % ('s' if minutes > 1 else '')
+                    if seconds:
+                        msg += str(seconds) + ' second%s' % ('s' if seconds > 1 else '')
+                    msg += '.'
+
+                om.out.information( msg )
         finally:
             self.progress.stop()
             
@@ -466,7 +493,7 @@ class w3afCore(object):
 
                 # We only want to scan pages that in current scope
                 get_curr_scope_pages = lambda fr: \
-                    urlParser.getDomain(fr.getURL())==urlParser.getDomain(url)
+                    fr.getURL().getDomain() == url.getDomain()
 
                 for url in cf.cf.getData('targets'):
                     try:
@@ -830,9 +857,9 @@ class w3afCore(object):
             for iFr, pluginWhoFoundIt in fuzzableRequestList:
                 # I dont care about fragments ( http://a.com/foo.php#frag ) and I dont really trust plugins
                 # so i'll remove fragments here
-                iFr.setURL( urlParser.removeFragment( iFr.getURL() ) )
+                iFr.setURL( iFr.getURL().removeFragment() )
                 
-                if iFr not in self._alreadyWalked and urlParser.baseUrl( iFr.getURL() ) in cf.cf.getData('baseURLs'):
+                if iFr not in self._alreadyWalked and iFr.getURL().baseUrl() in cf.cf.getData('baseURLs'):
                     # Found a new fuzzable request
                     newFR.append( iFr )
                     self._alreadyWalked.append( iFr )
@@ -976,6 +1003,7 @@ class w3afCore(object):
             # And now remove it to free some memory, the valuable information was
             # saved to the kb, so this is clean and harmless
             del(plugin)
+
                 
     def _bruteforce(self, fuzzableRequestList):
         '''
@@ -1035,7 +1063,7 @@ class w3afCore(object):
         try:
             pI.setOptions( pluginOptions )
         except Exception, e:
-            raise e
+            raise
         else:
             # Now that we are sure that these options are valid, lets save them
             # so we can use them later!
@@ -1219,14 +1247,14 @@ class w3afCore(object):
             - One that contains the instances of the valid profiles that were loaded
             - One with the file names of the profiles that are invalid
         '''
-        profile_home = get_home_dir() + os.path.sep + 'profiles' + os.path.sep
-        str_profile_list = self._getListOfFiles( profile_home, extension='.pw3af' )
+        profile_home = os.path.join(get_home_dir(), 'profiles')
+        str_profile_list = self._getListOfFiles(profile_home, extension='.pw3af')
         
         instance_list = []
         invalid_profiles = []
         
         for profile_name in str_profile_list:
-            profile_filename = profile_home + profile_name + '.pw3af'
+            profile_filename = os.path.join(profile_home, profile_name + '.pw3af')
             try:
                 profile_instance = profile( profile_filename )
             except:
@@ -1239,10 +1267,13 @@ class w3afCore(object):
         '''
         @return: A string list of the names of all available plugins by type.
         '''
-        fileList = [ f for f in os.listdir( directory ) ]
-        strFileList = [ os.path.splitext(f)[0] for f in fileList if os.path.splitext(f)[1] == extension ]
-        if '__init__' in strFileList:
-            strFileList.remove ( '__init__' )
+        strFileList = []
+        
+        for f in os.listdir(directory):
+            fname, ext = os.path.splitext(f)
+            if ext == extension and fname != '__init__':
+                strFileList.append(fname)
+
         strFileList.sort()
         return strFileList
         
@@ -1278,32 +1309,35 @@ class w3afCore(object):
         # Save current to profile
         return self.saveCurrentToProfile( profile_name, profileDesc )
 
-    def saveCurrentToProfile( self, profile_name, profileDesc='' ):
+    def saveCurrentToProfile(self, profile_name, prof_desc='', prof_path=''):
         '''
-        Save the current configuration of the core to the profile called profile_name.
+        Save the current configuration of the core to the profile called 
+        profile_name.
         
-        @return: The new profile instance if the profile was successfully saved. Else, raise a w3afException.
+        @return: The new profile instance if the profile was successfully saved.
+            otherwise raise a w3afException.
         '''
         # Open the already existing profile
-        new_profile = profile(profile_name)
+        new_profile = profile(profile_name, workdir=os.path.dirname(prof_path))
         
         # Config the enabled plugins
         for pType in self.getPluginTypes():
             enabledPlugins = []
             for pName in self.getEnabledPlugins(pType):
                 enabledPlugins.append( pName )
-            new_profile.setEnabledPlugins( pType, enabledPlugins )
+            new_profile.setEnabledPlugins(pType, enabledPlugins)
         
         # Config the profile options
         for pType in self.getPluginTypes():
             for pName in self.getEnabledPlugins(pType):
-                pOptions = self.getPluginOptions( pType, pName )
+                pOptions = self.getPluginOptions(pType, pName)
                 if pOptions:
-                    new_profile.setPluginOptions( pType, pName, pOptions )
+                    new_profile.setPluginOptions(pType, pName, pOptions)
                 
         # Config the profile target
         if cf.cf.getData('targets'):
-            new_profile.setTarget( ' , '.join(cf.cf.getData('targets')) )
+            new_profile.setTarget(' , '.join(str(t) for t in 
+                                             cf.cf.getData('targets')))
         
         # Config the misc and http settings
         misc_settings = miscSettings.miscSettings()
@@ -1311,11 +1345,11 @@ class w3afCore(object):
         new_profile.setHttpSettings(self.uriOpener.settings.getOptions())
         
         # Config the profile name and description
-        new_profile.setDesc( profileDesc )
-        new_profile.setName( profile_name )
+        new_profile.setDesc(prof_desc)
+        new_profile.setName(profile_name)
         
         # Save the profile to the file
-        new_profile.save( profile_name )
+        new_profile.save(profile_name)
         
         return new_profile
         
@@ -1327,7 +1361,7 @@ class w3afCore(object):
         profileInstance.remove()
         return True
         
-    def useProfile( self, profile_name ):
+    def useProfile(self, profile_name, workdir=None):
         '''
         Gets all the information from the profile, and runs it.
         Raise a w3afException if the profile to load has some type of problem.
@@ -1338,10 +1372,10 @@ class w3afCore(object):
             return
         
         try:            
-            profileInstance = profile( profile_name ) 
-        except w3afException, w3:
+            profileInstance = profile(profile_name, workdir) 
+        except w3afException:
             # The profile doesn't exist!
-            raise w3
+            raise
         else:
             # It exists, work with it!
             for pluginType in self._plugins.keys():

@@ -32,15 +32,18 @@ from core.controllers.w3afException import w3afException
 from core.controllers.misc.homeDir import get_home_dir
 from core.data.db.history import HistoryItem
 from core.data.db.db import DB
+
 # The output plugin must know the session name that is saved in the config object,
 # the session name is assigned in the target settings
 import core.data.kb.config as cf
 import core.controllers.outputManager as om
 import core.data.kb.knowledgeBase as kb
 import core.data.constants.severity as severity
+
 # options
 from core.data.options.option import option
 from core.data.options.optionList import optionList
+
 
 class gtkOutput(baseOutputPlugin):
     '''
@@ -82,7 +85,7 @@ class gtkOutput(baseOutputPlugin):
                         break
 
             # Create DB!
-            self._db.open(dbName)
+            self._db.connect(dbName)
             # Init history
             historyItem = HistoryItem(self._db)
             historyItem.initStructure()
@@ -93,7 +96,12 @@ class gtkOutput(baseOutputPlugin):
         This method is called from the output object. The output object was called from a plugin
         or from the framework. This method should take an action for debug messages.
         '''
-        m = message( 'debug', self._cleanString(msgString), time.time(), newLine )
+        #
+        #   I don't really want to add debug messages to the queue, as they are only used
+        #   in the time graph that's displayed under the log. In order to save some memory
+        #   I'm only creating the object, but without any msg.
+        #
+        m = message( 'debug', '', time.time(), newLine )
         self._addToQueue( m )
     
     def information(self, msgString , newLine = True ):
@@ -135,19 +143,7 @@ class gtkOutput(baseOutputPlugin):
         self.queue.put( m )
     
     def logHttp( self, request, response):
-        historyItem = HistoryItem()
-        try:
-            historyItem.request = request
-            historyItem.response = response
-            historyItem.save()
-        except KeyboardInterrupt, k:
-            raise k
-        except Exception, e:
-            msg = 'Exception while inserting request/response to the database: ' + str(e) + '\n'
-            msg += 'The request/response that generated the error is: '+ str(response.getId())
-            msg += ' ' + request.getURI() + ' ' + str(response.getCode())
-            om.out.error( msg )
-            raise e
+        pass
     
     def logEnabledPlugins(self,  enabledPluginsDict,  pluginOptionsDict):
         '''
@@ -176,7 +172,8 @@ class gtkOutput(baseOutputPlugin):
     
     def setOptions( self, OptionList ):
         pass
- 
+
+
 class message:
     def __init__( self, msg_type, msg , msg_time, newLine=True ):
         '''

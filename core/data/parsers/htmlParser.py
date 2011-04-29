@@ -27,7 +27,7 @@ import core.data.kb.config as cf
 from lxml import etree
 
 from core.data.parsers.sgmlParser import sgmlParser
-import core.data.parsers.urlParser as urlParser
+from core.data.parsers.urlParser import url_object
 
 import core.data.dc.form as form
 
@@ -138,8 +138,8 @@ class htmlParser(sgmlParser):
         foundAction = False
         for attr in attrs:
             if attr[0].lower() == 'action':
-                decoded_action = self._decode_URL(attr[1], self._encoding)
-                action = urlParser.urlJoin( self._baseUrl, decoded_action )
+                action = self._baseUrl.urlJoin( attr[1] )
+                action = self._decode_URL( action , self._encoding)
                 foundAction = True
 
         if not foundAction:
@@ -230,6 +230,9 @@ class htmlParser(sgmlParser):
             self._insideTextarea = False
         else:
             self._insideTextarea = True
+            if self._forms:
+                form_obj = self._forms[-1]
+                form_obj.addInput([('name', self._textareaTagName), ('value', '')])
 
     def handle_data(self, data):
         """
@@ -249,16 +252,12 @@ class htmlParser(sgmlParser):
         Handler for textarea end tag
         """
         sgmlParser._handle_textarea_endtag(self)
-
-        attrs = []
-        attrs.append( ('name', self._textareaTagName) )
-        attrs.append( ('value', self._textareaData) )
-
         if not self._forms:
             self._saved_inputs.append( ('input', attrs) )
         else:
             form_obj = self._forms[-1]
-            form_obj.addInput( attrs )
+            # Replace with real value
+            form_obj[self._textareaTagName][-1] = self._textareaData
 
     def _handle_select_tag_inside_form(self, tag, attrs):
         """

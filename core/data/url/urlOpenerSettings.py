@@ -24,6 +24,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 import core.controllers.outputManager as om
 import core.data.kb.config as cf
 from core.controllers.w3afException import w3afException
+from core.data.parsers.urlParser import url_object
 
 # Handler imports
 import core.data.url.handlers.localCache as localCache
@@ -244,7 +245,7 @@ class urlOpenerSettings( configurable ):
         return cf.cf.getData('proxyAddress') + ':' + str(cf.cf.getData('proxyPort'))
         
     def setBasicAuth( self, url, username, password ):
-        if url == '':
+        if not url:
             msg = 'To properly configure the basic authentication settings, you'
             msg += ' should also set the auth domain. If you are unsure, you can'
             msg += ' set it to the target domain name.'
@@ -257,22 +258,19 @@ class urlOpenerSettings( configurable ):
         om.out.debug( 'Called SetBasicAuth')
         
         if not hasattr( self, '_password_mgr' ):
-            # create a new password manager
+            # Create a new password manager
             self._password_mgr = self._ulib.HTTPPasswordMgrWithDefaultRealm()
 
-        # add the username and password
-        if url.startswith('http://') or url.startswith('https://'):
-            scheme, domain, path, x1, x2, x3 = self._uparse.urlparse( url )
-            self._password_mgr.add_password(None, domain, username, password)
-        else:
-            domain = url
-            scheme = 'http://'
-            self._password_mgr.add_password(None, domain, username, password)
-
+        # Add the username and password
+        url = url_object(url)
+        domain = url.getDomain()
+        protocol = url.getProtocol()
+        protocol = protocol if protocol in ('http', 'https') else 'http'
+        self._password_mgr.add_password(None, domain, username, password)
         self._basicAuthHandler = FastHTTPBasicAuthHandler(self._password_mgr)
 
         # Only for w3af, no usage in urllib2
-        self._basicAuthStr = scheme + '://' + username + ':' + password + '@' + domain + '/'
+        self._basicAuthStr = protocol + '://' + username + ':' + password + '@' + domain + '/'
         
         self.needUpdate = True
 
@@ -318,6 +316,7 @@ class urlOpenerSettings( configurable ):
         # Instantiate the handlers passing the proxy as parameter
         self._kAHTTP = kAHTTP()
         self._kAHTTPS = kAHTTPS(self.getProxy())
+        self._cache_hdler = localCache.CacheHandler()
         
         # Prepare the list of handlers
         handlers = []
@@ -326,7 +325,8 @@ class urlOpenerSettings( configurable ):
                         MultipartPostHandler.MultipartPostHandler,
                         self._kAHTTP, self._kAHTTPS, logHandler.logHandler,
                         mangleHandler.mangleHandler(self._manglePlugins),
-                        HTTPGzipProcessor, self._urlParameterHandler]:
+                        HTTPGzipProcessor, self._urlParameterHandler, 
+                        self._cache_hdler]:
             if handler:
                 handlers.append(handler)
         
@@ -335,22 +335,8 @@ class urlOpenerSettings( configurable ):
         # Prevent the urllib from putting his user-agent header
         self._nonCacheOpener.addheaders = [ ('Accept', '*/*') ]
         
-        # Add the local cache to the list of handlers
-        handlers.append(localCache.CacheHandler())
-        self._cacheOpener = self._ulib.build_opener(*handlers)
-        
-        # Prevent the urllib from putting his user-agent header
-        self._cacheOpener.addheaders = [ ('Accept', '*/*') ]
-        
-        # Use this if you want to "bypass" the cache opener
-        # debugging purposes only
-        #self._cacheOpener = self._nonCacheOpener
-        
     def getCustomUrlopen(self):
         return self._nonCacheOpener
-        
-    def getCachedUrlopen(self):
-        return self._cacheOpener
 
     def setManglePlugins( self, mp ):
         '''
@@ -423,11 +409,11 @@ class urlOpenerSettings( configurable ):
         o7b = option('ntlmAuthURL', cf.cf.getData('ntlmAuthURL'), d7b, 'string', tabid='NTLM Authentication')
                 
         d8 = 'Set the cookiejar filename.'
-        h8 = 'The cookiejar file must be in mozilla format.'
+        h8 = 'The cookiejar file MUST be in mozilla format.'
         h8 += ' An example of a valid mozilla cookie jar file follows:\n\n'
         h8 += '# Netscape HTTP Cookie File\n'
         h8 += '.domain.com    TRUE   /       FALSE   1731510001      user    admin\n\n'
-        h8 += 'The comment seems to be mandatory. Take special attention to spaces.'
+        h8 += 'The comment IS mandatory. Take special attention to spaces.'
         o8 = option('cookieJarFile', cf.cf.getData('cookieJarFile'), d8, 'string', help=h8, tabid='Cookies')
 
         d9 = 'Ignore session cookies'

@@ -23,6 +23,7 @@ from email.mime.text import MIMEText
 
 from core.controllers.basePlugin.baseOutputPlugin import baseOutputPlugin
 from core.controllers.w3afException import w3afException
+import core.controllers.outputManager as om
 import core.data.kb.knowledgeBase as kb
 import core.data.kb.config as cf
 from core.data.options.option import option
@@ -89,9 +90,14 @@ class emailReport(baseOutputPlugin):
         msg['To'] = ', '.join(self.toAddrs)
         msg['Subject'] = 'w3af report on %s' % self.targets[0]
 
-        server = smtplib.SMTP(self.smtpServer, self.smtpPort)
-        server.sendmail(self.fromAddr, self.toAddrs, msg.as_string())
-        server.quit()
+        try:
+            server = smtplib.SMTP(self.smtpServer, self.smtpPort)
+            server.sendmail(self.fromAddr, self.toAddrs, msg.as_string())
+            server.quit()
+        except Exception, e:
+            msg = 'The SMTP settings in emailReport plugin seem to be incorrect. Original error: "'
+            msg += str(e) + '".'
+            om.out.error( msg )
 
     def getLongDesc(self):
         return '''

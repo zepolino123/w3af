@@ -34,7 +34,7 @@ from core.controllers.threads.w3afThread import w3afThread
 from core.controllers.threads.threadManager import threadManagerObj as tm
 from core.controllers.w3afException import w3afException, w3afProxyException
 import core.controllers.outputManager as om
-from core.data.parsers.urlParser import uri2url, getQueryString
+from core.data.parsers.urlParser import url_object
 from core.data.request.fuzzableRequest import fuzzableRequest
 
 class proxy(w3afThread):
@@ -170,7 +170,9 @@ class proxy(w3afThread):
         # I have to do this to actually KILL the HTTPServer, and free the TCP port
         del self._server
 
-class w3afProxyHandler(BaseHTTPRequestHandler):    
+
+class w3afProxyHandler(BaseHTTPRequestHandler):
+    
     def handle_one_request(self):
         """Handle a single HTTP request.
 
@@ -178,7 +180,7 @@ class w3afProxyHandler(BaseHTTPRequestHandler):
         __doc__ string for information on how to handle specific HTTP
         commands such as GET and POST.
         
-        I overrid this becuse I'm going to use ONE handler for all the methods (except CONNECT).
+        I override this because I'm going to use ONE handler for all the methods (except CONNECT).
         """
         self.raw_requestline = self.rfile.readline()
         if not self.raw_requestline:
@@ -235,7 +237,7 @@ class w3afProxyHandler(BaseHTTPRequestHandler):
             path = self.path
 
         fuzzReq = fuzzableRequest()
-        fuzzReq.setURI(path)
+        fuzzReq.setURI(url_object(path))
         fuzzReq.setHeaders(self.headers.dict)
         fuzzReq.setMethod(self.command)
         postData = self._getPostData()
@@ -296,11 +298,12 @@ class w3afProxyHandler(BaseHTTPRequestHandler):
             
         else:
             # most likely a GET request
-            url = uri2url( path )
-            qs = getQueryString( self.path )
+
+            uri_instance = url_object(path) 
+            qs = uri_instance.getQueryString()
             try:
                 httpCommandMethod = getattr( self._urlOpener, self.command )
-                res = httpCommandMethod( url, data=str(qs), headers=self.headers,  grepResult=grep )
+                res = httpCommandMethod(uri_instance, data=str(qs), headers=self.headers,  grepResult=grep )
             except w3afException, w:
                 traceback.print_exc()
                 om.out.error('The proxy request failed, error: ' + str(w) )
