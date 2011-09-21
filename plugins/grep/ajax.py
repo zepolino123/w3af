@@ -20,17 +20,13 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
-# options
-from core.data.options.optionList import optionList
+import re
 
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-
-import core.data.kb.knowledgeBase as kb
-import core.data.kb.info as info
-
 from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
-
-import re
+from core.data.options.optionList import optionList
+import core.data.kb.info as info
+import core.data.kb.knowledgeBase as kb
 
 
 class ajax(baseGrepPlugin):
@@ -39,18 +35,14 @@ class ajax(baseGrepPlugin):
       
     @author: Andres Riancho ( andres.riancho@gmail.com )
     '''
+    # Regular expression to search for AJAX
+    AJAX_RE = re.compile(
+        '(XMLHttpRequest|eval\(|ActiveXObject|Msxml2\.XMLHTTP|'
+        'ActiveXObject|Microsoft\.XMLHTTP)',
+        re.IGNORECASE
+        )
+    _already_inspected = scalable_bloomfilter()
     
-    def __init__(self):
-        baseGrepPlugin.__init__(self)
-        
-        # Internal variables
-        self._already_inspected = scalable_bloomfilter()
-        
-        # Create the regular expression to search for AJAX
-        ajax_regex_string = '(XMLHttpRequest|eval\(|ActiveXObject|Msxml2\.XMLHTTP|'
-        ajax_regex_string += 'ActiveXObject|Microsoft\.XMLHTTP)'
-        self._ajax_regex_re = re.compile( ajax_regex_string, re.IGNORECASE )
-
     def grep(self, request, response):
         '''
         Plugin entry point.
@@ -144,7 +136,10 @@ class ajax(baseGrepPlugin):
         1
 
         '''
+        
+        infos = []
         url = response.getURL()
+        
         if response.is_text_or_html() and url not in self._already_inspected:
             
             # Don't repeat URLs
@@ -161,22 +156,23 @@ class ajax(baseGrepPlugin):
                     
                     if script_content is not None:
                         
-                        res = self._ajax_regex_re.search(script_content)
+                        res = self.AJAX_RE.search(script_content)
                         if res:
-                            i = info.info()
-                            i.setPluginName(self.getName())
-                            i.setName('AJAX code')
-                            i.setURL(url)
-                            i.setDesc('The URL: "%s" has an AJAX code.' % url)
-                            i.setId(response.id)
-                            i.addToHighlight(res.group(0))
-                            kb.kb.append(self, 'ajax', i)
-
+                            inf = info.info()
+                            pname = self.getName()
+                            inf.setPluginName(pname)
+                            inf.setName('AJAX code')
+                            inf.setURL(url)
+                            inf.setDesc('The URL: "%s" has an AJAX code.' % url)
+                            inf.setId(response.id)
+                            inf.addToHighlight(res.group(0))
+                            infos.append((pname, 'ajax', inf))
+        return infos
     
-    def setOptions( self, OptionList ):
+    def setOptions(self, OptionList):
         pass
     
-    def getOptions( self ):
+    def getOptions(self):
         '''
         @return: A list of option objects for this plugin.
         '''    
@@ -187,16 +183,17 @@ class ajax(baseGrepPlugin):
         '''
         This method is called when the plugin wont be used anymore.
         '''
-        self.printUniq( kb.kb.getData( 'ajax', 'ajax' ), 'URL' )
+        self.printUniq(kb.kb.getData('ajax', 'ajax'), 'URL')
 
-    def getPluginDeps( self ):
+    def getPluginDeps(self):
         '''
         @return: A list with the names of the plugins that should be runned before the
         current one.
         '''
         return []
     
-    def getLongDesc( self ):
+    @staticmethod
+    def getLongDesc():
         '''
         @return: A DETAILED description of the plugin functions and features.
         '''

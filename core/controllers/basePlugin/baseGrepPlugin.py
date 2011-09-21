@@ -21,9 +21,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 '''
 
 from core.controllers.basePlugin.basePlugin import basePlugin
-import core.controllers.outputManager as om
-import core.data.kb.config as cf
-
 
 class baseGrepPlugin(basePlugin):
     '''
@@ -39,31 +36,8 @@ class baseGrepPlugin(basePlugin):
     def __init__(self):
         basePlugin.__init__(self)
         self._urlOpener = None
+        del self._plugin_lock
 
-    def grep_wrapper(self, fuzzableRequest, response):
-        '''
-        This method tries to find patterns on responses.
-        
-        This method CAN be implemented on a plugin, but its better to
-        do your searches in _testResponse().
-        
-        @param response: This is the httpResponse object to test.
-        @param fuzzableRequest: This is the fuzzable request object that
-            generated the current response being analyzed.
-        @return: If something is found it must be reported to the Output
-            Manager and the KB.
-        '''
-        if response.getFromCache():
-            #om.out.debug('Grep plugins not testing: %s cause it was '
-            #             'already tested.' % repr(fuzzableRequest))
-            pass
-        elif fuzzableRequest.getURL().getDomain() in cf.cf.getData('targetDomains'):
-            self.grep(fuzzableRequest, response)
-        else:
-            #om.out.debug('Grep plugins not testing: %s cause it aint a '
-            #             'target domain.' % fuzzableRequest.getURL())
-            pass
-    
     def grep(self, fuzzableRequest, response):
         '''
         Analyze the response.

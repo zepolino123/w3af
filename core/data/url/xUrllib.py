@@ -33,13 +33,12 @@ import sqlite3
 
 
 from core.controllers.misc.homeDir import get_home_dir
-from core.controllers.misc.timeout_function import TimeLimited, TimeLimitExpired
 from core.controllers.misc.lru import LRU
 from core.controllers.misc.memoryUsage import dumpMemoryUsage
 from core.controllers.misc.number_generator import \
     consecutive_number_generator as seq_gen
-from core.controllers.threads.threadManager import threadManagerObj as \
-    thread_manager
+from core.controllers.multiprocess import (
+            get_plugin_manager, MNGR_TYPE_GREP, TimeLimitExpired)
 from core.controllers.w3afException import (w3afMustStopException,
     w3afMustStopByUnknownReasonExc, w3afMustStopByKnownReasonExc,
     w3afException, w3afMustStopOnUrlError)
@@ -53,9 +52,12 @@ from core.data.url.httpResponse import httpResponse, from_httplib_resp
 from core.data.url.HTTPRequest import HTTPRequest as HTTPRequest
 from core.data.url.handlers.localCache import CachedResponse
 import core.controllers.outputManager as om
+import core.data.kb.knowledgeBase as kb
 import core.data.kb.config as cf
 import urlOpenerSettings
 
+def now():
+    return time.time()
 
 class xUrllib(object):
     '''
@@ -76,7 +78,6 @@ class xUrllib(object):
         self._countLock = threading.RLock()
         
         self._dnsCache()
-        self._tm = thread_manager
         self._sizeLRU = LRU(200)
         
         # User configured options (in an indirect way)
@@ -510,7 +511,7 @@ class xUrllib(object):
         original_url_inst = req.url_object
         req = self._evasion(req)
         
-        start_time = time.time()
+        start_time = now()
         res = None
 
         req.get_from_cache = True if useCache else False
@@ -530,21 +531,21 @@ class xUrllib(object):
             info = e.info()
             geturl_instance = url_object(e.geturl())
             read = self._readRespose(e)
-            httpResObj = httpResponse(code, read, info, geturl_instance,
-                                      original_url_inst, id=e.id,
-                                      time=time.time()-start_time, msg=e.msg,
-                                      charset=getattr(e.fp, 'encoding', None))
+            httpResObj = httpResponse(
+                  code, read, info, geturl_instance,
+                  original_url_inst, id=e.id,
+                  time=now()-start_time, msg=e.msg,
+                  charset=getattr(e.fp, 'encoding', None)
+                  )
             
             # Clear the log of failed requests; this request is done!
-            req_id = id(req)
-            if req_id in self._errorCount:
-                del self._errorCount[req_id]
+            self._errorCount.pop(id(req), None)
 
             # Reset errors counter
             self._zeroGlobalErrorCount()
         
             if grepResult:
-                self._grepResult(req, httpResObj)
+                self._grep_result(req, httpResObj)
             else:
                 om.out.debug('No grep for: "%s", the plugin sent ' \
                              'grepResult=False.' % geturl_instance)
@@ -634,7 +635,7 @@ class xUrllib(object):
 
             httpResObj = from_httplib_resp(res, original_url=original_url_inst)
             httpResObj.setId(id=res.id)
-            httpResObj.setWaitTime(time.time()-start_time)
+            httpResObj.setWaitTime(now()-start_time)
 
             # Let the upper layers know that this response came from the
             # local cache.
@@ -648,7 +649,7 @@ class xUrllib(object):
             self._zeroGlobalErrorCount()
 
             if grepResult:
-                self._grepResult(req, httpResObj)
+                self._grep_result(req, httpResObj)
             else:
                 om.out.debug('No grep for: %s, the plugin sent grepResult='
                              'False.' % res.geturl())
@@ -798,75 +799,49 @@ class xUrllib(object):
                 om.out.error( msg )
                 
         return request
-        
-    def _grepResult(self, request, response):
-        # The grep process is all done in another thread. This improves the
-        # speed of all w3af.
-        url_instance = url_object(request.get_full_url(),
-                                  encoding=response.charset)
-        domain = url_instance.getDomain()
-        
-        if len( self._grepPlugins ) and domain in cf.cf.getData('targetDomains'):
-            
-            # I'll create a fuzzable request based on the urllib2 request object
-            fuzzReq = createFuzzableRequestRaw(
-                           request.get_method(), url_instance,
-                           request.get_data(), request.headers)
-            
-            for grep_plugin in self._grepPlugins:
-                #
-                #   For debugging, do not remove, only comment out if needed.
-                #
-                self._grep_worker( grep_plugin, fuzzReq, response )
-                
-                # TODO: Analyze if creating a different threadpool for grep workers speeds up the whole process
-                #targs = (grep_plugin, fuzzReq, response)
-                #self._tm.startFunction( target=self._grep_worker, args=targs, ownerObj=self, restrict=False )
-            
-            self._tm.join( self )
     
-    def _grep_worker( self , grep_plugin, request, response):
-        '''
-        This method applies the grep_plugin to a request / response pair.
-
-        @parameter grep_plugin: The grep plugin to run.
-        @parameter request: The request which generated the response. A request object.
-        @parameter response: The response which was generated by the request (first parameter). A httpResponse object.
-        '''
-        msg = 'Starting "'+ grep_plugin.getName() +'" grep_worker for response: ' + repr(response)
-        om.out.debug( msg )
+    def _grep_result(self, req, resp):
         
-        # Create a wrapper that will timeout in "timeout_seconds" seconds.
-        #
-        # TODO:
-        # For now I leave it at 5, but I have to debug grep plugins and I will lower this eventually
-        #
-        timeout_seconds = 5
-        timedout_grep_wrapper = TimeLimited( grep_plugin.grep_wrapper, timeout_seconds)
-        try:
-            timedout_grep_wrapper(request, response)
-        except KeyboardInterrupt:
-            # Correct control+c handling...
-            raise
-        except TimeLimitExpired:
-            msg = 'The "%s" plugin took more than %s seconds to run. ' \
-            'For a plugin that should only perform pattern matching, ' \
-            'this is too much, please review its source code.' % \
-            (grep_plugin.getName(), timeout_seconds)
-            om.out.error(msg)
-        except Exception, e:
-            msg = 'Error in grep plugin, "%s" raised the exception: %s. ' \
-            'Please report this bug to the w3af sourceforge project page ' \
-            '[ https://sourceforge.net/apps/trac/w3af/newticket ] ' \
-            '\nException: %s' % (grep_plugin.getName(), str(e), 
-                                 traceback.format_exc(1))
-            om.out.error(msg)
-            om.out.error(getattr(e, 'orig_traceback_str', '') or \
-                            traceback.format_exc())
-
+        url = url_object(req.get_full_url(), encoding=resp.charset)
+        domain = url.getDomain()
+        grep_plugins = self._grepPlugins
         
-        om.out.debug('Finished grep_worker for response: ' + repr(response))
-
+        if grep_plugins and domain in cf.cf.getData('targetDomains'):
+            # Create a fuzzable request based on the urllib2 request object
+            fuzz_req = createFuzzableRequestRaw(
+                            req.get_method(), url,
+                            req.get_data(), req.headers
+                            )
+            mngr = get_plugin_manager(
+                      mngr_type=MNGR_TYPE_GREP,
+                      plugins=grep_plugins
+                      )
+            timeout = 10
+            try:
+                for plugin_resp in \
+                    mngr.work(args=(fuzz_req, resp), timeout=timeout):
+                    [kb.kb.append(*infotuple) for infotuple in plugin_resp]
+            except KeyboardInterrupt:
+                mngr.terminate()
+            except TimeLimitExpired:
+                msg = ('The grep plugins took more than %s seconds to run. '
+                'This is too much, please review its source code.' % timeout)
+                om.out.error(msg)
+            except Exception, e:
+                #TODO: FIX THIS
+                msg = ('Error in grep plugins, raised the exception: %s. '
+                'Please report this bug to the w3af sourceforge project page '
+                '[ https://sourceforge.net/apps/trac/w3af/newticket ] '
+                '\nException: %s' % (e, traceback.format_exc(1)))
+                om.out.error(msg)
+                om.out.error(
+                    getattr(e, 'orig_traceback_str', '') or 
+                    traceback.format_exc()
+                    )
+    
+            
+            om.out.debug('Finished grep_worker for response: ' + repr(resp))
+            
 _abbrevs = [
     (1<<50L, 'P'),
     (1<<40L, 'T'), 
