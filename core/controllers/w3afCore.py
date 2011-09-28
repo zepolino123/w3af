@@ -520,7 +520,6 @@ class w3afCore(object):
                         is_404(response)
 
                     except KeyboardInterrupt:
-                        self._end()
                         raise
                     except (w3afMustStopOnUrlError, w3afException, w3afMustStopException), w3:
                         om.out.error('The target URL: %s is unreachable.' % url)
@@ -655,8 +654,8 @@ class w3afCore(object):
             except w3afException, e:
                 self._end(e)
                 raise
-            except KeyboardInterrupt, e:
-                self._end()
+            except KeyboardInterrupt:
+                self._end(ignore_err=True)
                 # I wont handle this. 
                 # The user interface must know what to do with it
                 raise
@@ -742,7 +741,7 @@ class w3afCore(object):
             
             # Also, close the output manager.
             om.out.endOutputPlugins()
-        except Exception, ex:
+        except Exception:
             if not ignore_err:
                 raise
         finally:

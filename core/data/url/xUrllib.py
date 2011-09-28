@@ -38,7 +38,11 @@ from core.controllers.misc.memoryUsage import dumpMemoryUsage
 from core.controllers.misc.number_generator import \
     consecutive_number_generator as seq_gen
 from core.controllers.multiprocess import (
-            get_plugin_manager, MNGR_TYPE_GREP, TimeLimitExpired)
+                                    get_plugin_manager,
+                                    MNGR_TYPE_GREP,
+                                    TimeLimitExpired,
+                                    TerminatedWork
+                                    )
 from core.controllers.w3afException import (w3afMustStopException,
     w3afMustStopByUnknownReasonExc, w3afMustStopByKnownReasonExc,
     w3afException, w3afMustStopOnUrlError)
@@ -818,11 +822,16 @@ class xUrllib(object):
                       )
             timeout = 10
             try:
-                for plugin_resp in \
-                    mngr.work(args=(fuzz_req, resp), timeout=timeout):
+                for plugin_resp in mngr.work(
+                                        args=(fuzz_req, resp),
+                                        timeout=timeout
+                                        ):
                     [kb.kb.append(*infotuple) for infotuple in plugin_resp]
             except KeyboardInterrupt:
                 mngr.terminate()
+                raise
+            except TerminatedWork:
+                pass
             except TimeLimitExpired:
                 msg = ('The grep plugins took more than %s seconds to run. '
                 'This is too much, please review its source code.' % timeout)
@@ -835,28 +844,9 @@ class xUrllib(object):
                 '\nException: %s' % (e, traceback.format_exc(1)))
                 om.out.error(msg)
                 om.out.error(
-                    getattr(e, 'orig_traceback_str', '') or 
-                    traceback.format_exc()
+                    getattr(e, 'traceback', '') or traceback.format_exc()
                     )
     
             
             om.out.debug('Finished grep_worker for response: ' + repr(resp))
-            
-_abbrevs = [
-    (1<<50L, 'P'),
-    (1<<40L, 'T'), 
-    (1<<30L, 'G'), 
-    (1<<20L, 'M'), 
-    (1<<10L, 'k'),
-    (1, '')
-    ]
-
-def greek(size):
-    """
-    Return a string representing the greek/metric suffix of a size
-    """
-    for factor, suffix in _abbrevs:
-        if size > factor:
-            break
-    return str( int(size/factor) ) + suffix
     
