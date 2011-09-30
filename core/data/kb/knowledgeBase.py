@@ -19,9 +19,6 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-from __future__ import with_statement
-
-from core.controllers.w3afException import w3afException
 import threading
 import core.data.kb.vuln as vuln
 import core.data.kb.info as info
@@ -30,8 +27,8 @@ import core.data.kb.shell as shell
 
 class knowledgeBase:
     '''
-    This class saves the data that is sent to it by plugins. It is the only way in which
-    plugins can talk to each other.
+    This class saves the data that is sent to it by plugins. It is the
+    only way in which plugins can talk to each other.
     
     @author: Andres Riancho ( andres.riancho@gmail.com )
     '''
@@ -40,49 +37,35 @@ class knowledgeBase:
         self._kb = {}
         self._kb_lock = threading.RLock()
 
-    def save( self, callingInstance, variableName, value ):
+    def save(self, callingInstance, variableName, value):
         '''
         This method saves the variableName value to a dict.
         '''
-        if isinstance( callingInstance, basestring ):
-            name = callingInstance
-        else:
-            name = callingInstance.getName()
-        
+        name = callingInstance if isinstance(callingInstance, basestring) \
+                else callingInstance.getName()
         with self._kb_lock:
-            if name not in self._kb.keys():
-                self._kb[ name ] = {variableName: value}
-            else:
-                self._kb[ name ][ variableName ] = value
+            self._kb.setdefault(name, {})[variableName] = value
         
-    def append( self, callingInstance, variableName, value ):
+    def append(self, callingInstance, variableName, value):
         '''
         This method appends the variableName value to a dict.
         '''
-        if isinstance( callingInstance, basestring ):
-            name = callingInstance
-        else:
-            name = callingInstance.getName()
-        
+        name = callingInstance if isinstance(callingInstance, basestring) \
+                else callingInstance.getName()
         with self._kb_lock:
-            if name not in self._kb.keys():
-                self._kb[ name ] = {variableName:[value,]}
-            else:
-                if variableName in self._kb[ name ] :
-                    self._kb[ name ][ variableName ].extend( [value,] )
-                else:
-                    self._kb[ name ][ variableName ] = [value,]
+            vals = self._kb.setdefault(name, {}).setdefault(variableName, [])
+            vals.append(value)
         
-    def getData( self, pluginWhoSavedTheData, variableName=None ):
+    def getData(self, pluginWhoSavedTheData, variableName=None):
         '''
-        @parameter pluginWhoSavedTheData: The plugin that saved the data to the kb.info
-        Typically the name of the plugin, but could also be the plugin instance.
-        
-        @parameter variableName: The name of the variables under which the vuln objects were
-        saved. Typically the same name of the plugin, or something like "vulns", "errors", etc. In
-        most cases this is NOT None. When set to None, a dict with all the vuln objects found by the
-        pluginWhoSavedTheData is returned.
-        
+        @parameter pluginWhoSavedTheData: The plugin that saved
+            the data to the kb.info Typically the name of the plugin,
+            but could also be the plugin instance.
+        @parameter variableName: The name of the variables under which
+            the vuln objects were saved. Typically the same name of the
+            plugin, or something like "vulns", "errors", etc. In most
+            cases this is NOT None. When set to None, a dict with all
+            the vuln objects found by the pluginWhoSavedTheData is returned.
         @return: Returns the data that was saved by another plugin.
         '''
         if isinstance( pluginWhoSavedTheData, basestring ):
@@ -102,42 +85,42 @@ class knowledgeBase:
                     res = []
                 else:
                     res = self._kb[name][variableName]
-                    
         return res
 
-    def getAllEntriesOfClass( self, klass ):
+    def getAllEntriesOfClass(self, klass):
         '''
-        @return: A list of all objects of class == klass that are saved in the kb.
+        @return: A list of all objects of class == klass that are
+            saved in the kb.
         '''
         res = []
         
         with self._kb_lock:
-            for pluginName in self._kb:
-                for savedName in self._kb[ pluginName ]:
-                    if isinstance( self._kb[ pluginName ][ savedName ], list ):
-                        for i in self._kb[ pluginName ][ savedName ]:
-                            if isinstance(i, klass) :
-                                res.append( i )
-
+            for pdata in self._kb.values():
+                for vals in pdata.values():
+                    if not isinstance(vals, list):
+                        continue
+                    for v in vals:
+                        if isinstance(v, klass) :
+                            res.append(v)
         return res
     
-    def getAllVulns( self ):
+    def getAllVulns(self):
         '''
         @return: A list of all vulns reported by all plugins.
         '''
         return self.getAllEntriesOfClass( vuln.vuln )
     
-    def getAllInfos( self ):
+    def getAllInfos(self):
         '''
         @return: A list of all vulns reported by all plugins.
         '''
         return self.getAllEntriesOfClass( info.info )
     
-    def getAllShells( self ):
+    def getAllShells(self):
         '''
         @return: A list of all vulns reported by all plugins.
         '''
-        return self.getAllEntriesOfClass( shell.shell )
+        return self.getAllEntriesOfClass(shell.shell)
         
     def dump(self):
         return self._kb

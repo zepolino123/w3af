@@ -24,12 +24,15 @@ __all__ = [
     ]
 
 from Queue import Empty
+from multiprocessing.managers import BaseManager, SyncManager
 import itertools
 import multiprocessing
 import sys
 import threading
 import traceback
+import types
 
+from core.data.kb.knowledgeBase import kb
 
 # Amount of available CPUs
 try:
@@ -42,6 +45,12 @@ TERMINATE = 1
 
 # Global counter
 job_counter = itertools.count()
+
+# XXX
+SyncManager.register('kb', lambda: kb)
+mngr = SyncManager()
+mngr.start()
+KB = mngr.kb()
 
 MNGR_TYPE_GREP = 'MNGR_TYPE_GREP'
 MNGR_TYPE_AUDIT = 'MNGR_TYPE_AUDIT'
@@ -69,7 +78,7 @@ class TimeLimitExpired(Exception):
 
 class TerminatedWork(Exception):
     '''
-    Raised when an action is called on a `terminated` Manager.
+    Raised when an action is called on a `TERMINATEd` Manager.
     '''
     pass
 
@@ -89,7 +98,7 @@ class PluginMngr(object):
     def work(self, timeout):
         raise NotImplementedError
     
-    def assert_is_not_done(self):
+    def assert_is_not_terminated(self):
         if self._state != RUN:
             raise TerminatedWork
     
@@ -123,22 +132,28 @@ class GrepMngr(PluginMngr):
                 break
 
         self._result_handler = threading.Thread(
-            target=GrepMngr._handle_results,
-            args=(self._workers, self._cache)
-            )
+                                        target=GrepMngr._handle_results,
+                                        args=(self._workers, self._cache)
+                                        )
         self._result_handler.daemon = True
         self._result_handler._state = RUN
         self._result_handler.start()
     
     def work(self, args=(), timeout=None):
         
-        self.assert_is_not_done()
+        self.assert_is_not_terminated()
 
-        result = Result(cache=self._cache, length=self._length, callback=None)
+        result = Result(
+                    cache=self._cache,
+                    length=self._length,
+                    callback=None
+                    )
         
         for worker in self._workers:
             taskq = worker.task_queue
-            taskq.put((result._job_id, args))
+            taskq.put(
+                (result._job_id, args, KB)
+                )
     
         res_list = result.get(timeout)
         for res_ele in res_list:
@@ -203,7 +218,7 @@ class GrepWorker(Worker):
             jobid = None
             
             try:
-                jobid, args = self.task_queue.get()
+                jobid, args, KB = self.task_queue.get()
                 
                 if args is None:
                     # 'Poison pill' means shutdown.
@@ -212,7 +227,7 @@ class GrepWorker(Worker):
                 res = []
                 for p in self._plugins:
                     try:
-                        value = p.grep(*args)
+                        value = self._tweaked_grep(p, {'kb': KB})(*args)
                     except KeyboardInterrupt:
                         raise
                     except Exception:
@@ -230,7 +245,15 @@ class GrepWorker(Worker):
                 self.result_queue.put(
                                     (jobid, [Failure(sys.exc_info())])
                                     )
-
+    
+    def _tweaked_grep(self, plugin, globalrepl):
+        def _grep(*args):
+            grep_func = plugin.grep.im_func
+            _globals = dict(grep_func.func_globals)
+            _globals.update(globalrepl)
+            _grep_func = types.FunctionType(grep_func.func_code, _globals)
+            return _grep_func(plugin, *args)
+        return _grep
 
 class Result(object):
     
