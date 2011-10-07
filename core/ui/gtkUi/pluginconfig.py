@@ -131,7 +131,7 @@ class ConfigPanel(gtk.VBox):
         @param longdesc: the long description of the plugin
         '''
         # A title with the name of the plugin in bold and with a bigger font
-        title = "<b><big>"+plugin.getName()+"</big></b>\n\n"
+        title = "<b><big>"+plugin.name+"</big></b>\n\n"
         
         idplugin = id(plugin)
         try:

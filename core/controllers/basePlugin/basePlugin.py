@@ -50,6 +50,13 @@ class basePlugin(configurable):
         self._urlOpener = None
         self._tm = tm
         self._plugin_lock = threading.RLock()
+    
+    @property
+    def name(self):
+        return self.__class__.__name__
+    
+    def getName(self):
+        return self.name
 
     def setUrlOpener( self, urlOpener):
         '''
@@ -78,22 +85,25 @@ class basePlugin(configurable):
         
         @return: No value is returned.
         ''' 
-        raise w3afException('Plugin "'+self.getName()+'" is not implementing required method setOptions' )
+        raise NotImplementedError, ('Plugin "%s" is not implementing '
+                                    'required method setOptions' % self.name)
         
     def getOptions(self):
         '''
         @return: A list of option objects for this plugin.
         '''
-        raise w3afException('Plugin "'+self.getName()+'" is not implementing required method getOptions' )
+        raise NotImplementedError, ('Plugin "%s" is not implementing '
+                                  'required method getOptions' % self.name)
 
-    def getPluginDeps( self ):
+    def getPluginDeps(self):
         '''
         @return: A list with the names of the plugins that should be 
         runned before the current one.
         '''
-        raise w3afException('Plugin is not implementing required method getPluginDeps' )
+        raise NotImplementedError, ('Plugin is not implementing required '
+                                    'method getPluginDeps')
 
-    def getDesc( self ):
+    def getDesc(self):
         '''
         @return: A description of the plugin.
         
@@ -230,9 +240,6 @@ class basePlugin(configurable):
         
     def getType( self ):
         return 'plugin'
-
-    def getName( self ):
-        return self.__class__.__name__
 
     def handleUrlError(self, url_error):
         '''

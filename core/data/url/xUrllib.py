@@ -799,10 +799,11 @@ class xUrllib(object):
             try:
                 request = eplugin.modifyRequest( request )
             except w3afException, e:
-                msg = 'Evasion plugin "%s" failed to modify the request. Exception: "%s"' % (eplugin.getName(), e)
-                om.out.error( msg )
+                om.out.error('Evasion plugin "%s" failed to modify the '
+                             'request. Exception: "%s"' % (eplugin.name, e))
                 
         return request
+    
     
     def _grep_result(self, req, resp):
         
@@ -813,20 +814,16 @@ class xUrllib(object):
         if grep_plugins and domain in cf.cf.getData('targetDomains'):
             # Create a fuzzable request based on the urllib2 request object
             fuzz_req = createFuzzableRequestRaw(
-                            req.get_method(), url,
-                            req.get_data(), req.headers
-                            )
+                                        req.get_method(), url,
+                                        req.get_data(), req.headers
+                                        )
             mngr = get_plugin_manager(
-                      mngr_type=MNGR_TYPE_GREP,
-                      plugins=grep_plugins
-                      )
+                              mngr_type=MNGR_TYPE_GREP,
+                              plugins=grep_plugins
+                              )
             timeout = 10
             try:
-                for plugin_resp in mngr.work(
-                                        args=(fuzz_req, resp),
-                                        timeout=timeout
-                                        ):
-                    [kb.kb.append(*infotuple) for infotuple in plugin_resp]
+                mngr.work(args=(fuzz_req, resp), timeout=timeout)
             except KeyboardInterrupt:
                 mngr.terminate()
                 raise
@@ -844,9 +841,9 @@ class xUrllib(object):
                 '\nException: %s' % (e, traceback.format_exc(1)))
                 om.out.error(msg)
                 om.out.error(
-                    getattr(e, 'traceback', '') or traceback.format_exc()
+                    getattr(e, '_traceback_', '') or traceback.format_exc()
                     )
     
             
-            om.out.debug('Finished grep_worker for response: ' + repr(resp))
+            om.out.debug('Finished grep_worker for response: %r' % resp)
     

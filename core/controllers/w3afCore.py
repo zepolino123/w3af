@@ -19,7 +19,7 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
+from itertools import chain
 import copy
 import datetime
 import os
@@ -44,6 +44,7 @@ from core.controllers.threads.threadManager import threadManagerObj as tm
 from core.controllers.w3afException import (w3afException, w3afRunOnce,
     w3afFileException, w3afMustStopException, w3afMustStopByUnknownReasonExc,
     w3afMustStopOnUrlError)
+from core.data.globaldata import globaldata
 from core.data.profile.profile import profile as profile
 from core.data.request.frFactory import createFuzzableRequests
 from core.data.url.xUrllib import xUrllib
@@ -51,7 +52,6 @@ import core.controllers.miscSettings as miscSettings
 import core.controllers.outputManager as om
 import core.data.kb.config as cf
 import core.data.kb.knowledgeBase as kb
-
 
 class w3afCore(object):
     '''
@@ -147,7 +147,7 @@ class w3afCore(object):
         
         # Init some values
         # TODO: May be consuming a lot of memory
-        kb.kb.save( 'urls', 'urlQueue' ,  Queue.Queue() )
+        globaldata['url-queue'] = Queue.Queue()        
         self._isRunning = False
         self._paused = False
         # Reset global sequence number generator
@@ -249,7 +249,7 @@ class w3afCore(object):
             if len( deps ) != 0:
                 # This plugin has dependencies, I should add the plugins in order
                 for plugin2 in requestedPluginsList:
-                    if pluginType+'.'+plugin2.getName() in deps and plugin2 not in orderedPluginList:
+                    if pluginType+'.'+plugin2.name in deps and plugin2 not in orderedPluginList:
                         orderedPluginList.insert( 1, plugin2)
 
             # Check if I was added because of a dep, if I wasnt, add me.
@@ -271,11 +271,11 @@ class w3afCore(object):
 
             om.out.error('Ordered plugins:')
             for plugin in orderedPluginList:
-                om.out.error('- ' + plugin.getName() )
+                om.out.error('- ' + plugin.name )
 
             om.out.error('\nRequested plugins:')
             for plugin in requestedPluginsList:
-                om.out.error('- ' + plugin.getName() )
+                om.out.error('- ' + plugin.name )
 
             sys.exit(-1)
 
@@ -308,32 +308,26 @@ class w3afCore(object):
         
 
 
-    def _updateURLsInKb( self, fuzzableRequestList ):
+    def _updateURLsInKb(self, fuzzreqs):
         '''
         Creates an URL list in the kb
         '''
-        # TODO:
-        # kb.kb.getData( 'urls', 'urlList') consumes a lot of memory
-        
-        # Create the queue that will be used in gtkUi
-        old_list = kb.kb.getData( 'urls', 'urlList')
-        new_list = [ fr.getURL() for fr in fuzzableRequestList if fr.getURL() not in old_list ]
-        
-        # Update the Queue
-        urlQueue = kb.kb.getData( 'urls', 'urlQueue' )
+        old_list = globaldata.get('url-list', [])
+        new_list = set(
+                    chain((fr.getURL() for fr in fuzzreqs), old_list)
+                    )
+        # gtkui's URL queue
+        url_queue = globaldata['url-queue']
         for u in new_list:
-            urlQueue.put( u )
+            url_queue.put(u)
             
         # Update the list of URLs that is used world wide
-        old_list = kb.kb.getData( 'urls', 'urlList')
-        new_list.extend( old_list )
-        kb.kb.save( 'urls', 'urlList' ,  new_list )
-
+        old_list += list(new_list)
+        
         # Update the list of URIs that is used world wide
-        uriList = kb.kb.getData( 'urls', 'uriList')
-        uriList.extend( [ fr.getURI() for fr in fuzzableRequestList] )
-        uriList = list( set( uriList ) )
-        kb.kb.save( 'urls', 'uriList' ,  uriList )
+        uriList = globaldata.get('uri-list', [])
+        uriList.extend([fr.getURI() for fr in fuzzreqs])
+        globaldata['uri-list'] = list(set(uriList))
     
     def _discover_and_bruteforce( self ):
         '''
@@ -543,7 +537,8 @@ class w3afCore(object):
                     self.export.exportFuzzableRequestList(self._fuzzableRequestList)
                     
                 if not self._fuzzableRequestList:
-                    om.out.information('No URLs found by discovery.')
+                    pass
+                    #om.out.information('No URLs found by discovery.')
                 else:
                     # del() all the discovery and bruteforce plugins
                     # this is a performance enhancement that will free memory
@@ -552,28 +547,24 @@ class w3afCore(object):
                     for plugin in self._plugins['bruteforce']:
                         del(plugin)
                     
-                    # Sort URLs
-                    tmp_url_list = []
-                    for u in kb.kb.getData( 'urls', 'urlList'):
-                        tmp_url_list.append( u )
-                    tmp_url_list = list(set(tmp_url_list))
-                    tmp_url_list.sort()
+                    # Sort URLs and 
+                    # Save the list of uniques to the kb; this will avoid
+                    # some extra loops in some plugins that use this knowledge
+                    urls = sorted(set(globaldata.get('url-list', [])[:]))
+                    globaldata['url-list'] = urls
         
-                    # Save the list of uniques to the kb; this will avoid some extra loops
-                    # in some plugins that use this knowledge
-                    kb.kb.save('urls', 'urlList', tmp_url_list )
                     
                     # Filter out the fuzzable requests that aren't important (and will be ignored
                     # by audit plugins anyway...)
                     msg = ('Found %s URLs and %s different points of '
                            'injection.' % 
-                           (len(tmp_url_list), len(self._fuzzableRequestList)))
-                    om.out.information( msg )
+                           (len(urls), len(self._fuzzableRequestList)))
+                    om.out.information(msg)
                     
                     # print the URLs
                     om.out.information('The list of URLs is:')
-                    for i in tmp_url_list:
-                        om.out.information( '- ' + i )
+                    for u in urls:
+                        om.out.information( '- ' + u)
                     
                     #
                     #   What I want to do here, is filter the repeated fuzzable requests.
@@ -786,7 +777,7 @@ class w3afCore(object):
                 p.end()
             except Exception, e:
                 om.out.error('The plugin "%s" raised an exception in the '
-                             'end() method: %s' % (p.getName(), e))
+                             'end() method: %s' % (p.name, e))
     
     def get_discovery_time(self):
         '''
@@ -834,7 +825,7 @@ class w3afCore(object):
                         break
                         
                     else:
-                        self._setRunningPlugin( plugin.getName() )
+                        self._setRunningPlugin( plugin.name )
                         self._setCurrentFuzzableRequest( fr )
                         try:
                             # Perform the actual work
@@ -854,9 +845,9 @@ class w3afCore(object):
                             # or something else that is iterable
                             if hasattr(pluginResult,'__iter__'):
                                 for i in pluginResult:
-                                    fuzzableRequestList.append( (i, plugin.getName()) )
+                                    fuzzableRequestList.append( (i, plugin.name) )
                                     
-                        om.out.debug('Ending plugin: ' + plugin.getName() )
+                        om.out.debug('Ending plugin: ' + plugin.name )
                     
                     # We finished one loop, inc!
                     self.progress.inc()
@@ -885,8 +876,9 @@ class w3afCore(object):
             #   Print the new URLs in a sorted manner.
             tmp_sort.sort()
             for u in tmp_sort:
-                om.out.information('New URL found by %s plugin: %s' %
-                                            (pluginWhoFoundIt, unicode(u)))
+                pass
+#                om.out.information('New URL found by %s plugin: %s' %
+#                                            (pluginWhoFoundIt, unicode(u)))
                 
             # Update the list / queue that lives in the KB
             self._updateURLsInKb( newFR )
@@ -913,11 +905,11 @@ class w3afCore(object):
                     
                     # Remove it from the plugin list, and run the end() method
                     self._plugins['discovery'].remove( plugin_to_remove )
-                    om.out.debug('The discovery plugin: ' + plugin_to_remove.getName() + ' wont be runned anymore.')      
+                    om.out.debug('The discovery plugin: ' + plugin_to_remove.name + ' wont be runned anymore.')      
                     try:
                         plugin_to_remove.end()
                     except Exception, e:
-                        msg = 'The plugin "'+ plugin_to_remove.getName() + '" raised an exception'
+                        msg = 'The plugin "'+ plugin_to_remove.name + '" raised an exception'
                         msg += ' in the end() method: ' + str(e)
                         om.out.error( msg )
                     
@@ -995,7 +987,7 @@ class w3afCore(object):
         for plugin in self._plugins['audit']:
             
             # For status
-            self._setRunningPlugin( plugin.getName() )
+            self._setRunningPlugin( plugin.name )
 
             for fr in self._fuzzableRequestList:
                 # Sends each fuzzable request to the plugin
@@ -1036,8 +1028,8 @@ class w3afCore(object):
         
         for plugin in self._plugins['bruteforce']:
             # FIXME: I should remove this information lines, they duplicate functionality with the setRunningPlugin
-            om.out.information('Starting ' + plugin.getName() + ' plugin execution.')
-            self._setRunningPlugin( plugin.getName() )
+            om.out.information('Starting ' + plugin.name + ' plugin execution.')
+            self._setRunningPlugin( plugin.name )
             for fr in fuzzableRequestList:
                 
                 # Sends each url to the plugin

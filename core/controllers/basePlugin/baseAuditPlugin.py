@@ -22,7 +22,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 from core.controllers.w3afException import w3afException
 from core.controllers.basePlugin.basePlugin import basePlugin
-import core.controllers.outputManager as om
 import core.data.kb.knowledgeBase as kb
 
 
@@ -53,14 +52,14 @@ class baseAuditPlugin(basePlugin):
         
         # These lines were added because we need to return the new vulnerabilities found by this
         # audit plugin, and I don't want to change the code of EVERY plugin!
-        before_vuln_dict = kb.kb.getData( self )
+        before_vuln_dict = kb.kb.getData( self.name )
         
         self.audit( fuzzable_request_copy )
         
         # The join is here just in case, because the audit method of each plugin should call it
         self._tm.join( self )
         
-        after_vuln_dict = kb.kb.getData( self )
+        after_vuln_dict = kb.kb.getData( self.name )
         
         # Now I get the difference between them:
         before_list = []

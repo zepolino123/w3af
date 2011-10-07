@@ -25,7 +25,7 @@ import urllib2
 import sys
 import re, Queue, threading
 from . import helpers, kbtree, httpLogTab, reqResViewer, craftedRequests, entries
-import core.data.kb.knowledgeBase as kb
+from core.data.globaldata import globaldata
 import webbrowser
 import core.controllers.outputManager as om
 from extlib.xdot import xdot
@@ -395,8 +395,7 @@ class URLsTree(gtk.TreeView):
         self.treeholder = {}
 
         # get the queue and go live
-        queue = kb.kb.getData('urls', 'urlQueue')
-        self.urls = helpers.IteratedQueue(queue)
+        self.urls = helpers.IteratedQueue(globaldata['url-queue'])
         gobject.timeout_add(500, self.addUrl().next)
         self.show()
 

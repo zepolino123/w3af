@@ -20,6 +20,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
+import itertools
+
 from core.data.parsers.urlParser import url_object
 import core.data.constants.severity as severity
 
@@ -29,8 +31,11 @@ class info(dict):
     This class represents an information that is saved to the kb.
     @author: Andres Riancho ( andres.riancho@gmail.com )
     '''
+    counter = itertools.count()
+    
     def __init__(self, data_obj=None):
-
+        
+        self._id_key = info.counter.next()
         # Default values
         self._url = None
         self._uri = None

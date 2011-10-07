@@ -84,7 +84,7 @@ class GrepManager(BasePluginManager):
             print '>>>>>>>>>>>>>>> calling!!!'
             res.extend(plugin.grep(req, resp) or [])
             ## IMPORTANT! Updating values through proxy object ##
-            print '############### PLUGIN-TYPE', plugin.getName()
+            print '############### PLUGIN-TYPE', plugin.name
             
             try:
                 plugin._already_inspected = plugin._already_inspected

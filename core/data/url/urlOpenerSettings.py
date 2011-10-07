@@ -97,7 +97,7 @@ class urlOpenerSettings( configurable ):
             # This is the first time we are executed...
         
             cfg.save('timeout', 15 )
-            self._socket.setdefaulttimeout(cfg.getData('timeout'))
+##            self._socket.setdefaulttimeout(cfg.getData('timeout'))
             cfg.save('headersFile', '' )
             cfg.save('cookieJarFile', '' )
             cfg.save('User-Agent', 'w3af.sourceforge.net' )
@@ -187,7 +187,7 @@ class urlOpenerSettings( configurable ):
             
             # Set the default timeout
             # I dont need to use timeoutsocket.py , it has been added to python sockets
-            self._socket.setdefaulttimeout(cfg.getData('timeout'))
+##            self._socket.setdefaulttimeout(cfg.getData('timeout'))
         
     def getTimeout( self ):
         return cfg.getData('timeout')

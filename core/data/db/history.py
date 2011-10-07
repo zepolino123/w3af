@@ -33,7 +33,7 @@ try:
 except ImportError:
     from StringIO import StringIO
 
-import core.data.kb.knowledgeBase as kb
+from core.data.globaldata import globaldata
 from core.controllers.w3afException import w3afException
 from core.controllers.misc.homeDir import get_home_dir
 from core.controllers.misc.FileLock import FileLock, FileLockRead
@@ -73,9 +73,9 @@ class HistoryItem(object):
         self._ext = '.trace'
         if db:
             self._db = db
-        elif not kb.kb.getData('gtkOutput', 'db') == []:
+        elif globaldata.get('gtkoutput-db', []):
             # Restore it from the kb
-            self._db = kb.kb.getData('gtkOutput', 'db')
+            self._db = globaldata['gtkoutput-db']
         else:
             raise w3afException('The database is not initialized yet.')
         self._sessionDir = os.path.join(get_home_dir() , 'sessions',

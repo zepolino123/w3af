@@ -21,7 +21,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 import gtk, gobject
 
-import core.data.kb.knowledgeBase as kb
+from core.data.kb.knowledgeBase import kb
 from . import helpers, exploittab
 import core.data.kb
 
@@ -102,8 +102,6 @@ class KBTree(gtk.TreeView):
         self.connect("query-tooltip", self._showToolTips)
 ##        self.connect("motion-notify-event", self._changeButtonStyle)
 
-        # get the knowledge base and go live
-        self.fullkb = kb.kb.dump()
         gobject.timeout_add(500, self._updateTree, self.treestore, self.treeholder)
         self.postcheck = False
         
@@ -145,7 +143,7 @@ class KBTree(gtk.TreeView):
         filteredkb = {}
 
         # iterate the first layer, plugin names
-        for pluginname, plugvalues in self.fullkb.items():
+        for pluginname, plugvalues in kb.dump().items():
             holdplugin = {}
             maxpluginlevel = 0
             
@@ -239,7 +237,7 @@ class KBTree(gtk.TreeView):
 
         # get the filtered knowledge base info
         filteredKB = self._filterKB()
-
+        
         # Note for the following lines: we store the path in the dict, and then
         # regenerate the iter with that path, to avoid the iter to become invalid
         # when the tree changes in some way (we may use the iter later to change
@@ -279,9 +277,12 @@ class KBTree(gtk.TreeView):
 
                 # iterate the third layer, the variable objects
                 for name,instance,obtype,severity,color in variabobjects:
-                    idinstance = str(id(instance))
-                    if idinstance not in holdvariab:
-                        holdvariab.add(idinstance)
+
+                    inst_id = str(instance._id_key)
+                    
+                    if inst_id not in holdvariab:
+                                                
+                        holdvariab.add(inst_id)
                         icon = helpers.KB_ICONS.get((obtype, severity))
                         if icon is not None:
                             icon = icon.get_pixbuf()
@@ -289,9 +290,11 @@ class KBTree(gtk.TreeView):
                         iconExploit = helpers.loadIcon('STOCK_EXECUTE') if \
                                         self._isExploitable(instance) else None
 
-                        treestore.append(treevariab, [iconExploit, name, idinstance,
-                                                      icon, 0, color, ''])
-                        self.instances[idinstance] = instance
+                        treestore.append(
+                             treevariab,
+                             [iconExploit, name, inst_id, icon, 0, color, '']
+                             )
+                        self.instances[inst_id] = instance
                         self._mapExploitsToVuln(instance)
         
         # TODO: Right now I only get ValueError: invalid tree path

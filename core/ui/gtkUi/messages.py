@@ -21,10 +21,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 import gtk, gobject
 from . import helpers, entries
-import core.data.kb.knowledgeBase as kb
 from core.ui.gtkUi.common.searchable import Searchable
 from core.data.db.temp_persist import disk_list
-
+from core.data.globaldata import globaldata
 
 def getQueueDiverter(reset=False, instance=[]):
     '''Returns only one instance of the IteratedQueue.
@@ -36,7 +35,7 @@ def getQueueDiverter(reset=False, instance=[]):
             del instance[:]
         return
     if not instance:
-        q = kb.kb.getData("gtkOutput", "queue")
+        q = globaldata.get("gtkoutput-queue")
         inst = helpers.IteratedQueue(q)
         instance.append(inst)
     return instance[0]

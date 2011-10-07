@@ -24,7 +24,6 @@ __all__ = [
     ]
 
 from Queue import Empty
-from multiprocessing.managers import BaseManager, SyncManager
 import itertools
 import multiprocessing
 import sys
@@ -45,12 +44,6 @@ TERMINATE = 1
 
 # Global counter
 job_counter = itertools.count()
-
-# XXX
-SyncManager.register('kb', lambda: kb)
-mngr = SyncManager()
-mngr.start()
-KB = mngr.kb()
 
 MNGR_TYPE_GREP = 'MNGR_TYPE_GREP'
 MNGR_TYPE_AUDIT = 'MNGR_TYPE_AUDIT'
@@ -84,9 +77,9 @@ class TerminatedWork(Exception):
 
 class Failure(object):
     
-    def __init__(self, exc_info):
-        self.exc_type, self.exc_val, tb = exc_info
-        self.exc_tback = traceback.format_exc(exc_info)
+    def __init__(self, exc_obj):
+        self.exc_obj = exc_obj
+        exc_obj._traceback_ = traceback.format_exc(sys.exc_info())
 
 
 class PluginMngr(object):
@@ -152,16 +145,15 @@ class GrepMngr(PluginMngr):
         for worker in self._workers:
             taskq = worker.task_queue
             taskq.put(
-                (result._job_id, args, KB)
+                (result._job_id, args, kb)
                 )
-    
+        
         res_list = result.get(timeout)
+        
         for res_ele in res_list:
             if isinstance(res_ele, Failure):
-                exc = res_ele.exc_type(res_ele.exc_val)
-                setattr(exc, 'traceback', res_ele.exc_tback)
+                exc = res_ele.exc_obj
                 raise exc
-        
         return res_list
     
     def terminate(self):
@@ -173,7 +165,6 @@ class GrepMngr(PluginMngr):
             for worker in self._workers:
                 worker.task_queue.put(None)
                 worker.terminate()
-        
     
     @staticmethod
     def _handle_results(workers, cache):
@@ -189,7 +180,7 @@ class GrepMngr(PluginMngr):
                     pass
                 else:
                     try:
-                        cache[jobid].set_result(res)
+                    cache[jobid].set_result(res)
                     except KeyError:
                         pass
 
@@ -212,14 +203,13 @@ class GrepWorker(Worker):
         Worker.__init__(self, task_queue, result_queue)
         self._plugins = plugins
         self._shutdown = threading.Event()
-    
+
     def run(self):
         while not self._shutdown.is_set():
             jobid = None
-            
             try:
-                jobid, args, KB = self.task_queue.get()
-                
+                jobid, args, kb = self.task_queue.get()
+                print 'job_id', jobid
                 if args is None:
                     # 'Poison pill' means shutdown.
                     break
@@ -227,25 +217,24 @@ class GrepWorker(Worker):
                 res = []
                 for p in self._plugins:
                     try:
-                        value = self._tweaked_grep(p, {'kb': KB})(*args)
+                        value = self._tweaked_grep(p, {'kb': kb})(*args)
                     except KeyboardInterrupt:
                         raise
-                    except Exception:
-                        value = Failure(sys.exc_info())
-                    
+                    except Exception, ex:
+                        print 'FAIL!!!'
+                        value = Failure(ex)
                     res.append(value or [])
                 
                 self.result_queue.put((jobid, res))
             
-            except KeyboardInterrupt:
+            except KeyboardInterrupt, ki:
                 self._shutdown.set()
                 
                 if not jobid:
                     jobid = self.task_queue.get()[0]
                 self.result_queue.put(
-                                    (jobid, [Failure(sys.exc_info())])
+                                    (jobid, [Failure(ki)])
                                     )
-    
     def _tweaked_grep(self, plugin, globalrepl):
         def _grep(*args):
             grep_func = plugin.grep.im_func
@@ -254,6 +243,7 @@ class GrepWorker(Worker):
             _grep_func = types.FunctionType(grep_func.func_code, _globals)
             return _grep_func(plugin, *args)
         return _grep
+
 
 class Result(object):
     

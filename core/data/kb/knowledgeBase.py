@@ -19,13 +19,16 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-import threading
-import core.data.kb.vuln as vuln
+
+from multiprocessing.managers import SyncManager
+from multiprocessing import RLock
+
 import core.data.kb.info as info
 import core.data.kb.shell as shell
+import core.data.kb.vuln as vuln
 
 
-class knowledgeBase:
+class KnowledgeBase(object):
     '''
     This class saves the data that is sent to it by plugins. It is the
     only way in which plugins can talk to each other.
@@ -35,56 +38,55 @@ class knowledgeBase:
     
     def __init__(self):
         self._kb = {}
-        self._kb_lock = threading.RLock()
+        self._kb_lock = RLock()
 
-    def save(self, callingInstance, variableName, value):
+    def save(self, pluginname, variableName, value):
         '''
         This method saves the variableName value to a dict.
         '''
-        name = callingInstance if isinstance(callingInstance, basestring) \
-                else callingInstance.getName()
         with self._kb_lock:
-            self._kb.setdefault(name, {})[variableName] = value
+            self._kb.setdefault(pluginname, {})[variableName] = value
         
-    def append(self, callingInstance, variableName, value):
+    def append(self, name, variableName, value):
         '''
         This method appends the variableName value to a dict.
         '''
-        name = callingInstance if isinstance(callingInstance, basestring) \
-                else callingInstance.getName()
         with self._kb_lock:
             vals = self._kb.setdefault(name, {}).setdefault(variableName, [])
             vals.append(value)
         
-    def getData(self, pluginWhoSavedTheData, variableName=None):
+    def getData(self, pluginname, variableName=None):
         '''
-        @parameter pluginWhoSavedTheData: The plugin that saved
-            the data to the kb.info Typically the name of the plugin,
-            but could also be the plugin instance.
+        @parameter pluginname: The plugin that saved the data to the
+            kb.info Typically the name of the plugin.
         @parameter variableName: The name of the variables under which
             the vuln objects were saved. Typically the same name of the
             plugin, or something like "vulns", "errors", etc. In most
             cases this is NOT None. When set to None, a dict with all
-            the vuln objects found by the pluginWhoSavedTheData is returned.
+            the vuln objects found by the plugin that saved the data
+            is returned.
         @return: Returns the data that was saved by another plugin.
-        '''
-        if isinstance( pluginWhoSavedTheData, basestring ):
-            name = pluginWhoSavedTheData
-        else:
-            name = pluginWhoSavedTheData.getName()
-            
+        '''        
         res = []
         
-        with self._kb_lock:
-            if name not in self._kb.keys():
+#        with self._kb_lock:
+#            if variableName is None:
+#                res = self._kb.get(pluginname, [])
+#            else:
+#                res = self._kb.get(pluginname, {}).get(variableName, [])
+#                if len(res) == 1:
+#                    res = res[0]
+#            return res
+            
+        if pluginname not in self._kb.keys():
+            res = []
+        else:
+            if variableName is None:
+                res = self._kb[pluginname]
+            elif variableName not in self._kb[pluginname].keys():
                 res = []
             else:
-                if variableName is None:
-                    res = self._kb[name]
-                elif variableName not in self._kb[name].keys():
-                    res = []
-                else:
-                    res = self._kb[name][variableName]
+                res = self._kb[pluginname][variableName]
         return res
 
     def getAllEntriesOfClass(self, klass):
@@ -108,13 +110,13 @@ class knowledgeBase:
         '''
         @return: A list of all vulns reported by all plugins.
         '''
-        return self.getAllEntriesOfClass( vuln.vuln )
+        return self.getAllEntriesOfClass(vuln.vuln)
     
     def getAllInfos(self):
         '''
         @return: A list of all vulns reported by all plugins.
         '''
-        return self.getAllEntriesOfClass( info.info )
+        return self.getAllEntriesOfClass(info.info)
     
     def getAllShells(self):
         '''
@@ -125,11 +127,27 @@ class knowledgeBase:
     def dump(self):
         return self._kb
     
+    def update(self, otherkb):
+        '''
+        Update self from other kb.
+        '''
+        with self._kb_lock:
+            for othname, othvals in otherkb.iteritems():
+                vals = self._kb.setdefault(othname, {})
+                for othinname, othinvals in othvals:
+                    vals.setdefault(othinname, []).extend(othinvals)
+    
     def cleanup(self):
         '''
         Cleanup internal data.
         '''
-        with self._kb_lock:
-            self._kb.clear()
-        
-kb = knowledgeBase()
+        self._kb.clear()
+
+
+# JAP Oct 6th, 2011: Create global proxy object for KnowledgeBase instance.
+# Needed by the new multiprocessing implementation 
+_kb = KnowledgeBase()
+SyncManager.register('kb', lambda: _kb)
+sync_mngr = SyncManager()
+sync_mngr.start()
+kb = sync_mngr.kb()

@@ -271,7 +271,7 @@ class ConfigDialog(gtk.Dialog):
         rvrt_btn = self._button("Revert to previous configuration")
         close_btn = self._button(stock=gtk.STOCK_CLOSE)
         close_btn.connect("clicked", self._btn_close)
-        plugin.pname, plugin.ptype = plugin.getName(), plugin.getType()
+        plugin.pname, plugin.ptype = plugin.name, plugin.getType()
         
         # Show the description
         if showDesc:

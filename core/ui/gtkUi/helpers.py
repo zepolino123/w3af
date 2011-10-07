@@ -26,6 +26,7 @@ import  webbrowser
 import gtk
 import os
 from core.controllers.w3afException import w3afException
+from core.data.globaldata import globaldata
 
 RE_TRIM_SPACES = re.compile( "([\w.]) {1,}")
 
@@ -473,12 +474,11 @@ def write_console_messages( dlg ):
     
     @parameter dlg: The TextDialog.
     '''
-    import core.data.kb.knowledgeBase as kb
     from . import messages
     
     msg_queue = messages.getQueueDiverter()
-    get_message_index = kb.kb.getData('get_message_index', 'get_message_index')
-    inc_message_index = kb.kb.getData('inc_message_index', 'inc_message_index')
+    get_message_index = globaldata['get_message_index']
+    inc_message_index = globaldata['inc_message_index']
     
     for msg in msg_queue.get(get_message_index()):
         if msg is None:
