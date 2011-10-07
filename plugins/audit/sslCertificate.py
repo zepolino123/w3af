@@ -105,10 +105,10 @@ class sslCertificate(baseAuditPlugin):
             desc += self._dump_X509(cert)
             om.out.information( desc )
             i = info.info()
-            i.setPluginName(self.getName())
+            i.setPluginName(self.name)
             i.setName('SSL Certificate' )
             i.setDesc( desc )
-            kb.kb.append( self, 'certificate', i )
+            kb.kb.append( self.name, 'certificate', i )
 
     def ssl_wrapper(self, ssl_obj, method, args, kwargs):
         '''
@@ -137,20 +137,20 @@ class sslCertificate(baseAuditPlugin):
         # Check for expired
         if cert.has_expired():
             i = info.info()
-            i.setPluginName(self.getName())
+            i.setPluginName(self.name)
             i.setName('Expired SSL certificate' )
             i.setDesc( 'The certificate with MD5 digest: "' + server_digest_MD5 + '" has expired.' )
-            kb.kb.append( self, 'expired', i )
+            kb.kb.append( self.name, 'expired', i )
 
         # Check for SSL version
         if cert.get_version() < 3:
             i = info.info()
-            i.setPluginName(self.getName())
+            i.setPluginName(self.name)
             i.setName('Insecure SSL version' )
             desc = 'The certificate is using an old version of SSL (' + str(cert.get_version())
             desc += '), which is insecure.'
             i.setDesc( desc )
-            kb.kb.append( self, 'version', i )
+            kb.kb.append( self.name, 'version', i )
 
         peer = cert.get_subject()
         issuer = cert.get_issuer()
@@ -170,13 +170,13 @@ class sslCertificate(baseAuditPlugin):
 
             if wildcardinvalid:
                 i = info.info()
-                i.setPluginName(self.getName())
+                i.setPluginName(self.name)
                 i.setName('Potential wildcard SSL manipulation')
                 desc = 'The certificate is not using wildcard(*) properly'
                 desc += 'Certificate wildcard: '
                 desc += cn
                 i.setDesc (desc)
-                kb.kb.append(self,'version', i)
+                kb.kb.append(self.name,'version', i)
             else:
                 tmpstr=cn    
                 tmpstr2=tmpstr.replace("*","",1)
@@ -189,7 +189,7 @@ class sslCertificate(baseAuditPlugin):
 
         if certinvalid: 
             i = info.info()
-            i.setPluginName(self.getName())
+            i.setPluginName(self.name)
             i.setName('Invalid name of the certificate')
             desc = 'The certificate presented by this website ('
             desc += host
@@ -197,17 +197,17 @@ class sslCertificate(baseAuditPlugin):
             desc += cn + ')'
             i.setDesc( desc )
             om.out.information( desc )
-            kb.kb.append( self, 'cn', i )
+            kb.kb.append( self.name, 'cn', i )
 
             # Check that the certificate is self issued
             if peer == issuer:
                 i = info.info()
-                i.setPluginName(self.getName())
+                i.setPluginName(self.name)
                 i.setName('Self issued SSL certificate')
                 desc = 'The certificate is self issued'
                 i.setDesc( desc )
                 om.out.information( desc )
-                kb.kb.append( self, 'si_cert', i )
+                kb.kb.append( self.name, 'si_cert', i )
             # TODO
             # 1. Self-signed
             # 2. MD5 check like in Metasploit

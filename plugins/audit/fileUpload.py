@@ -162,7 +162,7 @@ class fileUpload(baseAuditPlugin):
                             # be picked
                             mutant.setModValue('<file_object>')
                             v = vuln.vuln(mutant)
-                            v.setPluginName(self.getName())
+                            v.setPluginName(self.name)
                             v.setId([mutant_response.id, get_response.id])
                             v.setSeverity(severity.HIGH)
                             v.setName('Insecure file upload')
@@ -171,7 +171,7 @@ class fileUpload(baseAuditPlugin):
                             msg = ('A file upload to a directory inside the '
                             'webroot was found at: ' + mutant.foundAt())
                             v.setDesc(msg)
-                            kb.kb.append(self, 'fileUpload', v)
+                            kb.kb.append(self.name, 'fileUpload', v)
                             return
     
     def end(self):

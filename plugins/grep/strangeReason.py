@@ -122,7 +122,7 @@ class strangeReason(baseGrepPlugin):
                 else:
                     # Create a new info object from scratch and save it to the kb:
                     i = info.info()
-                    i.setPluginName(self.getName())
+                    i.setPluginName(self.name)
                     i.setName('Strange HTTP Reason message - ' + str(response.getMsg()))
                     i.setURL( response.getURL() )
                     i.setId( response.id )
@@ -131,7 +131,7 @@ class strangeReason(baseGrepPlugin):
                     desc += str(response.getMsg()) + '" manual inspection is advised.'
                     i.setDesc( desc )
                     i.addToHighlight( response.getMsg() )
-                    kb.kb.append( self , 'strangeReason' , i )
+                    kb.kb.append( self.name , 'strangeReason' , i )
     
     def setOptions( self, OptionList ):
         pass

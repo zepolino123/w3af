@@ -19,22 +19,14 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
+import re
 
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-
-import core.data.kb.knowledgeBase as kb
-import core.data.kb.vuln as vuln
-import core.data.constants.severity as severity
-
 from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
-
-import re
+from core.data.kb.knowledgeBase import kb
+from core.data.options.optionList import optionList
+import core.data.constants.severity as severity
+import core.data.kb.vuln as vuln
 
 
 class directoryIndexing(baseGrepPlugin):
@@ -75,7 +67,7 @@ class directoryIndexing(baseGrepPlugin):
                 for indexing_regex in self._compiled_regex_list:
                     if indexing_regex.search( html_string ):
                         v = vuln.vuln()
-                        v.setPluginName(self.getName())
+                        v.setPluginName(self.name)
                         v.setURL( response.getURL() )
                         msg = 'The URL: "' + response.getURL() + '" has a directory '
                         msg += 'indexing vulnerability.'
@@ -85,7 +77,7 @@ class directoryIndexing(baseGrepPlugin):
                         path = response.getURL().getPath()
                         v.setName( 'Directory indexing - ' + path )
                         
-                        kb.kb.append( self , 'directory' , v )
+                        kb.append( self.name , 'directory' , v )
                         break
     
     def setOptions( self, OptionList ):
@@ -120,7 +112,7 @@ class directoryIndexing(baseGrepPlugin):
         '''
         This method is called when the plugin wont be used anymore.
         '''
-        self.printUniq( kb.kb.getData( 'directoryIndexing', 'directory' ), 'URL' )
+        self.printUniq( kb.getData( 'directoryIndexing', 'directory' ), 'URL' )
             
     def getPluginDeps( self ):
         '''

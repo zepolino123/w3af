@@ -133,13 +133,13 @@ class userDir(baseDiscoveryPlugin):
                 # Avoid duplicates
                 if user not in [ u['user'] for u in kb.kb.getData( 'userDir', 'users') ]:
                     i = info.info()
-                    i.setPluginName(self.getName())
+                    i.setPluginName(self.name)
                     i.setName('User directory: ' + response.getURL() )
                     i.setId( response.id )
                     i.setDesc( 'A user directory was found at: ' + response.getURL() )
                     i['user'] = user
                     
-                    kb.kb.append( self, 'users', i )
+                    kb.kb.append( self.name, 'users', i )
                     
                     fuzzable_request_list = self._createFuzzableRequests( response )
                     self._fuzzable_requests.extend( fuzzable_request_list )
@@ -243,21 +243,21 @@ class userDir(baseDiscoveryPlugin):
             for uDir, user in url_user_list:
                 if self._do_request( uDir, user ):
                     i = info.info()
-                    i.setPluginName(self.getName())
+                    i.setPluginName(self.name)
                     if ident == 'os':
                         msg = 'The remote OS can be identified as "' + data_related_to_user
                         msg += '" based on the remote user "'+ user +'".'
                         i.setDesc( msg )
                         i['rOS'] = data_related_to_user
                         i.setName('Identified Operating System: ' + data_related_to_user )
-                        kb.kb.append( self, 'os', i )
+                        kb.kb.append( self.name, 'os', i )
                     else:
                         msg = 'The remote server has "' + data_related_to_user + '" installed, w3af'
                         msg += ' found this information based on the remote user "'+ user +'".'
                         i.setDesc( msg )
                         i['application'] = data_related_to_user
                         i.setName('Identified application: ' + data_related_to_user )
-                        kb.kb.append( self, 'applications', i )
+                        kb.kb.append( self.name, 'applications', i )
     
     def _report_findings( self ):
         '''

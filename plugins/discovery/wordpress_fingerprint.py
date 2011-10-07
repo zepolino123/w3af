@@ -102,12 +102,12 @@ class wordpress_fingerprint(baseDiscoveryPlugin):
 
                     # Save it to the kb!
                     i = info.info()
-                    i.setPluginName(self.getName())
+                    i.setPluginName(self.name)
                     i.setName('WordPress version')
                     i.setURL( wp_index_url )
                     i.setId( response.id )
                     i.setDesc( 'WordPress version "'+ self._version +'" found in the index header.' )
-                    kb.kb.append( self, 'info', i )
+                    kb.kb.append( self.name, 'info', i )
                     om.out.information( i.getDesc() )
 
                 #########################
@@ -142,12 +142,12 @@ class wordpress_fingerprint(baseDiscoveryPlugin):
 
                 # Save it to the kb!
                 i = info.info()
-                i.setPluginName(self.getName())
+                i.setPluginName(self.name)
                 i.setName('WordPress version')
                 i.setURL( test_url )
                 i.setId( response.id )
                 i.setDesc( 'WordPress version "'+ self._version +'" found from data.' )
-                kb.kb.append( self, 'info', i )
+                kb.kb.append( self.name, 'info', i )
                 om.out.information( i.getDesc() )
 
                 # Only run once

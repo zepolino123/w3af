@@ -188,7 +188,7 @@ class halberd(baseDiscoveryPlugin):
                 i = infokb.info()
                 i['server'] = info['server'].lstrip()
                 i['serverNumber'] = num +1
-                kb.kb.append( self, 'halberd', i )
+                kb.kb.append( self.name, 'halberd', i )
                 
                 om.out.information('difference: %d seconds' % clue.diff)
         

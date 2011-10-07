@@ -113,7 +113,7 @@ class fingerBing(baseDiscoveryPlugin):
                         self._accounts.append( mail )
 
                         i = info.info()
-                        i.setPluginName(self.getName())
+                        i.setPluginName(self.name)
                         i.setURL(page.URL)
                         i.setName(mail)
                         msg = 'The mail account: "'+ mail + '" was found in: "' + page.URL + '"'

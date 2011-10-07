@@ -19,20 +19,12 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-from __future__ import with_statement
-
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
-
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-
-import core.data.kb.knowledgeBase as kb
 from core.controllers.coreHelpers.fingerprint_404 import is_404
-
 from core.controllers.misc.factory import factory
+from core.data.options.optionList import optionList
+import core.controllers.outputManager as om
+from core.data.kb.knowledgeBase import kb
 
 
 class passwordProfiling(baseGrepPlugin):
@@ -48,8 +40,7 @@ class passwordProfiling(baseGrepPlugin):
         # thread safe, So i have to create an instance of HTMLParser for every
         # call to testResponse
         #self._htmlParser = htmlParser.HTMLParser()
-        kb.kb.save( self, 'passwordProfiling', {} )
-        
+        kb.save(self.name, 'passwordProfiling', {})
         # names of plugins to run
         ### TODO: develop more plugins, there is a nice ( all python ) metadata reader named hachoir-metadata
         ### it will be usefull for doing A LOT of plugins
@@ -83,7 +74,7 @@ class passwordProfiling(baseGrepPlugin):
         '''
         
         # Initial setup
-        lang = kb.kb.getData( 'lang', 'lang' )
+        lang = kb.getData( 'lang', 'lang' )
         if lang == []:
             lang = 'unknown'
 
@@ -94,7 +85,7 @@ class passwordProfiling(baseGrepPlugin):
             data = self._run_plugins(response)
             
             with self._plugin_lock:
-                old_data = kb.kb.getData( 'passwordProfiling', 'passwordProfiling' )
+                old_data = kb.getData( 'passwordProfiling', 'passwordProfiling' )
                 
                 # "merge" both maps and update the repetitions
                 for d in data:
@@ -129,7 +120,7 @@ class passwordProfiling(baseGrepPlugin):
                     new_data = old_data
                 
                 # save the updated map
-                kb.kb.save(self, 'passwordProfiling', new_data)
+                kb.save(self.name, 'passwordProfiling', new_data)
 
     
     def _run_plugins( self, response ):
@@ -172,7 +163,7 @@ class passwordProfiling(baseGrepPlugin):
         def sortfunc(x_obj, y_obj):
             return cmp(y_obj[1], x_obj[1])
             
-        items = kb.kb.getData( 'passwordProfiling', 'passwordProfiling' ).items()
+        items = kb.getData( 'passwordProfiling', 'passwordProfiling' ).items()
         if len( items ) != 0:
         
             items.sort(sortfunc)

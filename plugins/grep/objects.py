@@ -72,14 +72,14 @@ class objects(baseGrepPlugin):
                     
                     if element_list:
                         i = info.info()
-                        i.setPluginName(self.getName())
+                        i.setPluginName(self.name)
                         i.setName(tag_name.title() + ' tag')
                         i.setURL(url)
                         i.setId( response.id )
                         i.setDesc( 'The URL: "' + i.getURL() + '" has an '+ tag_name + ' tag.' )          
                         i.addToHighlight( tag_name )
 
-                        kb.kb.append( self, tag_name, i )
+                        kb.kb.append( self.name, tag_name, i )
     
     def setOptions( self, OptionList ):
         pass

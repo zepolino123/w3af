@@ -66,7 +66,7 @@ class localFileReader(baseAttackPlugin):
             om.out.error('You have to configure the "url" parameter.')
         else:
             v = vuln.vuln()
-            v.setPluginName(self.getName())
+            v.setPluginName(self.name)
             v.setURL( self._url )
             v.setMethod( self._method )
             v.setDc( self._data )
@@ -373,7 +373,8 @@ class fileReaderShell(read_shell):
         
         return result
     
-    def getName( self ):
+    @property
+    def name(self):
         '''
         @return: The name of this shell.
         '''

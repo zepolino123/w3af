@@ -85,7 +85,7 @@ class phishtank(baseDiscoveryPlugin):
             # Only create the vuln object once
             if phishtank_matches:
                 v = vuln.vuln()
-                v.setPluginName(self.getName())
+                v.setPluginName(self.name)
                 v.setURL( ptm.url )
                 v.setId( response.id )
                 v.setName( 'Phishing scam' )
@@ -93,7 +93,7 @@ class phishtank(baseDiscoveryPlugin):
                 desc = 'The URL: "' + ptm.url + '" seems to be involved in a phishing scam. Please see "'
                 desc += ptm.more_info_URL + '" for more info.'
                 v.setDesc( desc )
-                kb.kb.append( self, 'phishtank', v )
+                kb.kb.append( self.name, 'phishtank', v )
                 om.out.vulnerability( v.getDesc(), severity=v.getSeverity() )
                 
         return self._fuzzable_requests

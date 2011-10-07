@@ -74,7 +74,7 @@ class serverHeader(baseDiscoveryPlugin):
                 
                 if server != '':
                     i = info.info()
-                    i.setPluginName(self.getName())
+                    i.setPluginName(self.name)
                     i.setName('Server header')
                     i.setId( response.getId() )
                     i.setDesc('The server header for the remote web server is: "' + server + '".' )
@@ -83,7 +83,7 @@ class serverHeader(baseDiscoveryPlugin):
                     i.addToHighlight( h + ':' )
                     
                     # Save the results in the KB so the user can look at it
-                    kb.kb.append( self, 'server', i )
+                    kb.kb.append( self.name, 'server', i )
                     
                     # Also save this for easy internal use
                     # other plugins can use this information
@@ -92,7 +92,7 @@ class serverHeader(baseDiscoveryPlugin):
                 else:
                     # strange !
                     i = info.info()
-                    i.setPluginName(self.getName())
+                    i.setPluginName(self.name)
                     i.setName('Omitted server header')
                     i.setId( response.getId() )
                     msg = 'The remote HTTP Server omitted the "server" header in its response.'
@@ -100,11 +100,11 @@ class serverHeader(baseDiscoveryPlugin):
                     om.out.information( i.getDesc() )
                     
                     # Save the results in the KB so that other plugins can use this information
-                    kb.kb.append( self, 'omittedHeader', i )
+                    kb.kb.append( self.name, 'omittedHeader', i )
 
                     # Also save this for easy internal use
                     # other plugins can use this information
-                    kb.kb.save( self , 'serverString' , '' )
+                    kb.kb.save( self.name , 'serverString' , '' )
                     
                 if self._exec_one_time:
                     self._exec = False
@@ -139,7 +139,7 @@ class serverHeader(baseDiscoveryPlugin):
                             #    I don't have it in the KB, so I need to add it,
                             #
                             i = info.info()
-                            i.setPluginName(self.getName())
+                            i.setPluginName(self.name)
                             i.setName('Powered by header')
                             i.setId( response.getId() )
                             msg = '"' + header_name + '" header for this HTTP server is: "'
@@ -157,10 +157,10 @@ class serverHeader(baseDiscoveryPlugin):
                             # the PHP headers
                             powered_by_in_kb = [ j['poweredBy'] for j in kb.kb.getData( 'serverHeader', 'poweredBy' ) ]
                             if powered_by not in powered_by_in_kb:
-                                kb.kb.append( self , 'poweredBy' , i )
+                                kb.kb.append( self.name , 'poweredBy' , i )
                             
                                 # Also save this for easy internal use
-                                kb.kb.append( self , 'poweredByString' , powered_by )
+                                kb.kb.append( self.name , 'poweredByString' , powered_by )
                             
                             if self._exec_one_time:
                                 self._x_powered = False          

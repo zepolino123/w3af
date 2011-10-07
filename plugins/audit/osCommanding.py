@@ -166,7 +166,7 @@ class osCommanding(baseAuditPlugin):
 
                         # Create the vuln obj
                         v = vuln.vuln( mutant )
-                        v.setPluginName(self.getName())
+                        v.setPluginName(self.name)
                         v.setName( 'OS commanding vulnerability' )
                         v.setSeverity(severity.HIGH)
                         v['os'] = sentOs
@@ -176,7 +176,7 @@ class osCommanding(baseAuditPlugin):
                         v.setId( response.id )
                         v.setURI( response.getURI() )
                         v.addToHighlight( match.group(0) )
-                        kb.kb.append( self, 'osCommanding', v )
+                        kb.kb.append( self.name, 'osCommanding', v )
                         break
     
     def _get_file_patterns(self):
@@ -267,7 +267,7 @@ class osCommanding(baseAuditPlugin):
                     response.getWaitTime() < (self._original_wait_time + self._second_wait_time+3):
                         # Now I can be sure that I found a vuln, I control the time of the response.
                         v = vuln.vuln( mutant )
-                        v.setPluginName(self.getName())
+                        v.setPluginName(self.name)
                         v.setName( 'OS commanding vulnerability' )
                         v.setSeverity(severity.HIGH)
                         v['os'] = sentOs
@@ -276,12 +276,12 @@ class osCommanding(baseAuditPlugin):
                         v.setDc( mutant.getDc() )
                         v.setId( response.id )
                         v.setURI( response.getURI() )
-                        kb.kb.append( self, 'osCommanding', v )
+                        kb.kb.append( self.name, 'osCommanding', v )
 
                     else:
                         # The first delay existed... I must report something...
                         i = info.info()
-                        i.setPluginName(self.getName())
+                        i.setPluginName(self.name)
                         i.setName('Possible OS commanding vulnerability')
                         i.setId( response.id )
                         i.setDc( mutant.getDc() )
@@ -291,7 +291,7 @@ class osCommanding(baseAuditPlugin):
                         msg = 'A possible OS Commanding was found at: ' + mutant.foundAt() 
                         msg += 'Please review manually.'
                         i.setDesc( msg )
-                        kb.kb.append( self, 'osCommanding', i )
+                        kb.kb.append( self.name, 'osCommanding', i )
     
     def end(self):
         '''

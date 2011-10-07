@@ -63,7 +63,7 @@ class davShell(baseAttackPlugin):
             om.out.error('You have to configure the "url" parameter.')
         else:
             v = vuln.vuln()
-            v.setPluginName(self.getName())
+            v.setPluginName(self.name)
             v.setURL( self._url )
             kb.kb.append( 'dav', 'dav', v )
     
@@ -227,6 +227,7 @@ class davShellObj(exec_shell):
             om.out.error('davShellObj cleanup failed with exception: ' + str(e) )
         else:
             om.out.debug('davShellObj cleanup complete.')
-        
-    def getName( self ):
+    
+    @property
+    def name( self ):
         return 'davShell'

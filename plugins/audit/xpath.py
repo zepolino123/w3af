@@ -105,13 +105,13 @@ class xpath(baseAuditPlugin):
                 for xpath_error_re, xpath_error in xpath_error_list:
                     if not xpath_error_re.search( mutant.getOriginalResponseBody() ):
                         v = vuln.vuln( mutant )
-                        v.setPluginName(self.getName())
+                        v.setPluginName(self.name)
                         v.setName( 'XPATH injection vulnerability' )
                         v.setSeverity(severity.MEDIUM)
                         v.setDesc( 'XPATH injection was found at: ' + mutant.foundAt() )
                         v.setId( response.id )
                         v.addToHighlight( xpath_error )
-                        kb.kb.append( self, 'xpath', v )
+                        kb.kb.append( self.name, 'xpath', v )
     
     def end(self):
         '''

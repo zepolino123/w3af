@@ -118,7 +118,7 @@ class buffOverflow(baseAuditPlugin):
             res = apply( functor, args, kwdargs )
         except (w3afException,w3afMustStopException):
             i = info.info( mutant )
-            i.setPluginName(self.getName())
+            i.setPluginName(self.name)
             i.setName( 'Possible buffer overflow vulnerability' )
             if data:
                 msg = 'A possible (most probably a false positive than a bug) buffer overflow was'
@@ -129,7 +129,7 @@ class buffOverflow(baseAuditPlugin):
                 msg = 'A possible (most probably a false positive than a bug) buffer overflow was'
                 msg += ' found when requesting: "' + url + '", using HTTP method ' + method + '.'
                 i.setDesc( msg )
-            kb.kb.append( self, 'buffOverflow', i )
+            kb.kb.append( self.name, 'buffOverflow', i )
         else:
             if analyze:
                 self._analyzeResult( mutant, res )
@@ -160,7 +160,7 @@ class buffOverflow(baseAuditPlugin):
                 if not error not in mutant.getOriginalResponseBody():
                     # vuln, vuln!
                     v = vuln.vuln( mutant )
-                    v.setPluginName(self.getName())
+                    v.setPluginName(self.name)
                     v.setId( response.id )
                     v.setSeverity(severity.MEDIUM)
                     v.setName( 'Buffer overflow vulnerability' )
@@ -168,7 +168,7 @@ class buffOverflow(baseAuditPlugin):
                     msg += mutant.foundAt()
                     v.setDesc( msg )
                     v.addToHighlight( error )
-                    kb.kb.append( self, 'buffOverflow', v )
+                    kb.kb.append( self.name, 'buffOverflow', v )
     
     def end(self):
         '''

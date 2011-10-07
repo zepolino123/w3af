@@ -102,7 +102,7 @@ class findComments(baseGrepPlugin):
                         if word in comment and (word, response.getURL()) \
                                     not in self._already_reported_interesting:
                             i = info.info()
-                            i.setPluginName(self.getName())
+                            i.setPluginName(self.name)
                             i.setName('HTML comment with "' + word + '" inside')
                             msg = 'A comment with the string "' + word + '" was found in: "'
                             msg += response.getURL() + '". This could be interesting.'
@@ -111,7 +111,7 @@ class findComments(baseGrepPlugin):
                             i.setDc( request.getDc )
                             i.setURI( response.getURI() )
                             i.addToHighlight( word )
-                            kb.kb.append( self, 'interestingComments', i )
+                            kb.kb.append( self.name, 'interestingComments', i )
                             om.out.information( i.getDesc() )
                             self._already_reported_interesting.append( ( word, response.getURL() ) )
                     
@@ -120,7 +120,7 @@ class findComments(baseGrepPlugin):
                     ( comment, response.getURL() ) not in self._already_reported_interesting:
                         # There is HTML code in the comment.
                         i = info.info()
-                        i.setPluginName(self.getName())
+                        i.setPluginName(self.name)
                         i.setName('HTML comment contains HTML code')
                         desc = 'A comment with the string "' +comment + '" was found in: "'
                         desc += response.getURL() + '" . This could be interesting.'
@@ -129,7 +129,7 @@ class findComments(baseGrepPlugin):
                         i.setDc( request.getDc )
                         i.setURI( response.getURI() )
                         i.addToHighlight( html_in_comment.group(0) )
-                        kb.kb.append( self, 'htmlCommentsHideHtml', i )
+                        kb.kb.append( self.name, 'htmlCommentsHideHtml', i )
                         om.out.information( i.getDesc() )
                         self._already_reported_interesting.append( ( comment, response.getURL() ) )
                             

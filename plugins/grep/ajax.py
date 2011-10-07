@@ -26,7 +26,7 @@ from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
 from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
 from core.data.options.optionList import optionList
 import core.data.kb.info as info
-import core.data.kb.knowledgeBase as kb
+from core.data.kb.knowledgeBase import kb
 
 
 class ajax(baseGrepPlugin):
@@ -68,7 +68,7 @@ class ajax(baseGrepPlugin):
         >>> request.setMethod( 'GET' )
         >>> a = ajax()
         >>> a.grep(request, response)
-        >>> assert len(kb.kb.getData('ajax', 'ajax')) == 0
+        >>> assert len(kb.getData('ajax', 'ajax')) == 0
 
         Discover ajax!
         >>> body = '<html><head><script>xhr = new XMLHttpRequest(); xhr.open(GET, "data.txt",  true); </script></head><html>'
@@ -80,10 +80,10 @@ class ajax(baseGrepPlugin):
         >>> request.setMethod( 'GET' )
         >>> a = ajax()
         >>> a.grep(request, response)
-        >>> assert len(kb.kb.getData('ajax', 'ajax')) == 1
+        >>> assert len(kb.getData('ajax', 'ajax')) == 1
 
         Discover ajax with a broken script tag that doesn't close
-        >>> kb.kb.save('ajax','ajax',[])
+        >>> kb.save('ajax','ajax',[])
         >>> body = '<html><head><script>xhr = new XMLHttpRequest(); xhr.open(GET, "data.txt",  true); </head><html>'
         >>> url = url_object('http://www.w3af.com/')
         >>> headers = {'content-type': 'text/html'}
@@ -93,10 +93,10 @@ class ajax(baseGrepPlugin):
         >>> request.setMethod( 'GET' )
         >>> a = ajax()
         >>> a.grep(request, response)
-        >>> assert len(kb.kb.getData('ajax', 'ajax')) == 1
+        >>> assert len(kb.getData('ajax', 'ajax')) == 1
 
         Discover ajax with a broken script, head and html tags.
-        >>> kb.kb.save('ajax','ajax',[])
+        >>> kb.save('ajax','ajax',[])
         >>> body = '<html><head><script>xhr = new XMLHttpRequest(); xhr.open(GET, "data.txt",  true);'
         >>> url = url_object('http://www.w3af.com/')
         >>> headers = {'content-type': 'text/html'}
@@ -106,10 +106,10 @@ class ajax(baseGrepPlugin):
         >>> request.setMethod( 'GET' )
         >>> a = ajax()
         >>> a.grep(request, response)
-        >>> assert len(kb.kb.getData('ajax', 'ajax')) == 1
+        >>> assert len(kb.getData('ajax', 'ajax')) == 1
 
         Another ajax function, no broken html.
-        >>> kb.kb.save('ajax','ajax',[])
+        >>> kb.save('ajax','ajax',[])
         >>> body = '<html><head><script> ... xhr = new ActiveXObject("Microsoft.XMLHTTP"); ... </script></head><html>'
         >>> url = url_object('http://www.w3af.com/')
         >>> headers = {'content-type': 'text/html'}
@@ -119,10 +119,10 @@ class ajax(baseGrepPlugin):
         >>> request.setMethod( 'GET' )
         >>> a = ajax()
         >>> a.grep(request, response)
-        >>> assert len(kb.kb.getData('ajax', 'ajax')) == 1
+        >>> assert len(kb.getData('ajax', 'ajax')) == 1
 
         Two functions, I only want one report for this page.
-        >>> kb.kb.save('ajax','ajax',[])
+        >>> kb.save('ajax','ajax',[])
         >>> body = '<script> ... xhr = new XMLHttpRequest(); ... xhr = new ActiveXObject("Microsoft.XMLHTTP"); ... </script>'
         >>> url = url_object('http://www.w3af.com/')
         >>> headers = {'content-type': 'text/html'}
@@ -132,12 +132,11 @@ class ajax(baseGrepPlugin):
         >>> request.setMethod( 'GET' )
         >>> a = ajax()
         >>> a.grep(request, response)
-        >>> len(kb.kb.getData('ajax', 'ajax'))
+        >>> len(kb.getData('ajax', 'ajax'))
         1
 
         '''
         
-        infos = []
         url = response.getURL()
         
         if response.is_text_or_html() and url not in self._already_inspected:
@@ -159,15 +158,14 @@ class ajax(baseGrepPlugin):
                         res = self.AJAX_RE.search(script_content)
                         if res:
                             inf = info.info()
-                            pname = self.getName()
+                            pname = self.name
                             inf.setPluginName(pname)
                             inf.setName('AJAX code')
                             inf.setURL(url)
                             inf.setDesc('The URL: "%s" has an AJAX code.' % url)
                             inf.setId(response.id)
                             inf.addToHighlight(res.group(0))
-                            infos.append((pname, 'ajax', inf))
-        return infos
+                            kb.append(pname, 'ajax', inf)
     
     def setOptions(self, OptionList):
         pass
@@ -183,7 +181,7 @@ class ajax(baseGrepPlugin):
         '''
         This method is called when the plugin wont be used anymore.
         '''
-        self.printUniq(kb.kb.getData('ajax', 'ajax'), 'URL')
+        self.printUniq(kb.getData('ajax', 'ajax'), 'URL')
 
     def getPluginDeps(self):
         '''

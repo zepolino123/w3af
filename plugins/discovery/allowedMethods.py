@@ -136,7 +136,7 @@ class allowedMethods(baseDiscoveryPlugin):
                 if non_exist_response.getCode() not in self._bad_codes\
                 and get_response.getBody() == non_exist_response.getBody():
                     i = info.info()
-                    i.setPluginName(self.getName())
+                    i.setPluginName(self.name)
                     i.setName( 'Non existent methods default to GET' )
                     i.setURL( url )
                     i.setId( [non_exist_response.getId(), get_response.getId()] )
@@ -144,7 +144,7 @@ class allowedMethods(baseDiscoveryPlugin):
                     msg += ' existent methods that are invoked are defaulted to GET instead of'
                     msg += ' returning a "Not Implemented" response.'
                     i.setDesc( msg )
-                    kb.kb.append( self , 'custom-configuration' , i )
+                    kb.kb.append( self.name , 'custom-configuration' , i )
                     #
                     #   It makes no sense to continue working, all methods will appear as enabled
                     #   because of this custom configuration.
@@ -180,7 +180,7 @@ class allowedMethods(baseDiscoveryPlugin):
             # dav is enabled!
             # Save the results in the KB so that other plugins can use this information
             i = info.info()
-            i.setPluginName(self.getName())
+            i.setPluginName(self.name)
             i.setName('Allowed methods for ' + url )
             i.setURL( url )
             i.setId( id_list )
@@ -188,12 +188,12 @@ class allowedMethods(baseDiscoveryPlugin):
             msg = 'The URL "' + url + '" has the following allowed methods, which'
             msg += ' include DAV methods: ' + ', '.join(allowed_methods)
             i.setDesc( msg )
-            kb.kb.append( self , 'dav-methods' , i )
+            kb.kb.append( self.name , 'dav-methods' , i )
         else:
             # Save the results in the KB so that other plugins can use this information
             # Do not remove these information, other plugins REALLY use it !
             i = info.info()
-            i.setPluginName(self.getName())
+            i.setPluginName(self.name)
             i.setName('Allowed methods for ' + url )
             i.setURL( url )
             i.setId( id_list )
@@ -201,7 +201,7 @@ class allowedMethods(baseDiscoveryPlugin):
             msg = 'The URL "' + url + '" has the following allowed methods:'
             msg += ' ' + ', '.join(allowed_methods)
             i.setDesc( msg )
-            kb.kb.append( self , 'methods' , i )
+            kb.kb.append( self.name , 'methods' , i )
             
         return []
     

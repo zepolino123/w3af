@@ -19,22 +19,16 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
+import Cookie
 
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
 from core.controllers.misc.groupbyMinKey import groupbyMinKey
-
-import core.data.kb.knowledgeBase as kb
+from core.data.kb.knowledgeBase import kb
+from core.data.options.optionList import optionList
+import core.controllers.outputManager as om
+import core.data.constants.severity as severity
 import core.data.kb.info as info
 import core.data.kb.vuln as vuln
-import core.data.constants.severity as severity
-
-import Cookie
 
 
 class collectCookies(baseGrepPlugin):
@@ -85,12 +79,12 @@ class collectCookies(baseGrepPlugin):
         >>> request.setMethod('GET')
         >>> c = collectCookies()
         >>> c.grep(request, response)
-        >>> len(kb.kb.getData('collectCookies', 'cookies'))
+        >>> len(kb.getData('collectCookies', 'cookies'))
         0
-        >>> len(kb.kb.getData('collectCookies', 'invalid-cookies'))
+        >>> len(kb.getData('collectCookies', 'invalid-cookies'))
         0
 
-        >>> kb.kb.cleanup()
+        >>> kb.cleanup()
         >>> body = ''
         >>> url = url_object('http://www.w3af.com/')
         >>> headers = {'content-type': 'text/html', 'Set-Cookie': 'abc=def'}
@@ -100,12 +94,12 @@ class collectCookies(baseGrepPlugin):
         >>> request.setMethod('GET')
         >>> c = collectCookies()
         >>> c.grep(request, response)
-        >>> len(kb.kb.getData('collectCookies', 'cookies'))
+        >>> len(kb.getData('collectCookies', 'cookies'))
         1
-        >>> len(kb.kb.getData('collectCookies', 'invalid-cookies'))
+        >>> len(kb.getData('collectCookies', 'invalid-cookies'))
         0
 
-        >>> kb.kb.cleanup()
+        >>> kb.cleanup()
         >>> body = ''
         >>> url = url_object('http://www.w3af.com/')
         >>> headers = {'content-type': 'text/html', 'Set-Cookie': 'abc=def; secure; HttpOnly'}
@@ -115,12 +109,12 @@ class collectCookies(baseGrepPlugin):
         >>> request.setMethod('GET')
         >>> c = collectCookies()
         >>> c.grep(request, response)
-        >>> len(kb.kb.getData('collectCookies', 'cookies'))
+        >>> len(kb.getData('collectCookies', 'cookies'))
         1
-        >>> len(kb.kb.getData('collectCookies', 'invalid-cookies'))
+        >>> len(kb.getData('collectCookies', 'invalid-cookies'))
         0
 
-        >>> kb.kb.cleanup()
+        >>> kb.cleanup()
         >>> body = ''
         >>> url = url_object('http://www.w3af.com/')
         >>> headers = {'content-type': 'text/html', 'Set-Cookie': ''}
@@ -130,9 +124,9 @@ class collectCookies(baseGrepPlugin):
         >>> request.setMethod('GET')
         >>> c = collectCookies()
         >>> c.grep(request, response)
-        >>> len(kb.kb.getData('collectCookies', 'cookies'))
+        >>> len(kb.getData('collectCookies', 'cookies'))
         1
-        >>> len(kb.kb.getData('collectCookies', 'invalid-cookies'))
+        >>> len(kb.getData('collectCookies', 'invalid-cookies'))
         0
 
         '''
@@ -143,7 +137,7 @@ class collectCookies(baseGrepPlugin):
                 
                 # Create the object to save the cookie in the kb
                 i = info.info()
-                i.setPluginName(self.getName())
+                i.setPluginName(self.name)
                 i.setName('Cookie')
                 i.setURL( response.getURL() )
                 cookieStr = headers[key].strip()
@@ -160,7 +154,7 @@ class collectCookies(baseGrepPlugin):
                     om.out.information(msg)
                     i.setDesc(msg)
                     i.setName('Invalid cookie')
-                    kb.kb.append( self, 'invalid-cookies', i )
+                    kb.append( self.name, 'invalid-cookies', i )
                 else:
                     i['cookie-object'] = C
 
@@ -181,7 +175,7 @@ class collectCookies(baseGrepPlugin):
                     msg = 'The URL: "' + i.getURL() + '" sent the cookie: "'
                     msg += i['cookie-string'] + '".'
                     i.setDesc( msg )
-                    kb.kb.append( self, 'cookies', i )
+                    kb.append( self.name, 'cookies', i )
                     
                     # Find if the cookie introduces any vulnerability, or discloses information
                     self._analyzeCookie( request, response, C )
@@ -222,7 +216,7 @@ class collectCookies(baseGrepPlugin):
             The rest of the page is HTTP
         '''
         if request.getURL().getProtocol().lower() == 'http':
-            for cookie in kb.kb.getData( 'collectCookies', 'cookies' ):
+            for cookie in kb.getData( 'collectCookies', 'cookies' ):
                 if cookie.getURL().getProtocol().lower() == 'https' and \
                 request.getURL().getDomain() == cookie.getURL().getDomain():
                     # The cookie was sent using SSL, I'll check if the current 
@@ -239,7 +233,7 @@ class collectCookies(baseGrepPlugin):
                                     # The first statement of this if is to make this algorithm faster
                                     if len( parameter_value_i ) > 4 and parameter_value_i == cookie['cookie-object'][key]:
                                         v = vuln.vuln()
-                                        v.setPluginName(self.getName())
+                                        v.setPluginName(self.name)
                                         v.setURL( response.getURL() )
                                         self._setCookieToRep(v, cobj=cookie)
                                         v.setSeverity(severity.HIGH)
@@ -249,7 +243,7 @@ class collectCookies(baseGrepPlugin):
                                         msg += 'an insecure channel when requesting URL: "' 
                                         msg += request.getURL() + '" , parameter "' + parameter_name + '"'
                                         v.setDesc( msg )
-                                        kb.kb.append( self, 'cookies', v )
+                                        kb.append( self.name, 'cookies', v )
             
     def _match_cookie_fingerprint( self, request, response, cookieObj ):
         '''
@@ -260,7 +254,7 @@ class collectCookies(baseGrepPlugin):
             if cookie[0] in cookieObj.output(header=''):
                 if cookie[1] not in self._already_reported_server:
                     i = info.info()
-                    i.setPluginName(self.getName())
+                    i.setPluginName(self.name)
                     i.setId( response.id )
                     i.setName('Identified cookie')
                     i.setURL( response.getURL() )
@@ -269,7 +263,7 @@ class collectCookies(baseGrepPlugin):
                     i.setDesc( 'A cookie matching the cookie fingerprint DB ' +
                     'has been found when requesting "' + response.getURL() + '" . ' +
                     'The remote platform is: "' + cookie[1] + '"')
-                    kb.kb.append( self, 'cookies', i )
+                    kb.append( self.name, 'cookies', i )
                     self._already_reported_server.append( cookie[1] )
 
     def _secure_over_http( self, request, response, cookieObj ):
@@ -290,7 +284,7 @@ class collectCookies(baseGrepPlugin):
         ### https://sourceforge.net/tracker2/?func=detail&aid=2139517&group_id=170274&atid=853655
         if 'secure' in cookieObj and response.getURL().getProtocol().lower() == 'http':
             v = vuln.vuln()
-            v.setPluginName(self.getName())
+            v.setPluginName(self.name)
             v.setURL( response.getURL() )
             v.setId( response.getId() )
             self._setCookieToRep(v, cobj=cookieObj)
@@ -299,7 +293,7 @@ class collectCookies(baseGrepPlugin):
             msg = 'A cookie marked as secure was sent over an insecure channel'
             msg += ' when requesting the URL: "' + response.getURL() + '"'
             v.setDesc( msg )
-            kb.kb.append( self, 'cookies', v )
+            kb.append( self.name, 'cookies', v )
         
     def _get_fingerprint_db(self):
         '''
@@ -365,7 +359,7 @@ class collectCookies(baseGrepPlugin):
         '''
         This method is called when the plugin wont be used anymore.
         '''
-        cookies = kb.kb.getData( 'collectCookies', 'cookies' )
+        cookies = kb.getData( 'collectCookies', 'cookies' )
             
         # Group correctly
         tmp = []

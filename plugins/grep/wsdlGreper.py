@@ -134,7 +134,7 @@ class wsdlGreper(baseGrepPlugin):
                 
             if is_WSDL:
                 i = info.info()
-                i.setPluginName(self.getName())
+                i.setPluginName(self.name)
                 i.setName('WSDL file')
                 i.setURL( response.getURL() )
                 i.setId( response.id )
@@ -142,7 +142,7 @@ class wsdlGreper(baseGrepPlugin):
                 msg = 'The URL: "' +  i.getURL() + '" is a Web Services '
                 msg += 'Description Language page.'
                 i.setDesc( msg )
-                kb.kb.append( self , 'wsdl' , i )
+                kb.kb.append( self.name , 'wsdl' , i )
             
             is_Disco = False
             for disco_string in self._disco_strings:
@@ -152,13 +152,13 @@ class wsdlGreper(baseGrepPlugin):
                 
             if is_Disco:
                 i = info.info()
-                i.setPluginName(self.getName())
+                i.setPluginName(self.name)
                 i.setURL( response.getURL() )
                 msg = 'The URL: "' +  i.getURL() + '" is a DISCO file that contains'
                 msg += ' references to WSDLs.'
                 i.setDesc( msg )
                 i.addToHighlight( disco_string )
-                kb.kb.append( self , 'disco' , i )
+                kb.kb.append( self.name , 'disco' , i )
             
     def setOptions( self, OptionList ):
         pass

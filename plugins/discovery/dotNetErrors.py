@@ -105,7 +105,7 @@ class dotNetErrors(baseDiscoveryPlugin):
         if viewable_remote_machine not in response\
         and '<h2> <i>Runtime Error</i> </h2></span>' in response:
             v = vuln.vuln( response )
-            v.setPluginName(self.getName())
+            v.setPluginName(self.name)
             v.setId( response.id )
             v.setSeverity(severity.LOW)
             v.setName( 'Information disclosure' )
@@ -113,7 +113,7 @@ class dotNetErrors(baseDiscoveryPlugin):
             msg += '  sites. The URL: "' + response.getURL() + '" discloses detailed error'
             msg += ' messages.'
             v.setDesc( msg )
-            kb.kb.append( self, 'dotNetErrors', v )
+            kb.kb.append( self.name, 'dotNetErrors', v )
                 
     def getOptions( self ):
         '''

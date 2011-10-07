@@ -72,12 +72,12 @@ class findCaptchas(baseDiscoveryPlugin):
                 
         for img_src in changed_images_list:
             i = info.info()
-            i.setPluginName(self.getName())
+            i.setPluginName(self.name)
             i.setName('Captcha image detected')
             i.setURL( img_src )
             i.setMethod( 'GET' )
             i.setDesc( 'Found a CAPTCHA image at: "' + img_src + '".')
-            kb.kb.append( self, 'findCaptchas', i )
+            kb.kb.append( self.name, 'findCaptchas', i )
             om.out.information( i.getDesc() )
             
         return []

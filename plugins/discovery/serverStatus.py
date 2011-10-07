@@ -85,7 +85,7 @@ class serverStatus(baseDiscoveryPlugin):
                 for version in re.findall('<dl><dt>Server Version: (.*?)</dt>', response.getBody()):
                     # Save the results in the KB so the user can look at it
                     i = info.info()
-                    i.setPluginName(self.getName())
+                    i.setPluginName(self.name)
                     i.setURL( response.getURL() )
                     i.setId( response.id )
                     i.setName( 'Apache Server version' )
@@ -94,7 +94,7 @@ class serverStatus(baseDiscoveryPlugin):
                     i.setDesc( msg )
 
                     om.out.information(i.getDesc())
-                    kb.kb.append( self, 'server', i )
+                    kb.kb.append( self.name, 'server', i )
                 
                 # Now really parse the file and create custom made fuzzable requests
                 regex = '<td>.*?<td nowrap>(.*?)</td><td nowrap>.*? (.*?) HTTP/1'
@@ -119,7 +119,7 @@ class serverStatus(baseDiscoveryPlugin):
                 # Now that we are outsite the for loop, we can report the possible vulns
                 if len( self._shared_hosting_hosts ):
                     v = vuln.vuln()
-                    v.setPluginName(self.getName())
+                    v.setPluginName(self.name)
                     v.setURL( fuzzableRequest.getURL() )
                     v.setId( response.id )
                     self._shared_hosting_hosts = list( set( self._shared_hosting_hosts ) )
@@ -128,7 +128,7 @@ class serverStatus(baseDiscoveryPlugin):
                     v.setName( 'Shared hosting' )
                     v.setSeverity(severity.MEDIUM)
                     
-                    kb.kb.append( self, 'sharedHosting', v )
+                    kb.kb.append( self.name, 'sharedHosting', v )
                     om.out.vulnerability( v.getDesc(), severity=v.getSeverity() )
                 
                     msg = 'This list of domains, and the domain of the web application under test,'

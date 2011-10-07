@@ -113,12 +113,12 @@ class urlFuzzer(baseDiscoveryPlugin):
                     #
                     if response.getURL() not in self._already_reported and response.getURL().getFileName():
                         i = info.info()
-                        i.setPluginName(self.getName())
+                        i.setPluginName(self.name)
                         i.setName('Potentially interesting file')
                         i.setURL( response.getURL() )
                         i.setId( response.id )
                         i.setDesc( 'A potentially interesting file was found at: "'+ response.getURL() +'".' )
-                        kb.kb.append( self, 'files', i )
+                        kb.kb.append( self.name, 'files', i )
                         om.out.information( i.getDesc() )
                         
                         #   Report only once

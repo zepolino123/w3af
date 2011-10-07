@@ -327,15 +327,16 @@ class proxy_rfi_shell(shell):
     
     def end( self ):
         om.out.debug('xssShell cleanup complete.')
-        
-    def getName( self ):
+    
+    @property
+    def name( self ):
         return 'proxy_rfi_shell'
     
     def _identifyOs(self):
         return 'remote_file_inclusion_proxy'
         
     def __repr__( self ):
-        return '<'+self.getName()+' object (Use proxy: "'+self._proxy_url+'")>'
+        return '<%s object (Use proxy: "%s")>' % (self.name, self._proxy_url)
         
     def getRemoteSystem( self ):
         return 'browser'

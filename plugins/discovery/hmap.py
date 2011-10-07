@@ -104,7 +104,7 @@ class hmap(baseDiscoveryPlugin):
                         server = results[0]
                     
                         i = info.info()
-                        i.setPluginName(self.getName())
+                        i.setPluginName(self.name)
                         i.setName('Webserver Fingerprint')
                         desc = 'The most accurate fingerprint for this HTTP server is: "'
                         desc += str(server) + '".'
@@ -113,7 +113,7 @@ class hmap(baseDiscoveryPlugin):
                         om.out.information( i.getDesc() )
                         
                         # Save the results in the KB so that other plugins can use this information
-                        kb.kb.append( self, 'server', i )
+                        kb.kb.append( self.name, 'server', i )
                         kb.kb.save( self, 'serverString', server )
                     
                     #

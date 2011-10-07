@@ -67,7 +67,7 @@ class fileUpload(baseGrepPlugin):
                 # Loop through file inputs tags                
                 for input_file in dom.xpath(FILE_INPUT_XPATH):
                     i = info.info()
-                    i.setPluginName(self.getName())
+                    i.setPluginName(self.name)
                     i.setName('File upload form')
                     i.setURL(url)
                     i.setId(response.id)
@@ -76,7 +76,7 @@ class fileUpload(baseGrepPlugin):
                     i.setDesc(msg)
                     to_highlight = etree.tostring(input_file)
                     i.addToHighlight(to_highlight)
-                    kb.kb.append(self, 'fileUpload', i)
+                    kb.kb.append(self.name, 'fileUpload', i)
 
     
     def setOptions( self, OptionList ):

@@ -151,12 +151,12 @@ class eval(baseAuditPlugin):
                 for eval_error in eval_error_list:
                     if not re.search( eval_error, mutant.getOriginalResponseBody(), re.IGNORECASE ):
                         v = vuln.vuln( mutant )
-                        v.setPluginName(self.getName())
+                        v.setPluginName(self.name)
                         v.setId( response.id )
                         v.setSeverity(severity.HIGH)
                         v.setName( 'eval() input injection vulnerability' )
                         v.setDesc( 'eval() input injection was found at: ' + mutant.foundAt() )
-                        kb.kb.append( self, 'eval', v )
+                        kb.kb.append( self.name, 'eval', v )
 
     def _analyze_wait( self, mutant, response ):
         '''
@@ -190,16 +190,16 @@ class eval(baseAuditPlugin):
                     response.getWaitTime() < (self._original_wait_time + self._second_wait_time + 3):
                         # Now I can be sure that I found a vuln, I control the time of the response.
                         v = vuln.vuln( mutant )
-                        v.setPluginName(self.getName())
+                        v.setPluginName(self.name)
                         v.setId( response.id )
                         v.setSeverity(severity.HIGH)
                         v.setName( 'eval() input injection vulnerability' )
                         v.setDesc( 'eval() input injection was found at: ' + mutant.foundAt() )
-                        kb.kb.append( self, 'eval', v )
+                        kb.kb.append( self.name, 'eval', v )
                     else:
                         # The first delay existed... I must report something...
                         i = info.info()
-                        i.setPluginName(self.getName())
+                        i.setPluginName(self.name)
                         i.setMethod( mutant.getMethod() )
                         i.setURI( mutant.getURI() )
                         i.setId( response.id )
@@ -208,7 +208,7 @@ class eval(baseAuditPlugin):
                         msg = 'eval() input injection was found at: ' + mutant.foundAt()
                         msg += ' . Please review manually.'
                         i.setDesc( msg )
-                        kb.kb.append( self, 'eval', i )
+                        kb.kb.append( self.name, 'eval', i )
 
     def _get_print_strings( self ):
         '''

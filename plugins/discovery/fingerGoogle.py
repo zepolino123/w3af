@@ -150,7 +150,7 @@ class fingerGoogle(baseDiscoveryPlugin):
                     self._accounts.append( mail )
                     
                     i = info.info()
-                    i.setPluginName(self.getName())
+                    i.setPluginName(self.name)
                     i.setName(mail)
                     i.setURL( response.getURI() )
                     msg = 'The mail account: "'+ mail + '" was found in: "'
@@ -160,7 +160,7 @@ class fingerGoogle(baseDiscoveryPlugin):
                     i['user'] = mail.split('@')[0]
                     i['url_list'] = [response.getURI(), ]
                     kb.kb.append( 'mails', 'mails', i )
-                    kb.kb.append( self, 'mails', i )
+                    kb.kb.append( self.name, 'mails', i )
     
     def getOptions( self ):
         '''

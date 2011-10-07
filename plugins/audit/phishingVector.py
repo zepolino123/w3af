@@ -80,7 +80,7 @@ class phishingVector(baseAuditPlugin):
                               mutant.getURL() , mutant.getVar()):
                     vulns = self._find_phishing_vector(mutant, response)
                     for vuln in vulns:
-                        kb.kb.append(self, 'phishingVector', vuln)
+                        kb.kb.append(self.name, 'phishingVector', vuln)
     
     def _find_phishing_vector( self, mutant, response ):
         '''
@@ -97,7 +97,7 @@ class phishingVector(baseAuditPlugin):
                 if match:
                     # Vuln vuln!
                     v = vuln.vuln( mutant )
-                    v.setPluginName(self.getName())
+                    v.setPluginName(self.name)
                     v.setId( response.id )
                     v.setSeverity(severity.LOW)
                     v.setName( 'Phishing vector' )

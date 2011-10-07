@@ -89,12 +89,12 @@ class urllist_txt(baseDiscoveryPlugin):
                 if is_urllist:
                     # Save it to the kb!
                     i = info.info()
-                    i.setPluginName(self.getName())
+                    i.setPluginName(self.name)
                     i.setName('urllist.txt file')
                     i.setURL( urllist_url )
                     i.setId( http_response.id )
                     i.setDesc( 'A urllist.txt file was found at: "'+ urllist_url +'".' )
-                    kb.kb.append( self, 'urllist.txt', i )
+                    kb.kb.append( self.name, 'urllist.txt', i )
                     om.out.information( i.getDesc() )
 
             for url in dirs:

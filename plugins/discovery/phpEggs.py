@@ -273,14 +273,14 @@ class phpEggs(baseDiscoveryPlugin):
                     #
                     for response, egg_desc, egg_URL in GET_results:
                         i = info.info()
-                        i.setPluginName(self.getName())
+                        i.setPluginName(self.name)
                         i.setName('PHP Egg - ' + egg_desc)
                         i.setURL( egg_URL )
                         desc = 'The PHP framework running on the remote server has a "'
                         desc += egg_desc +'" easter egg, access to the PHP egg is possible'
                         desc += ' through the URL: "'+  egg_URL + '".'
                         i.setDesc( desc )
-                        kb.kb.append( self, 'eggs', i )
+                        kb.kb.append( self.name, 'eggs', i )
                         om.out.information( i.getDesc() )
                         
                         #   Only run once.
@@ -319,14 +319,14 @@ class phpEggs(baseDiscoveryPlugin):
             
             if matching_versions:
                 i = info.info()
-                i.setPluginName(self.getName())
+                i.setPluginName(self.name)
                 i.setName('PHP Egg')
                 msg = 'The PHP framework version running on the remote server was identified as:'
                 for m_ver in matching_versions:
                     msg += '\n- ' + m_ver
                 i.setDesc( msg )
                 i['version'] = matching_versions
-                kb.kb.append( self, 'version', i )
+                kb.kb.append( self.name, 'version', i )
                 om.out.information( i.getDesc() )
 
             if not found:

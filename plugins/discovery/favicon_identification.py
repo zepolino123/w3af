@@ -116,12 +116,12 @@ class favicon_identification(baseDiscoveryPlugin):
                 if desc:
                     # Save it to the kb!
                     i = info.info()
-                    i.setPluginName(self.getName())
+                    i.setPluginName(self.name)
                     i.setName('Favicon identification')
                     i.setURL( def_favicon_url )
                     i.setId( response.id )
                     i.setDesc( desc )
-                    kb.kb.append( self, 'info', i )
+                    kb.kb.append( self.name, 'info', i )
                     om.out.information( i.getDesc() )
                 else:
                     #
@@ -129,7 +129,7 @@ class favicon_identification(baseDiscoveryPlugin):
                     #   should be sent to the developers.
                     #
                     i = info.info()
-                    i.setPluginName(self.getName())
+                    i.setPluginName(self.name)
                     i.setName('Favicon identification failed')
                     i.setURL( def_favicon_url )
                     i.setId( response.id )
@@ -138,7 +138,7 @@ class favicon_identification(baseDiscoveryPlugin):
                     desc += ' and what server or Web application it represents. New fingerprints'
                     desc += ' make this plugin more powerfull and accurate.'
                     i.setDesc( desc )
-                    kb.kb.append( self, 'info', i )
+                    kb.kb.append( self.name, 'info', i )
                     om.out.information( i.getDesc() )
 
 

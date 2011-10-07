@@ -101,7 +101,7 @@ class dnsWildcard(baseDiscoveryPlugin):
         else:
             if modified_response.getBody() != original_response.getBody():
                 i = info.info()
-                i.setPluginName(self.getName())
+                i.setPluginName(self.name)
                 i.setName('Default domain')
                 i.setURL( modified_response.getURL() )
                 i.setMethod( 'GET' )
@@ -109,7 +109,7 @@ class dnsWildcard(baseDiscoveryPlugin):
                 msg += ' differ from the contents of ' + original_response.getURI() 
                 i.setDesc( msg )
                 i.setId( modified_response.id )
-                kb.kb.append( self, 'dnsWildcard', i )
+                kb.kb.append( self.name, 'dnsWildcard', i )
                 om.out.information( i.getDesc() )
         
     def _test_DNS( self, original_response, dns_wildcard_url ):
@@ -132,17 +132,17 @@ class dnsWildcard(baseDiscoveryPlugin):
         except w3afException, w3:
             if 'Failed to resolve' in str(w3):
                 i = info.info()
-                i.setPluginName(self.getName())
+                i.setPluginName(self.name)
                 i.setName('No DNS wildcard')
                 i.setURL( original_response.getURL() )
                 i.setMethod( 'GET' )
                 i.setDesc('The target site has no DNS wildcard.')
-                kb.kb.append( self, 'dnsWildcard', i )
+                kb.kb.append( self.name, 'dnsWildcard', i )
                 om.out.information( i.getDesc() )
         else:
             if modified_response.getBody() != original_response.getBody():
                 i = info.info()
-                i.setPluginName(self.getName())
+                i.setPluginName(self.name)
                 i.setName('No DNS wildcard')
                 i.setURL( modified_response.getURL() )
                 i.setMethod( 'GET' )
@@ -151,17 +151,17 @@ class dnsWildcard(baseDiscoveryPlugin):
                 msg += original_response.getURI()
                 i.setDesc( msg )
                 i.setId( modified_response.id )
-                kb.kb.append( self, 'dnsWildcard', i )
+                kb.kb.append( self.name, 'dnsWildcard', i )
                 om.out.information( i.getDesc() )
             else:
                 i = info.info()
-                i.setPluginName(self.getName())
+                i.setPluginName(self.name)
                 i.setName('DNS wildcard')
                 i.setURL( original_response.getURL() )
                 i.setMethod( 'GET' )
                 i.setDesc('The target site *has* a DNS wildcard configuration.' )
                 i.setId( modified_response.id )
-                kb.kb.append( self, 'dnsWildcard', i )
+                kb.kb.append( self.name, 'dnsWildcard', i )
                 om.out.information( i.getDesc() )
                 
     def getOptions( self ):

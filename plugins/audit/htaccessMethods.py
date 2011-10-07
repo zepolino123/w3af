@@ -89,7 +89,7 @@ class htaccessMethods(baseAuditPlugin):
         
         if len(allowed_methods)>0:
             v = vuln.vuln()
-            v.setPluginName(self.getName())
+            v.setPluginName(self.name)
             v.setURL( url )
             v.setName( 'Misconfigured access control' )
             v.setSeverity(severity.MEDIUM)
@@ -98,7 +98,7 @@ class htaccessMethods(baseAuditPlugin):
             msg += ', '.join(allowed_methods) + '.'
             v.setDesc( msg )
             v['methods'] = allowed_methods
-            kb.kb.append( self , 'auth' , v )
+            kb.kb.append( self.name , 'auth' , v )
             om.out.vulnerability( v.getDesc(), severity=v.getSeverity() )             
                 
     def getOptions( self ):

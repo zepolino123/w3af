@@ -72,7 +72,7 @@ class fileUploadShell(baseAttackPlugin):
             om.out.error('You have to configure the plugin parameters.')
         else:
             v = vuln.vuln()
-            v.setPluginName(self.getName())
+            v.setPluginName(self.name)
             v.setURL( self._url )
             v.setMethod( self._method )
             v.setDc( self._data )
@@ -284,5 +284,6 @@ class fuShell(exec_shell):
         else:
             om.out.debug('File upload shell cleanup complete; successfully removed file: "' + file_to_del + '"')
     
-    def getName( self ):
+    @property
+    def name( self ):
         return 'fileUploadShell'

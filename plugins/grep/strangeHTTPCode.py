@@ -138,7 +138,7 @@ class strangeHTTPCode(baseGrepPlugin):
             else:
                 # Create a new info object from scratch and save it to the kb:
                 i = info.info()
-                i.setPluginName(self.getName())
+                i.setPluginName(self.name)
                 i.setName('Strange HTTP Response code - ' + str(response.getCode()))
                 i.setURL( response.getURL() )
                 i.setId( response.id )
@@ -148,7 +148,7 @@ class strangeHTTPCode(baseGrepPlugin):
                 desc += '", manual inspection is advised.'
                 i.setDesc( desc )
                 i.addToHighlight( str(response.getCode()), response.getMsg() )
-                kb.kb.append( self , 'strangeHTTPCode' , i )
+                kb.kb.append( self.name , 'strangeHTTPCode' , i )
     
     def setOptions( self, OptionList ):
         pass

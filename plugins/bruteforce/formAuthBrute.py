@@ -19,20 +19,20 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-from __future__ import with_statement
-
-import core.controllers.outputManager as om
-
-from core.controllers.basePlugin.baseBruteforcePlugin import baseBruteforcePlugin
-from core.controllers.w3afException import w3afException, w3afMustStopOnUrlError
-from core.data.dc import form
+from core.controllers.basePlugin.baseBruteforcePlugin import \
+    baseBruteforcePlugin
 from core.controllers.misc.levenshtein import relative_distance_ge
+from core.controllers.w3afException import (
+                                        w3afException,
+                                        w3afMustStopOnUrlError
+                                        )
+from core.data.dc import form
 from core.data.fuzzer.fuzzer import createRandAlNum
 from core.data.url.xUrllib import xUrllib
-
+import core.controllers.outputManager as om
+import core.data.constants.severity as severity
 import core.data.kb.knowledgeBase as kb
 import core.data.kb.vuln as vuln
-import core.data.constants.severity as severity
 
 
 class formAuthBrute(baseBruteforcePlugin):
@@ -330,7 +330,7 @@ class formAuthBrute(baseBruteforcePlugin):
                             freq_url = freq.getURL()
                             v = vuln.vuln()
                             v.setId(resp.id)
-                            v.setPluginName(self.getName())
+                            v.setPluginName(self.name)
                             v.setURL(freq.getURL())
                             if self._user_field_name is not None:
                                 msg = ('Found authentication credentials to: '
@@ -348,7 +348,7 @@ class formAuthBrute(baseBruteforcePlugin):
                             v['response'] = resp
                             v.setSeverity(severity.HIGH)
                             v.setName('Guessable credentials')
-                            kb.kb.append(self, 'auth', v)
+                            kb.kb.append(self.name, 'auth', v)
         
                             # Save cookies in the 'main' urlOpenet so the rest
                             # of active plugins use them. This is part of the

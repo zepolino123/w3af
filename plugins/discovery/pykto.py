@@ -450,10 +450,10 @@ class pykto(baseDiscoveryPlugin):
             return False
         
         if self._analyzeResult( response, expected_response, parameters, url ):
-            kb.kb.append( self, 'url', response.getURL() )
+            kb.kb.append( self.name, 'url', response.getURL() )
             
             v = vuln.vuln()
-            v.setPluginName(self.getName())
+            v.setPluginName(self.name)
             v.setURI( response.getURI() )
             v.setMethod( method )
             vuln_desc = 'pykto plugin found a vulnerability at URL: "' + v.getURL() + '". '
@@ -470,7 +470,7 @@ class pykto(baseDiscoveryPlugin):
             v.setName( msg )
             v.setSeverity(severity.LOW)
 
-            kb.kb.append( self, 'vuln', v )
+            kb.kb.append( self.name, 'vuln', v )
             om.out.vulnerability( v.getDesc(), severity=v.getSeverity() )
             
             self._new_fuzzable_requests.extend( self._createFuzzableRequests( response ) )

@@ -218,7 +218,7 @@ class htmlFile(baseOutputPlugin):
                     response += '    ' + plugin_type + ' config ' + plugin_name + '\n'
                     
                     for plugin_option in plugins_options[plugin_name]:
-                        name = str(plugin_option.getName())
+                        name = str(plugin_option.name)
                         value = str(plugin_option.getValue())
                         response += '        set ' + name + ' ' + value + '\n'
                     

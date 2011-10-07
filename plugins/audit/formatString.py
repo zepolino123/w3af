@@ -92,7 +92,7 @@ class formatString(baseAuditPlugin):
                         if not error not in mutant.getOriginalResponseBody():
                             # vuln, vuln!
                             v = vuln.vuln( mutant )
-                            v.setPluginName(self.getName())
+                            v.setPluginName(self.name)
                             v.setId( response.id )
                             v.setSeverity(severity.MEDIUM)
                             v.setName( 'Format string vulnerability' )
@@ -100,7 +100,7 @@ class formatString(baseAuditPlugin):
                             msg += mutant.foundAt()
                             v.setDesc( msg )
                             v.addToHighlight( error )
-                            kb.kb.append( self, 'formatString', v )
+                            kb.kb.append( self.name, 'formatString', v )
     
     def _get_errors( self ):
         '''

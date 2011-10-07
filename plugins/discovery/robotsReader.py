@@ -70,12 +70,12 @@ class robotsReader(baseDiscoveryPlugin):
             if not is_404( http_response ):
                 # Save it to the kb!
                 i = info.info()
-                i.setPluginName(self.getName())
+                i.setPluginName(self.name)
                 i.setName('robots.txt file')
                 i.setURL( robots_url )
                 i.setId( http_response.id )
                 i.setDesc( 'A robots.txt file was found at: "'+ robots_url +'".' )
-                kb.kb.append( self, 'robots.txt', i )
+                kb.kb.append( self.name, 'robots.txt', i )
                 om.out.information( i.getDesc() )
 
 

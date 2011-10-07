@@ -81,7 +81,7 @@ class ria_enumerator(baseDiscoveryPlugin):
                     if '"entries":' in http_response and not is_404( http_response ):
                         # Save it to the kb!
                         i = info.info()
-                        i.setPluginName(self.getName())
+                        i.setPluginName(self.name)
                         i.setName('Gears Manifest')
                         i.setURL( manifest_url )
                         i.setId( http_response.id )
@@ -89,7 +89,7 @@ class ria_enumerator(baseDiscoveryPlugin):
                         desc += '".  Each file should be manually reviewed for sensitive'
                         desc += ' information that may get cached on the client.' 
                         i.setDesc( desc )
-                        kb.kb.append( self, manifest_url, i )
+                        kb.kb.append( self.name, manifest_url, i )
                         om.out.information( i.getDesc() )
                             
             ### CrossDomain.XML
@@ -124,7 +124,7 @@ class ria_enumerator(baseDiscoveryPlugin):
             'cross-domain-policy' in response.getBody() or \
             'cross-domain-access' in response.getBody():
                 i = info.info()
-                i.setPluginName(self.getName())
+                i.setPluginName(self.name)
                 i.setName('Invalid ' + file_name)
                 i.setURL( response.getURL() )
                 i.setMethod( 'GET' )
@@ -132,7 +132,7 @@ class ria_enumerator(baseDiscoveryPlugin):
                 msg += '" is not a valid XML.'
                 i.setDesc( msg )
                 i.setId( response.id )
-                kb.kb.append( self, 'info', i )
+                kb.kb.append( self.name, 'info', i )
                 om.out.information( i.getDesc() )
         else:
             if(file_name == 'crossdomain.xml'):
@@ -147,7 +147,7 @@ class ria_enumerator(baseDiscoveryPlugin):
 
                 if url == '*':
                     v = vuln.vuln()
-                    v.setPluginName(self.getName())
+                    v.setPluginName(self.name)
                     v.setURL( response.getURL() )
                     v.setMethod( 'GET' )
                     v.setName( 'Insecure "' + file_name + '" settings' )
@@ -156,17 +156,17 @@ class ria_enumerator(baseDiscoveryPlugin):
                     msg += ' flash/silverlight access from any site.'
                     v.setDesc( msg )
                     v.setId( response.id )
-                    kb.kb.append( self, 'vuln', v )
+                    kb.kb.append( self.name, 'vuln', v )
                     om.out.vulnerability( v.getDesc(), severity=v.getSeverity() )
                 else:
                     i = info.info()
-                    i.setPluginName(self.getName())
+                    i.setPluginName(self.name)
                     i.setName('Crossdomain allow ACL')
                     i.setURL( response.getURL() )
                     i.setMethod( 'GET' )
                     i.setDesc( file_name + '" file allows access from: "' + url  + '".')
                     i.setId( response.id )
-                    kb.kb.append( self, 'info', i )
+                    kb.kb.append( self.name, 'info', i )
                     om.out.information( i.getDesc() ) 	
                     
     def getOptions( self ):

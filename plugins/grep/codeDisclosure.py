@@ -109,7 +109,7 @@ class codeDisclosure(baseGrepPlugin):
                 # Check also for 404
                 if not is_404( response ):
                     v = vuln.vuln()
-                    v.setPluginName(self.getName())
+                    v.setPluginName(self.name)
                     v.setURL( response.getURL() )
                     v.setId( response.id )
                     v.setSeverity(severity.LOW)
@@ -117,13 +117,13 @@ class codeDisclosure(baseGrepPlugin):
                     v.addToHighlight(match.group())
                     msg = 'The URL: "' + v.getURL() + '" has a '+lang+' code disclosure vulnerability.'
                     v.setDesc( msg )
-                    kb.kb.append( self, 'codeDisclosure', v )
+                    kb.kb.append( self.name, 'codeDisclosure', v )
                     self._already_added.add( response.getURL() )
                 
                 else:
                     self._first_404 = False
                     v = vuln.vuln()
-                    v.setPluginName(self.getName())
+                    v.setPluginName(self.name)
                     v.setURL( response.getURL() )
                     v.setId( response.id )
                     v.setSeverity(severity.LOW)
@@ -132,7 +132,7 @@ class codeDisclosure(baseGrepPlugin):
                     msg = 'The URL: "' + v.getURL() + '" has a '+lang+' code disclosure vulnerability in'
                     msg += ' the customized 404 script.'
                     v.setDesc( msg )
-                    kb.kb.append( self, 'codeDisclosure', v )
+                    kb.kb.append( self.name, 'codeDisclosure', v )
     
     def setOptions( self, OptionList ):
         '''

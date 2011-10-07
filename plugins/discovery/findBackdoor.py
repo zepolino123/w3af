@@ -19,23 +19,17 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
 import re
-
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
-from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
 
 from core.controllers.basePlugin.baseDiscoveryPlugin import baseDiscoveryPlugin
 from core.controllers.coreHelpers.fingerprint_404 import is_404
 from core.controllers.w3afException import w3afException
-
+from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
+from core.data.options.optionList import optionList
+import core.controllers.outputManager as om
+import core.data.constants.severity as severity
 import core.data.kb.knowledgeBase as kb
 import core.data.kb.vuln as vuln
-import core.data.constants.severity as severity
 
 # By aungkhant. Lists are taken from underground shell repositories and
 # common sense
@@ -173,7 +167,7 @@ class findBackdoor(baseDiscoveryPlugin):
         else:
             if self._is_possible_backdoor(response):
                 v = vuln.vuln()
-                v.setPluginName(self.getName())
+                v.setPluginName(self.name)
                 v.setId(response.id)
                 v.setName('Possible web backdoor')
                 v.setSeverity(severity.HIGH)
@@ -181,7 +175,7 @@ class findBackdoor(baseDiscoveryPlugin):
                 msg = 'A web backdoor was found at: "%s"; this could ' \
                 'indicate that the server was hacked.' % v.getURL()
                 v.setDesc(msg)
-                kb.kb.append(self, 'backdoors', v)
+                kb.kb.append(self.name, 'backdoors', v)
                 om.out.vulnerability(v.getDesc(), severity=v.getSeverity())
 
                 fuzzable_requests = self._createFuzzableRequests(response)

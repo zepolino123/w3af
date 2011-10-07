@@ -59,10 +59,10 @@ class http_vs_https_dist(baseDiscoveryPlugin):
         
         def set_info(name, desc):
             inf = info.info()
-            inf.setPluginName(self.getName())
+            inf.setPluginName(self.name)
             inf.setName(name)
             inf.setDesc(desc)
-            kb.kb.append(self, 'http_vs_https_dist', inf)
+            kb.kb.append(self.name, 'http_vs_https_dist', inf)
 
         target_url = fuzzableRequest.getURL()
         domain = target_url.getDomain()

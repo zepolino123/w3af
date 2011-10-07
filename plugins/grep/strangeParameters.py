@@ -87,7 +87,7 @@ class strangeParameters(baseGrepPlugin):
                             self._already_reported.add(ref)
 
                             i = info.info()
-                            i.setPluginName(self.getName())
+                            i.setPluginName(self.name)
                             i.setName('Strange parameter')
                             i.setURI( ref )
                             i.setId( response.id )
@@ -98,7 +98,7 @@ class strangeParameters(baseGrepPlugin):
                             i['parameterValue'] = qs[param_name][element_index]
                             i.addToHighlight(qs[param_name][element_index])
 
-                            kb.kb.append( self , 'strangeParameters' , i )
+                            kb.kb.append( self.name , 'strangeParameters' , i )
                             
                         # To find this kind of vulns
                         # http://thedailywtf.com/Articles/Oklahoma-
@@ -111,7 +111,7 @@ class strangeParameters(baseGrepPlugin):
                             self._already_reported.add(ref)
                             
                             v = vuln.vuln()
-                            v.setPluginName(self.getName())
+                            v.setPluginName(self.name)
                             v.setName('Parameter has SQL sentence')
                             v.setURI( ref )
                             v.setId( response.id )
@@ -121,7 +121,7 @@ class strangeParameters(baseGrepPlugin):
                             v.setVar( param_name )
                             v['parameterValue'] = qs[param_name][element_index]
                             v.addToHighlight(qs[param_name][element_index])
-                            kb.kb.append( self , 'strangeParameters' , v )
+                            kb.kb.append( self.name , 'strangeParameters' , v )
     
     def setOptions( self, OptionList ):
         pass

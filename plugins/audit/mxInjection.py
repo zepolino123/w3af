@@ -19,23 +19,17 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-from __future__ import with_statement
-
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
-
-from core.controllers.basePlugin.baseAuditPlugin import baseAuditPlugin
-from core.data.fuzzer.fuzzer import createMutants
-from core.controllers.w3afException import w3afException
-
-import core.data.kb.knowledgeBase as kb
-import core.data.kb.vuln as vuln
-import core.data.constants.severity as severity
 
 import re
+
+from core.controllers.basePlugin.baseAuditPlugin import baseAuditPlugin
+from core.controllers.w3afException import w3afException
+from core.data.fuzzer.fuzzer import createMutants
+from core.data.options.optionList import optionList
+import core.controllers.outputManager as om
+import core.data.constants.severity as severity
+import core.data.kb.knowledgeBase as kb
+import core.data.kb.vuln as vuln
 
 
 class mxInjection(baseAuditPlugin):
@@ -99,13 +93,13 @@ class mxInjection(baseAuditPlugin):
                 for mx_error_re, mx_error_string in mx_error_list:
                     if not mx_error_re.search( mutant.getOriginalResponseBody() ):
                         v = vuln.vuln( mutant )
-                        v.setPluginName(self.getName())
+                        v.setPluginName(self.name)
                         v.setName( 'MX injection vulnerability' )
                         v.setSeverity(severity.MEDIUM)
                         v.setDesc( 'MX injection was found at: ' + mutant.foundAt() )
                         v.setId( response.id )
                         v.addToHighlight( mx_error_string )
-                        kb.kb.append( self, 'mxInjection', v )
+                        kb.kb.append( self.name, 'mxInjection', v )
     
     def end(self):
         '''

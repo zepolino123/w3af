@@ -112,7 +112,7 @@ class sql_webshell(baseAttackPlugin):
                 om.out.console( msg )
                 shell_obj = self._generateShell( vuln_obj )
                 if shell_obj is not None:
-                    kb.kb.append( self, 'shell', shell_obj )
+                    kb.kb.append( self.name, 'shell', shell_obj )
                     return [shell_obj, ]
                     
                 raise w3afException('No exploitable vulnerabilities found.')
@@ -142,10 +142,10 @@ class sql_webshell(baseAttackPlugin):
         if len(vulns) != 0:
             return True
         else:
-            om.out.console( 'No [blind] SQL injection vulnerabilities have been found.' )
-            om.out.console( 'Hint #1: Try to find vulnerabilities using the audit plugins.' )
-            msg = 'Hint #2: Use the set command to enter the values yourself, and then exploit it using fastExploit.'
-            om.out.console( msg )
+            #om.out.console( 'No [blind] SQL injection vulnerabilities have been found.' )
+            #om.out.console( 'Hint #1: Try to find vulnerabilities using the audit plugins.' )
+            #msg = 'Hint #2: Use the set command to enter the values yourself, and then exploit it using fastExploit.'
+            #om.out.console( msg )
             return False
 
     def exploit( self, vulnToExploit=None ):
@@ -203,7 +203,7 @@ class sql_webshell(baseAttackPlugin):
                             # Keep adding all shells to the kb
                             pass
                 
-                return kb.kb.getData( self.getName(), 'shell' )
+                return kb.kb.getData( self.name, 'shell' )
                 
     def _generateShell( self, vuln_obj ):
         '''
@@ -233,7 +233,7 @@ class sql_webshell(baseAttackPlugin):
                 shell_obj.setUrlOpener( self._urlOpener )
                 shell_obj.setWebShellURL( webshell_url )
                 shell_obj.set_cut( self._header_length, self._footer_length )
-                kb.kb.append( self, 'shell', shell_obj )
+                kb.kb.append( self.name, 'shell', shell_obj )
                 return shell_obj
             else:
                 # Sad face :(

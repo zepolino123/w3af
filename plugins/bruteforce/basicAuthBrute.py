@@ -117,7 +117,7 @@ class basicAuthBrute(baseBruteforcePlugin):
                         self._found = True
                         v = vuln.vuln()
                         v.setId(response.id)
-                        v.setPluginName(self.getName())
+                        v.setPluginName(self.name)
                         v.setURL( url )
                         v.setDesc( 'Found authentication credentials to: "'+ url +
                         '". A correct user and password combination is: ' + user + '/' + passwd)
@@ -127,7 +127,7 @@ class basicAuthBrute(baseBruteforcePlugin):
                         v.setSeverity(severity.HIGH)
                         v.setName( 'Guessable credentials' )
                 
-                        kb.kb.append( self , 'auth' , v )
+                        kb.kb.append( self.name , 'auth' , v )
                         om.out.vulnerability( v.getDesc(), severity=v.getSeverity() )
                         break
                 

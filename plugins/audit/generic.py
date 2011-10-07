@@ -130,23 +130,23 @@ class generic(baseAuditPlugin):
                 # The two limits are "equal"; It's safe to suppose that we have found the
                 # limit here and that the error string really produced an error
                 v = vuln.vuln( mutant )
-                v.setPluginName(self.getName())
+                v.setPluginName(self.name)
                 v.setId( error_response.id )
                 v.setSeverity(severity.MEDIUM)
                 v.setName( 'Unidentified vulnerability' )
                 v.setDesc( 'An unidentified vulnerability was found at: ' + mutant.foundAt() )
-                kb.kb.append( self, 'generic', v )
+                kb.kb.append( self.name, 'generic', v )
                 self._already_reported.append( (mutant.getURL(), mutant.getVar()) )
             else:
                 # *maybe* and just *maybe* this is a vulnerability
                 i = info.info( mutant )
-                i.setPluginName(self.getName())
+                i.setPluginName(self.name)
                 i.setId( error_response.id )
                 i.setName( 'Possible unidentified vulnerability' )
                 msg = '[Manual verification required] A possible vulnerability was found at: '
                 msg += mutant.foundAt()
                 i.setDesc( msg )
-                kb.kb.append( self, 'generic', i )
+                kb.kb.append( self.name, 'generic', i )
                 self._already_reported.append( (mutant.getURL(), mutant.getVar()) )
     
     def _get_limit_response( self, m ):

@@ -68,7 +68,7 @@ class motw (baseGrepPlugin):
                 # Create the info object
                 if motw_match or self._withoutMOTW:
                     i = info.info()
-                    i.setPluginName(self.getName())
+                    i.setPluginName(self.name)
                     i.setName('Mark of the web')
                     i.setURL( response.getURL() )
                     i.setId( response.id )
@@ -85,20 +85,20 @@ class motw (baseGrepPlugin):
                         msg = 'The  URL: "'  + response.getURL() + '"'
                         msg += ' contains a  valid Mark of the Web.'
                         i.setDesc( msg )
-                        kb.kb.append( self, 'motw', i )
+                        kb.kb.append( self.name, 'motw', i )
                     else:
                         msg = 'The URL: "' + response.getURL() + '" will be executed in Local '
                         msg += 'Machine Zone security context because the indicated length is '
                         msg += 'greater than the actual URL length.'
                         i['localMachine'] = True
                         i.setDesc( msg )
-                        kb.kb.append( self, 'motw', i )
+                        kb.kb.append( self.name, 'motw', i )
               
                 elif self._withoutMOTW:
                     msg = 'The URL: "' + response.getURL()
                     msg += '" doesn\'t contain a Mark of the Web.'
                     i.setDesc( msg )
-                    kb.kb.append( self, 'no_motw', i )
+                    kb.kb.append( self.name, 'no_motw', i )
 
     def setOptions( self, optionsMap ):
         self._withoutMOTW = optionsMap['withoutMOTW'].getValue()

@@ -144,7 +144,7 @@ class ghdb(baseDiscoveryPlugin):
             response = self._urlOpener.GET(result.URL, useCache=True )
             if not is_404( response ):
                 v = vuln.vuln()
-                v.setPluginName(self.getName())
+                v.setPluginName(self.name)
                 v.setURL( response.getURL() )
                 v.setMethod( 'GET' )
                 v.setName( 'Google hack database vulnerability' )
@@ -153,7 +153,7 @@ class ghdb(baseDiscoveryPlugin):
                 msg += ' . Vulnerability description: ' + gh.desc
                 v.setDesc( msg  )
                 v.setId( response.id )
-                kb.kb.append( self, 'vuln', v )
+                kb.kb.append( self.name, 'vuln', v )
                 om.out.vulnerability( v.getDesc(), severity=severity.MEDIUM )
                         
                 # Create the fuzzable requests

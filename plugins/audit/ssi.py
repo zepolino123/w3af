@@ -132,13 +132,13 @@ class ssi(baseAuditPlugin):
         for ssi_error_re, ssi_error in ssi_error_list:
             if not ssi_error_re.search( mutant.getOriginalResponseBody()):
                 v = vuln.vuln( mutant )
-                v.setPluginName(self.getName())
+                v.setPluginName(self.name)
                 v.setName( 'Server side include vulnerability' )
                 v.setSeverity(severity.HIGH)
                 v.setDesc( 'Server Side Include was found at: ' + mutant.foundAt() )
                 v.setId( response.id )
                 v.addToHighlight( ssi_error )
-                kb.kb.append( self, 'ssi', v )
+                kb.kb.append( self.name, 'ssi', v )
     
     def end(self):
         '''

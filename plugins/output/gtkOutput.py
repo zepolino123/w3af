@@ -37,18 +37,14 @@ from core.data.db.db import DB
 # The output plugin must know the session name that is saved in the config object,
 # the session name is assigned in the target settings
 import core.data.kb.config as cf
-import core.controllers.outputManager as om
-import core.data.kb.knowledgeBase as kb
 import core.data.constants.severity as severity
 
-# options
-from core.data.options.option import option
 from core.data.options.optionList import optionList
-
+from core.data.globaldata import globaldata
 
 class gtkOutput(baseOutputPlugin):
     '''
-    Saves messages to kb.kb.getData('gtkOutput', 'queue'), messages are saved in the form of objects.
+    Saves messages to "gtkOutput queue", messages are saved in the form of objects.
     
     @author: Andres Riancho ( andres.riancho@gmail.com )
     '''
@@ -56,13 +52,13 @@ class gtkOutput(baseOutputPlugin):
     def __init__(self):
         baseOutputPlugin.__init__(self)
         
-        if not kb.kb.getData('gtkOutput', 'db') == []:
+        if globaldata.get('gtkoutput-db', []):
             # Restore it from the kb
-            self._db = kb.kb.getData('gtkOutput', 'db')
-            self.queue = kb.kb.getData('gtkOutput', 'queue')
+            self._db = globaldata['gtkoutput-db']
+            self.queue = globaldata['gtkoutput-queue']
         else:
             self.queue = Queue.Queue()
-            kb.kb.save('gtkOutput', 'queue' , self.queue)
+            globaldata['gtkoutput-queue'] = self.queue
             # Create DB and add tables
             sessionName = cf.cf.getData('sessionName')
             dbName = os.path.join(get_home_dir(), 'sessions', 'db_' + sessionName)
@@ -90,7 +86,7 @@ class gtkOutput(baseOutputPlugin):
             # Init history
             historyItem = HistoryItem(self._db)
             historyItem.initStructure()
-            kb.kb.save('gtkOutput', 'db', self._db)
+            globaldata['gtkoutput-db'] = self._db
 
     def debug(self, msgString, newLine = True ):
         '''
@@ -159,7 +155,7 @@ class gtkOutput(baseOutputPlugin):
         @return: A DETAILED description of the plugin functions and features.
         '''
         return '''
-        Saves messages to kb.kb.getData('gtkOutput', 'queue'), messages are saved in the form of
+        Saves messages to globaldata "gtkoutput-queue", messages are saved in the form of
          objects. This plugin was created to be able to communicate with the gtkUi and should be
          enabled if you are using it.
         '''

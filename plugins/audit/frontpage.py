@@ -152,7 +152,7 @@ class frontpage(baseAuditPlugin):
             # And it must be there
             if res.getBody() == randFile[::-1] and not is_404( res ):
                 v = vuln.vuln()
-                v.setPluginName(self.getName())
+                v.setPluginName(self.name)
                 v.setURL( targetURL )
                 v.setId( [upload_id, res.id] )
                 v.setSeverity(severity.HIGH)
@@ -162,7 +162,7 @@ class frontpage(baseAuditPlugin):
                 msg += ' unauthenticated users to upload files to the remote web server.' 
                 v.setDesc( msg )
                 om.out.vulnerability(v.getDesc(), severity=v.getSeverity())
-                kb.kb.append( self, 'frontpage', v )
+                kb.kb.append( self.name, 'frontpage', v )
             else:
                 om.out.debug('The file that was uploaded using the POST method isn\'t there!')
 

@@ -114,7 +114,7 @@ class sharedHosting(baseDiscoveryPlugin):
                     if is_vulnerable:
                         severityOfThisVuln = severity.MEDIUM
                         v = vuln.vuln()
-                        v.setPluginName(self.getName())
+                        v.setPluginName(self.name)
                         v.setURL(fuzzableRequest.getURL())
                         v.setId(1)
                         
@@ -125,12 +125,12 @@ class sharedHosting(baseDiscoveryPlugin):
                         for url in results:
                             domain = url.getDomain()
                             msg += '- %s\n' % url
-                            kb.kb.append( self, 'domains', domain)
+                            kb.kb.append( self.name, 'domains', domain)
                         v.setDesc( msg )
                         v.setName( 'Shared hosting' )
                         v.setSeverity(severityOfThisVuln)
                         om.out.vulnerability( msg, severity=severityOfThisVuln )
-                        kb.kb.append( self, 'sharedHosting', v )
+                        kb.kb.append( self.name, 'sharedHosting', v )
                 
         return []
 

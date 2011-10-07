@@ -83,7 +83,7 @@ class wordpress_enumerate_users(baseDiscoveryPlugin):
                             # A redirect to /author/<username> was made, username probably found
                             username = path.split("/")[-2]
                             redirect = True
-                            self._kb_info_user(self.getName(), wp_author_url, response_author.id, username)
+                            self._kb_info_user(self.name, wp_author_url, response_author.id, username)
                             gap = 0
                         elif response_author.getURI() == wp_author_url and redirect is False:
                             # No redirect was made, try to fetch username from
@@ -99,7 +99,7 @@ class wordpress_enumerate_users(baseDiscoveryPlugin):
                                     # The title changed, username probably found
                                     title_cache = title
                                     username = title.split()[0]
-                                    self._kb_info_user(self.getName(), wp_author_url, response_author.id, username)
+                                    self._kb_info_user(self.name, wp_author_url, response_author.id, username)
                                     gap = 0
 
                         gap += 1
@@ -123,7 +123,7 @@ class wordpress_enumerate_users(baseDiscoveryPlugin):
         i.setURL( url )
         i.setId( response_id )
         i.setDesc( 'WordPress user "'+ username +'" found from enumeration.' )
-        kb.kb.append( self, 'info', i )
+        kb.kb.append( self.name, 'info', i )
         om.out.information( i.getDesc() )
 
     # W3af options and output

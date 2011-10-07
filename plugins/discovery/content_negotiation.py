@@ -255,7 +255,7 @@ class content_negotiation(baseDiscoveryPlugin):
                 
                 # Save the result as an info in the KB, for the user to see it:
                 i = info.info()
-                i.setPluginName(self.getName())
+                i.setPluginName(self.name)
                 i.setName('HTTP Content Negotiation enabled')
                 i.setURL( response.getURL() )
                 i.setMethod( 'GET' )
@@ -263,7 +263,7 @@ class content_negotiation(baseDiscoveryPlugin):
                 desc += ' could be used to bruteforce file names and find new resources.'
                 i.setDesc( desc )
                 i.setId( response.id )
-                kb.kb.append( self, 'content_negotiation', i )
+                kb.kb.append( self.name, 'content_negotiation', i )
                 om.out.information( i.getDesc() )
             else:
                 om.out.information('The remote Web server has Content Negotiation disabled.')

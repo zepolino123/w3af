@@ -124,7 +124,7 @@ class ssn(baseGrepPlugin):
             found_ssn, validated_ssn = self._find_SSN(response.getClearTextBody())
             if validated_ssn:
                 v = vuln.vuln()
-                v.setPluginName(self.getName())
+                v.setPluginName(self.name)
                 v.setURI( uri )
                 v.setId( response.id )
                 v.setSeverity(severity.LOW)
@@ -133,7 +133,7 @@ class ssn(baseGrepPlugin):
                 msg += 'Social Security Number: "'+ validated_ssn +'"'
                 v.setDesc( msg )
                 v.addToHighlight( found_ssn )
-                kb.kb.append( self, 'ssn', v )
+                kb.kb.append( self.name, 'ssn', v )
      
     def _find_SSN(self, body_without_tags):
         '''

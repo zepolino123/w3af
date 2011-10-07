@@ -19,19 +19,12 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
-import core.controllers.outputManager as om
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
-
-from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-
-import core.data.kb.knowledgeBase as kb
-import core.data.kb.info as info
-
 import re
 
+from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
+from core.data.kb.knowledgeBase import kb
+from core.data.options.optionList import optionList
+import core.data.kb.info as info
 
 class errorPages(baseGrepPlugin):
     '''
@@ -159,7 +152,7 @@ class errorPages(baseGrepPlugin):
                 if msg in response:
                     
                     i = info.info()
-                    i.setPluginName(self.getName())
+                    i.setPluginName(self.name)
                     
                     # Set a nicer name for the vulnerability
                     name = 'Descriptive error page - "'
@@ -173,7 +166,7 @@ class errorPages(baseGrepPlugin):
                     i.setId( response.id )
                     i.setDesc( 'The URL: "' + response.getURL() + '" contains the descriptive error: "' + msg + '"' )
                     i.addToHighlight( msg ) 
-                    kb.kb.append( self , 'errorPage' , i )
+                    kb.append(self.name , 'errorPage', i)
                     
                     # There is no need to report more than one info for the same result,
                     # the user will read the info object and analyze it even if we report it
@@ -191,7 +184,7 @@ class errorPages(baseGrepPlugin):
                         if match_string not in self._already_reported_versions:
                             # Save the info obj
                             i = info.info()
-                            i.setPluginName(self.getName())
+                            i.setPluginName(self.name)
                             i.setName('Error page with information disclosure')
                             i.setURL( response.getURL() )
                             i.setId( response.id )
@@ -199,9 +192,9 @@ class errorPages(baseGrepPlugin):
                             i.setDesc( 'An error page sent this ' + server +' version: "' + match_string + '".'  )
                             i.addToHighlight( server )
                             i.addToHighlight( match_string )
-                            kb.kb.append( self , 'server' , i )
+                            kb.append( self.name , 'server' , i )
                             # Save the string
-                            kb.kb.append( self , 'server' , match_string )
+                            kb.append( self.name , 'server' , match_string )
                             self._already_reported_versions.append( match_string )
 
     def _get_regex_tuples( self ):
@@ -231,7 +224,7 @@ class errorPages(baseGrepPlugin):
         '''
         This method is called when the plugin wont be used anymore.
         '''
-        self.printUniq( kb.kb.getData( 'errorPages', 'errorPage' ), 'URL' )
+        self.printUniq(kb.getData('errorPages', 'errorPage'), 'URL')
 
     def getPluginDeps( self ):
         '''

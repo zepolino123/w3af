@@ -111,7 +111,7 @@ class osCommandingShell(baseAttackPlugin):
         @return : True if vuln can be exploited.
         '''
         # The vuln was saved to the kb as:
-        # kb.kb.append( self, 'osCommanding', v )
+        # kb.kb.append( self.name, 'osCommanding', v )
         exploitDc = vuln.getDc()
             
         # Define a test command:

@@ -105,13 +105,13 @@ class detectReverseProxy(baseDiscoveryPlugin):
         @parameter response: The response that triggered the detection
         '''
         i = info.info()
-        i.setPluginName(self.getName())
+        i.setPluginName(self.name)
         i.setName('Reverse proxy')
         i.setId( response.getId() )
         i.setURL( response.getURL() )
         i.setDesc( 'The remote web server seems to have a reverse proxy installed.' )
         i.setName('Found reverse proxy')
-        kb.kb.append( self, 'detectReverseProxy', i )
+        kb.kb.append( self.name, 'detectReverseProxy', i )
         om.out.information( i.getDesc() )
     
     def _has_proxy_headers( self, response ):

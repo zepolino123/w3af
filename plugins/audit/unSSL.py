@@ -92,14 +92,14 @@ class unSSL(baseAuditPlugin):
                 if http_response.getCode() == https_response.getCode():
                     if http_response.getBody() == https_response.getBody():
                         v = vuln.vuln( freq )
-                        v.setPluginName(self.getName())
+                        v.setPluginName(self.name)
                         v.setName( 'Secure content over insecure channel' )
                         v.setSeverity(severity.MEDIUM)
                         msg = 'Secure content can be accesed using the insecure protocol HTTP.'
                         msg += ' The vulnerable URLs are: "' + secure + '" - "' + insecure + '" .'
                         v.setDesc( msg )
                         v.setId( [http_response.id, https_response.id] )
-                        kb.kb.append( self, 'unSSL', v )
+                        kb.kb.append( self.name, 'unSSL', v )
                         om.out.vulnerability( v.getDesc(), severity=v.getSeverity() )
 
                 # Disable error ignoring

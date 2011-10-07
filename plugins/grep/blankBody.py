@@ -21,13 +21,12 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 '''
 
 # options
-from core.data.options.option import option
 from core.data.options.optionList import optionList
 
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
 from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
 
-import core.data.kb.knowledgeBase as kb
+from core.data.kb.knowledgeBase import kb
 import core.data.kb.info as info
 
 
@@ -67,18 +66,18 @@ class blankBody(baseGrepPlugin):
         >>> request.setMethod( 'GET' )
         >>> b = blankBody()
         >>> b.grep(request, response)
-        >>> assert len(kb.kb.getData('blankBody', 'blankBody')) == 1
+        >>> assert len(kb.getData('blankBody', 'blankBody')) == 1
 
         With some content.
-        >>> kb.kb.save('blankBody','blankBody',[])
+        >>> kb.save('blankBody','blankBody',[])
         >>> body = 'header body footer'
         >>> headers = {'content-type': 'text/html'}
         >>> response = httpResponse(200, body , headers, url, url)
         >>> b.grep(request, response)
-        >>> assert len(kb.kb.getData('ssn', 'ssn')) == 0
+        >>> assert len(kb.getData('ssn', 'ssn')) == 0
 
         Strange method, empty body.
-        >>> kb.kb.save('blankBody','blankBody',[])
+        >>> kb.save('blankBody','blankBody',[])
         >>> body = ''
         >>> headers = {'content-type': 'text/html'}
         >>> response = httpResponse(200, body , headers, url, url)
@@ -86,10 +85,10 @@ class blankBody(baseGrepPlugin):
         >>> request.setURL( url )
         >>> request.setMethod( 'ARGENTINA' )
         >>> b.grep(request, response)
-        >>> assert len(kb.kb.getData('ssn', 'ssn')) == 0
+        >>> assert len(kb.getData('ssn', 'ssn')) == 0
 
         Response codes,
-        >>> kb.kb.save('blankBody','blankBody',[])
+        >>> kb.save('blankBody','blankBody',[])
         >>> body = ''
         >>> headers = {'content-type': 'text/html'}
         >>> response = httpResponse(401, body , headers, url, url)
@@ -97,27 +96,28 @@ class blankBody(baseGrepPlugin):
         >>> request.setURL( url )
         >>> request.setMethod( 'GET' )
         >>> b.grep(request, response)
-        >>> len(kb.kb.getData('ssn', 'ssn'))
+        >>> len(kb.getData('ssn', 'ssn'))
         0
 
         '''
-        if response.getBody() == '' and request.getMethod() in ['GET', 'POST']\
-        and response.getCode() not in [401, 304, 204] and 'location' not in response.getLowerCaseHeaders()\
-        and response.getURL() not in self._already_reported:
+        if response.getURL() not in self._already_reported and \
+            response.getBody() == '' and \
+            request.getMethod() in ('GET', 'POST') and \
+            response.getCode() not in (401, 304, 204) and \
+            'location' not in response.getLowerCaseHeaders():
             
-            #   report these informations only once
-            self._already_reported.add( response.getURL() )
+            # report these informations only once
+            self._already_reported.add(response.getURL())
             
-            #   append the info object to the KB.
-            i = info.info()
-            i.setPluginName(self.getName())
-            i.setName('Blank body')
-            i.setURL( response.getURL() )
-            i.setId( response.id )
-            msg = 'The URL: "'+ response.getURL()  + '" returned an empty body. '
-            msg += 'This could indicate an error.'
-            i.setDesc(msg)
-            kb.kb.append( self, 'blankBody', i )
+            # append the info object to the KB.
+            inf = info.info()
+            inf.setPluginName(self.name)
+            inf.setName('Blank body')
+            inf.setURL( response.getURL() )
+            inf.setId( response.id )
+            inf.setDesc('The URL: "%s" returned an empty body. This could '
+                      'indicate an error.' % response.getURL())
+            kb.append(self.name, 'blankBody', inf)
         
     def setOptions( self, OptionList ):
         '''
@@ -136,16 +136,18 @@ class blankBody(baseGrepPlugin):
         '''
         This method is called when the plugin wont be used anymore.
         '''
-        self.printUniq( kb.kb.getData( 'blankBody', 'blankBody' ), None )
+        self.printUniq( kb.getData(self.name, 'blankBody'), None)
     
-    def getPluginDeps( self ):
+    @staticmethod
+    def getPluginDeps():
         '''
         @return: A list with the names of the plugins that should be runned before the
         current one.
         '''
         return []
     
-    def getLongDesc( self ):
+    @staticmethod
+    def getLongDesc():
         '''
         @return: A DETAILED description of the plugin functions and features.
         '''

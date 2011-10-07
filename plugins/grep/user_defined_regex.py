@@ -18,8 +18,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
-from __future__ import with_statement
-
 import core.controllers.outputManager as om
 from core.controllers.w3afException import w3afException
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
@@ -102,13 +100,13 @@ class user_defined_regex(baseGrepPlugin):
                             #because the info_object is an empty dict {}
                             #which evaluates to false
                             #but an info object is not the same as None
-                            if not info_object is None:
+                            if info_object is not None:
                                 ids = info_object.getId()
                                 ids.append(response.id)
                                 info_object.setId(ids)
                             else:
                                 info_object = info.info()
-                                info_object.setPluginName(self.getName())
+                                info_object.setPluginName(self.name)
                                 
                                 msg = 'User defined regular expression "%s" matched a response!' % regex.pattern
                                 str_match = match_object.group(0)
@@ -124,7 +122,7 @@ class user_defined_regex(baseGrepPlugin):
                                 info_object.setDesc( msg )
                                 info_object.setId( response.id )
                                 info_object.setName( 'User defined regex - ' + str(regex.pattern) )
-                                kb.kb.append( self , 'user_defined_regex' , info_object )
+                                kb.kb.append( self.name , 'user_defined_regex' , info_object )
                             #set the info_object
                             self._regexlist_compiled[index] = (regex, info_object)
                   

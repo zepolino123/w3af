@@ -19,8 +19,6 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-from __future__ import with_statement
-
 import core.controllers.outputManager as om
 
 # options
@@ -355,7 +353,7 @@ class xss(baseAuditPlugin):
                 # Save it to the KB
                 if vulnerable:                
                     v = vuln.vuln( mutant )
-                    v.setPluginName(self.getName())
+                    v.setPluginName(self.name)
                     v.setId( response.id )
                     v.setName( 'Cross site scripting vulnerability' )
                     v.setSeverity(severity.MEDIUM)
@@ -363,7 +361,7 @@ class xss(baseAuditPlugin):
                     msg += ' This vulnerability affects ' + ','.join(mutant.affected_browsers)
                     v.setDesc( msg )
                     v.addToHighlight(mod_value)
-                    kb.kb.append( self, 'xss', v )
+                    kb.kb.append( self.name, 'xss', v )
     
     def _checkHTML( self, xss_string , response ):
         '''
@@ -427,7 +425,7 @@ class xss(baseAuditPlugin):
                     if mutant.getModValue() in response:
                         
                         v = vuln.vuln( mutant )
-                        v.setPluginName(self.getName())
+                        v.setPluginName(self.name)
                         v.setURL( fuzzable_request.getURL() )
                         v.setDc( fuzzable_request.getDc() )
                         v.setMethod( fuzzable_request.getMethod() )
@@ -445,7 +443,7 @@ class xss(baseAuditPlugin):
                         v.addToHighlight( mutant.getModValue() )
 
                         om.out.vulnerability( v.getDesc() )
-                        kb.kb.append( self, 'xss', v )
+                        kb.kb.append( self.name, 'xss', v )
                         break
         
         self.printUniq( kb.kb.getData( 'xss', 'xss' ), 'VAR' )

@@ -20,20 +20,13 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
-
 from core.controllers.basePlugin.baseDiscoveryPlugin import baseDiscoveryPlugin
-
-import core.data.kb.knowledgeBase as kb
-import core.data.kb.info as info
-import core.data.constants.severity as severity
-
-from core.controllers.w3afException import w3afException
 from core.controllers.misc.levenshtein import relative_distance_lt
+from core.controllers.w3afException import w3afException
+from core.data.options.optionList import optionList
+import core.controllers.outputManager as om
+import core.data.kb.info as info
+import core.data.kb.knowledgeBase as kb
 
 
 class domain_dot(baseDiscoveryPlugin):
@@ -88,20 +81,20 @@ class domain_dot(baseDiscoveryPlugin):
         '''
         if relative_distance_lt(original_resp.getBody(), resp.getBody(), 0.7):
             i = info.info(resp)
-            i.setPluginName(self.getName())
+            i.setPluginName(self.name)
             i.setId([original_resp.id, resp.id])
             i.setName('Responses differ')
-            msg = '[Manual verification required] The response body for a ' \
-            'request with a trailing dot in the domain, and the response ' \
-            'body without a trailing dot in the domain differ. This could ' \
-            'indicate a misconfiguration in the virtual host settings. In ' \
-            'some cases, this misconfiguration permits the attacker to read ' \
-            'the source code of the web application.'
+            msg = ('[Manual verification required] The response body for a '
+            'request with a trailing dot in the domain, and the response '
+            'body without a trailing dot in the domain differ. This could '
+            'indicate a misconfiguration in the virtual host settings. In '
+            'some cases, this misconfiguration permits the attacker to read '
+            'the source code of the web application.')
             i.setDesc(msg)
             
             om.out.information(msg)
             
-            kb.kb.append(self, 'domain_dot', i)
+            kb.kb.append(self.name, 'domain_dot', i)
                 
     def getOptions( self ):
         '''

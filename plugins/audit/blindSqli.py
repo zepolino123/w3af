@@ -72,11 +72,11 @@ class blindSqli(baseAuditPlugin):
             
             if response_diff is not None:
                 om.out.vulnerability( response_diff.getDesc() )
-                kb.kb.append(self, 'blindSqli', response_diff)
+                kb.kb.append(self.name, 'blindSqli', response_diff)
             
             elif time_delay is not None:
                 om.out.vulnerability( time_delay.getDesc() )
-                kb.kb.append(self, 'blindSqli', time_delay)
+                kb.kb.append(self.name, 'blindSqli', time_delay)
                 
         self._tm.join( self )
         

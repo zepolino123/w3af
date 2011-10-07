@@ -105,7 +105,7 @@ class error500(baseGrepPlugin):
             if ( error_500_response.getURI() , request.getDc() ) not in all_vulns_tuples:
                 # Found a err 500 that wasnt identified !!!
                 v = vuln.vuln()
-                v.setPluginName(self.getName())
+                v.setPluginName(self.name)
                 v.setURI( error_500_response.getURI() )
                 v.setURL( error_500_response.getURL() )
                 v.setId( error_500_response.id )
@@ -116,7 +116,7 @@ class error500(baseGrepPlugin):
                 msg += ' Enable all plugins and try again, if the vulnerability still is not'
                 msg += ' identified, please verify mannually and report it to the w3af developers.'
                 v.setDesc( msg )
-                kb.kb.append( self, 'error500', v )
+                kb.kb.append( self.name, 'error500', v )
                 
         self.printUniq( kb.kb.getData( 'error500', 'error500' ), 'VAR' )
 

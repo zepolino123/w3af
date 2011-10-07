@@ -19,19 +19,13 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
+import re
 
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-
-import core.data.kb.knowledgeBase as kb
-import core.data.kb.info as info
-
 from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
-
-import re
+from core.data.kb.knowledgeBase import kb
+from core.data.options.optionList import optionList
+import core.data.kb.info as info
 
 
 class dotNetEventValidation(baseGrepPlugin):
@@ -78,7 +72,7 @@ class dotNetEventValidation(baseGrepPlugin):
                 if not self._eventvalidation.search(response.getBody()):
                     # Nice! We found a possible bug =)
                     i = info.info()
-                    i.setPluginName(self.getName())
+                    i.setPluginName(self.name)
                     i.setName('.NET Event Validation is disabled')
                     i.setURL( response.getURL() )
                     i.setId( response.id )
@@ -86,12 +80,12 @@ class dotNetEventValidation(baseGrepPlugin):
                     msg = 'The URL: "' + i.getURL() + '" has .NET Event Validation disabled. '
                     msg += 'This programming/configuration error should be manually verified.'
                     i.setDesc( msg )
-                    kb.kb.append( self, 'dotNetEventValidation', i )
+                    kb.kb.append( self.name, 'dotNetEventValidation', i )
 
                 if not self._encryptedVs.search(response.getBody()):
                     # Nice! We can decode the viewstate! =)
                     i = info.info()
-                    i.setPluginName(self.getName())
+                    i.setPluginName(self.name)
                     i.setName('.NET ViewState encryption is disabled')
                     i.setURL( response.getURL() )
                     i.setId( response.id )
@@ -99,7 +93,7 @@ class dotNetEventValidation(baseGrepPlugin):
                     msg += 'This programming/configuration error could be exploited '
                     msg += 'to decode the viewstate contents.'
                     i.setDesc( msg )
-                    kb.kb.append( self, 'dotNetEventValidation', i )
+                    kb.kb.append( self.name, 'dotNetEventValidation', i )
 
     
     def setOptions( self, OptionList ):

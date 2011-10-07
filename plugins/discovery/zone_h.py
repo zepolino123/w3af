@@ -116,7 +116,7 @@ class zone_h(baseDiscoveryPlugin):
             # Do the if...
             if total_attacks > 1:
                 v = vuln.vuln()
-                v.setPluginName(self.getName())
+                v.setPluginName(self.name)
                 v.setName('Previous defacements')
                 v.setURL( response.getURL() )
                 v.setSeverity( severity.MEDIUM )
@@ -124,17 +124,17 @@ class zone_h(baseDiscoveryPlugin):
                 msg += ' information please visit the following URL: "' + response.getURL()
                 msg += '".'
                 v.setDesc( msg )
-                kb.kb.append( self, 'defacements', v )
+                kb.kb.append( self.name, 'defacements', v )
                 om.out.information( v.getDesc() )
             elif total_attacks == 1:
                 i = info.info()
-                i.setPluginName(self.getName())
+                i.setPluginName(self.name)
                 i.setName('Previous defacement')
                 i.setURL( response.getURL() )
                 msg = 'The target site was defaced in the past. For more information'
                 msg += ' please visit the following URL: "' + response.getURL() + '".'
                 i.setDesc( msg )
-                kb.kb.append( self, 'defacements', i )
+                kb.kb.append( self.name, 'defacements', i )
                 om.out.information( i.getDesc() )
                 
     def getOptions( self ):

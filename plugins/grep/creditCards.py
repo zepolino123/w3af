@@ -21,18 +21,11 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 '''
 
 
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
-
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-
-import core.data.kb.knowledgeBase as kb
-import core.data.kb.vuln as vuln
+from core.data.kb.knowledgeBase import kb
+from core.data.options.optionList import optionList
 import core.data.constants.severity as severity
-
+import core.data.kb.vuln as vuln
 import re
 
 
@@ -100,7 +93,7 @@ class creditCards(baseGrepPlugin):
             
             for card in found_cards:
                 v = vuln.vuln()
-                v.setPluginName(self.getName())
+                v.setPluginName(self.name)
                 v.setURL( response.getURL() )
                 v.setId( response.id )
                 v.setSeverity(severity.LOW)
@@ -109,7 +102,7 @@ class creditCards(baseGrepPlugin):
                 msg = 'The URL: "' + v.getURL() + '" discloses the credit card number: "'
                 msg += card + '".'
                 v.setDesc( msg )
-                kb.kb.append( self, 'creditCards', v )
+                kb.append( self.name, 'creditCards', v )
      
     def _find_card(self, body):
         '''
@@ -132,7 +125,7 @@ class creditCards(baseGrepPlugin):
         This method is called when the plugin wont be used anymore.
         '''
         # Print results
-        self.printUniq( kb.kb.getData( 'creditCards', 'creditCards' ), 'URL' )
+        self.printUniq( kb.getData( 'creditCards', 'creditCards' ), 'URL' )
 
 
     def getOptions( self ):

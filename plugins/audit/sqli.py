@@ -95,7 +95,7 @@ class sqli(baseAuditPlugin):
                     if not sql_regex.search( mutant.getOriginalResponseBody() ):
                         # Create the vuln,
                         v = vuln.vuln( mutant )
-                        v.setPluginName(self.getName())
+                        v.setPluginName(self.name)
                         v.setId( response.id )
                         v.setName( 'SQL injection vulnerability' )
                         v.setSeverity(severity.HIGH)
@@ -103,7 +103,7 @@ class sqli(baseAuditPlugin):
                         v['error'] = sql_error_string
                         v['db'] = dbms_type
                         v.setDesc( 'SQL injection in a '+ v['db'] +' was found at: ' + mutant.foundAt() )
-                        kb.kb.append( self, 'sqli', v )
+                        kb.kb.append( self.name, 'sqli', v )
                         break
     
     def end(self):

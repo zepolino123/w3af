@@ -75,7 +75,7 @@ class strangeHeaders(baseGrepPlugin):
                 else:
                     # Create a new info object from scratch and save it to the kb:
                     i = info.info()
-                    i.setPluginName(self.getName())
+                    i.setPluginName(self.name)
                     i.setName('Strange header')
                     i.setURL( response.getURL() )
                     i.setId( response.id )
@@ -86,7 +86,7 @@ class strangeHeaders(baseGrepPlugin):
                     hvalue = response.getHeaders()[header_name]
                     i['header_value'] = hvalue
                     i.addToHighlight( hvalue, header_name )
-                    kb.kb.append( self , 'strangeHeaders' , i )
+                    kb.kb.append( self.name , 'strangeHeaders' , i )
 
 
         # Now check for protocol anomalies
@@ -102,7 +102,7 @@ class strangeHeaders(baseGrepPlugin):
         if 'content-location' in response.getLowerCaseHeaders() \
         and response.getCode() not in xrange(300,310):
             i = info.info()
-            i.setPluginName(self.getName())
+            i.setPluginName(self.name)
             i.setName('Content-Location HTTP header anomaly')
             i.setURL( response.getURL() )
             i.setId( response.id )
@@ -112,7 +112,7 @@ class strangeHeaders(baseGrepPlugin):
             msg += ' a violation to the RFC.'
             i.setDesc( msg )
             i.addToHighlight( 'content-location' )
-            kb.kb.append( self , 'anomaly' , i )
+            kb.kb.append( self.name , 'anomaly' , i )
 
     def setOptions( self, OptionList ):
         pass

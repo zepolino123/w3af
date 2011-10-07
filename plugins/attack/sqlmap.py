@@ -116,7 +116,7 @@ class sqlmap(baseAttackPlugin):
                 om.out.console( msg )
                 shell_obj = self._generateShell( vuln_obj )
                 if shell_obj is not None:
-                    kb.kb.append( self, 'shell', shell_obj )
+                    kb.kb.append( self.name, 'shell', shell_obj )
                     return [shell_obj, ]
                     
                 raise w3afException('No exploitable vulnerabilities found.')
@@ -146,10 +146,10 @@ class sqlmap(baseAttackPlugin):
         if len(vulns) != 0:
             return True
         else:
-            om.out.console( 'No [blind] SQL injection vulnerabilities have been found.' )
-            om.out.console( 'Hint #1: Try to find vulnerabilities using the audit plugins.' )
-            msg = 'Hint #2: Use the set command to enter the values yourself, and then exploit it using fastExploit.'
-            om.out.console( msg )
+            #om.out.console( 'No [blind] SQL injection vulnerabilities have been found.' )
+            #om.out.console( 'Hint #1: Try to find vulnerabilities using the audit plugins.' )
+            #msg = 'Hint #2: Use the set command to enter the values yourself, and then exploit it using fastExploit.'
+            #om.out.console( msg )
             return False
 
     def exploit( self, vulnToExploit=None ):
@@ -209,7 +209,7 @@ class sqlmap(baseAttackPlugin):
                             pass
                 
                 # FIXME: Am I really saving anything here ?!?!
-                return kb.kb.getData( self.getName(), 'shell' )
+                return kb.kb.getData( self.name, 'shell' )
                 
     def _generateShell( self, vuln_obj ):
         '''
@@ -229,7 +229,7 @@ class sqlmap(baseAttackPlugin):
             shell_obj = sqlShellObj( vuln_obj )
             shell_obj.setGoodSamaritan( self._goodSamaritan )
             shell_obj.setDriver( driver )
-            kb.kb.append( self, 'shells', shell_obj )
+            kb.kb.append( self.name, 'shells', shell_obj )
             return shell_obj
 
     def getOptions( self ):
@@ -437,7 +437,7 @@ class sqlShellObj(shell):
         self._showPrompt()
 
     def _showPrompt( self ):
-        om.out.console('w3af/exploit/'+self.getName()+'-'+str(self.getExploitResultId())+'>>>', newLine = False)
+        om.out.console('w3af/exploit/'+self.name+'-'+str(self.getExploitResultId())+'>>>', newLine = False)
         
     def help( self, command ):
         '''

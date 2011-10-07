@@ -21,15 +21,13 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 '''
 import re
 
-import core.controllers.outputManager as om
-
+from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
+from core.data.kb.knowledgeBase import kb
 from core.data.options.option import option
 from core.data.options.optionList import optionList
-from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-
-import core.data.kb.knowledgeBase as kb
-import core.data.kb.vuln as vuln
 import core.data.constants.severity as severity
+import core.data.kb.vuln as vuln
+
 
 class domXss(baseGrepPlugin):
     '''
@@ -99,7 +97,7 @@ class domXss(baseGrepPlugin):
 
         for vulnCode in res:
             v = vuln.vuln()
-            v.setPluginName(self.getName())
+            v.setPluginName(self.name)
             v.addToHighlight(vulnCode)
             v.setURL(response.getURL())
             v.setId(response.id)
@@ -108,7 +106,7 @@ class domXss(baseGrepPlugin):
             msg = 'The URL: "' + v.getURL() + '" has a DOM XSS (Risky JavaScript Code) '
             msg += 'bug using: "'+ vulnCode + '".'
             v.setDesc(msg)
-            kb.kb.append(self, 'domXss', v)
+            kb.append(self.name, 'domXss', v)
 
     def _simpleGrep(self, response):
         '''
@@ -173,7 +171,7 @@ class domXss(baseGrepPlugin):
         '''
         This method is called when the plugin wont be used anymore.
         '''
-        self.printUniq(kb.kb.getData('domXss', 'domXss'), None)
+        self.printUniq(kb.getData('domXss', 'domXss'), None)
             
     def getPluginDeps(self):
         '''

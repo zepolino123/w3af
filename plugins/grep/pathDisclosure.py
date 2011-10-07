@@ -160,7 +160,7 @@ class pathDisclosure(baseGrepPlugin):
                             self._already_added.append( (realurl, match) )
                             
                             v = vuln.vuln()
-                            v.setPluginName( self.getName() )
+                            v.setPluginName( self.name )
                             v.setURL( realurl )
                             v.setId( response.id )
                             msg = 'The URL: "' + v.getURL() + '" has a path disclosure '
@@ -170,7 +170,7 @@ class pathDisclosure(baseGrepPlugin):
                             v.setName( 'Path disclosure vulnerability' )
                             v['path'] = match
                             v.addToHighlight( match )
-                            kb.kb.append( self, 'pathDisclosure', v )
+                            kb.kb.append( self.name, 'pathDisclosure', v )
         
         self._update_KB_path_list()
     

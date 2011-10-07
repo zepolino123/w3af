@@ -105,7 +105,7 @@ class findGit(baseDiscoveryPlugin):
                 for line in f:
                     if regular_expression.match(line):
                         v = vuln.vuln()
-                        v.setPluginName(self.getName())
+                        v.setPluginName(self.name)
                         v.setId( response.id )
                         v.setName( 'Possible Git repository found' )
                         v.setSeverity(severity.LOW)
@@ -115,7 +115,7 @@ class findGit(baseDiscoveryPlugin):
                         msg += ' the Web application source code by running'
                         msg += ' "git clone ' + domain_path + '"'
                         v.setDesc( msg )
-                        kb.kb.append( self, 'GIT', v )
+                        kb.kb.append( self.name, 'GIT', v )
                         om.out.vulnerability( v.getDesc(), severity=v.getSeverity() )
                         fuzzable_requests = self._createFuzzableRequests( response )
                         self._fuzzable_requests_to_return.extend( fuzzable_requests )

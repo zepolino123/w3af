@@ -20,23 +20,17 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
-
-import core.controllers.outputManager as om
-from core.controllers.w3afException import w3afException
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
+import re
 
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-
-import core.data.kb.knowledgeBase as kb
+from core.controllers.w3afException import w3afException
+from core.data.kb.knowledgeBase import kb
+from core.data.options.optionList import optionList
+import core.controllers.outputManager as om
+import core.data.constants.severity as severity
 import core.data.kb.info as info
 import core.data.kb.vuln as vuln
-import core.data.constants.severity as severity
 import core.data.parsers.dpCache as dpCache
-
-import re
 
 
 class httpAuthDetect(baseGrepPlugin):
@@ -76,9 +70,9 @@ class httpAuthDetect(baseGrepPlugin):
         >>> request.setMethod('GET')
         >>> h = httpAuthDetect()
         >>> h.grep(request, response)
-        >>> len(kb.kb.getData('httpAuthDetect', 'auth'))
+        >>> len(kb.getData('httpAuthDetect', 'auth'))
         0
-        >>> len(kb.kb.getData('httpAuthDetect', 'userPassUri'))
+        >>> len(kb.getData('httpAuthDetect', 'userPassUri'))
         0
 
         One long string
@@ -91,9 +85,9 @@ class httpAuthDetect(baseGrepPlugin):
         >>> request.setMethod('GET')
         >>> h = httpAuthDetect()
         >>> h.grep(request, response)
-        >>> len(kb.kb.getData('httpAuthDetect', 'auth'))
+        >>> len(kb.getData('httpAuthDetect', 'auth'))
         0
-        >>> len(kb.kb.getData('httpAuthDetect', 'userPassUri'))
+        >>> len(kb.getData('httpAuthDetect', 'userPassUri'))
         0
 
         Something interesting to match
@@ -108,13 +102,13 @@ class httpAuthDetect(baseGrepPlugin):
         >>> request.setMethod('GET')
         >>> h = httpAuthDetect()
         >>> h.grep(request, response)
-        >>> len(kb.kb.getData('httpAuthDetect', 'auth'))
+        >>> len(kb.getData('httpAuthDetect', 'auth'))
         0
-        >>> len(kb.kb.getData('httpAuthDetect', 'userPassUri'))
+        >>> len(kb.getData('httpAuthDetect', 'userPassUri'))
         1
 
         Something interesting to match
-        >>> kb.kb.cleanup()
+        >>> kb.cleanup()
         >>> body = ''
         >>> url = url_object('http://www.w3af.com/')
         >>> headers = {'content-type': 'text/html'}
@@ -124,13 +118,13 @@ class httpAuthDetect(baseGrepPlugin):
         >>> request.setMethod('GET')
         >>> h = httpAuthDetect()
         >>> h.grep(request, response)
-        >>> len(kb.kb.getData('httpAuthDetect', 'non_rfc_auth'))
+        >>> len(kb.getData('httpAuthDetect', 'non_rfc_auth'))
         1
-        >>> len(kb.kb.getData('httpAuthDetect', 'userPassUri'))
+        >>> len(kb.getData('httpAuthDetect', 'userPassUri'))
         0
 
         Something interesting to match
-        >>> kb.kb.cleanup()
+        >>> kb.cleanup()
         >>> body = ''
         >>> url = url_object('http://www.w3af.com/')
         >>> headers = {'content-type': 'text/html', 'www-authenticate': 'realm-w3af'}
@@ -140,13 +134,13 @@ class httpAuthDetect(baseGrepPlugin):
         >>> request.setMethod('GET')
         >>> h = httpAuthDetect()
         >>> h.grep(request, response)
-        >>> len(kb.kb.getData('httpAuthDetect', 'auth'))
+        >>> len(kb.getData('httpAuthDetect', 'auth'))
         1
-        >>> len(kb.kb.getData('httpAuthDetect', 'userPassUri'))
+        >>> len(kb.getData('httpAuthDetect', 'userPassUri'))
         0
         '''
         already_reported = [u.getURL() for u in \
-                            kb.kb.getData('httpAuthDetect', 'auth')]
+                            kb.getData('httpAuthDetect', 'auth')]
         
         # If I have a 401 code, and this URL wasn't already reported...
         if response.getCode() == 401 and \
@@ -166,6 +160,7 @@ class httpAuthDetect(baseGrepPlugin):
         Analyze a 200 response and report any findings of http://user:pass@domain.com/
         @return: None
         '''
+        pname = self.name
         #
         #   Analyze the HTTP URL
         #
@@ -174,7 +169,7 @@ class httpAuthDetect(baseGrepPlugin):
             if self._auth_uri_regex.match( response.getURI().url_string ):
                 # An authentication URI was found!
                 v = vuln.vuln()
-                v.setPluginName(self.getName())
+                v.setPluginName(pname)
                 v.setURL(response.getURL())
                 v.setId(response.id)
                 desc = 'The resource: "%s" has a user and password in ' \
@@ -184,7 +179,7 @@ class httpAuthDetect(baseGrepPlugin):
                 v.setName('Basic HTTP credentials')
                 v.addToHighlight( response.getURI().url_string )
                 
-                kb.kb.append(self, 'userPassUri', v)
+                kb.append(pname, 'userPassUri', v)
                 om.out.vulnerability(v.getDesc(), severity=v.getSeverity())
 
 
@@ -207,7 +202,7 @@ class httpAuthDetect(baseGrepPlugin):
                 
             if self._auth_uri_regex.match(url.url_string):
                 v = vuln.vuln()
-                v.setPluginName(self.getName())
+                v.setPluginName(pname)
                 v.setURL(response.getURL())
                 v.setId( response.id )
                 msg = 'The resource: "'+ response.getURL() + '" has a user and password in the'
@@ -218,7 +213,7 @@ class httpAuthDetect(baseGrepPlugin):
                 v.setName('Basic HTTP credentials')
                 v.addToHighlight( url.url_string )
                 
-                kb.kb.append(self, 'userPassUri', v)
+                kb.append(pname, 'userPassUri', v)
                 om.out.vulnerability(v.getDesc(), severity=v.getSeverity())
                     
     def _analyze_401(self, response):
@@ -226,6 +221,7 @@ class httpAuthDetect(baseGrepPlugin):
         Analyze a 401 response and report it.
         @return: None
         '''
+        pname = self.name
         # Get the realm
         realm = None
         for key in response.getHeaders():
@@ -237,19 +233,19 @@ class httpAuthDetect(baseGrepPlugin):
         if realm is None:
             # Report this strange case
             i = info.info()
-            i.setPluginName(self.getName())
+            i.setPluginName(pname)
             i.setName('Authentication without www-authenticate header')
             i.setURL( response.getURL() )
             i.setId( response.id )
             i.setDesc( 'The resource: "'+ response.getURL() + '" requires authentication ' +
             '(HTTP Code 401) but the www-authenticate header is not present. This requires ' + 
             'human verification.')
-            kb.kb.append( self , 'non_rfc_auth' , i )
+            kb.append(pname, 'non_rfc_auth', i)
         
         else:
             # Report the common case, were a realm is set.
             i = info.info()
-            i.setPluginName(self.getName())
+            i.setPluginName(pname)
             if 'ntlm' in realm.lower():
                 i.setName('NTLM authentication')
             else:
@@ -261,7 +257,7 @@ class httpAuthDetect(baseGrepPlugin):
             i['message'] = realm
             i.addToHighlight( realm )
             
-            kb.kb.append( self , 'auth' , i )
+            kb.append(pname, 'auth', i)
             
         om.out.information( i.getDesc() )
         

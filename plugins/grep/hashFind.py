@@ -78,7 +78,7 @@ class hashFind(baseGrepPlugin):
                         if self._has_hash_distribution( possible_hash ):
                             if (possible_hash, response.getURL()) not in self._already_reported:
                                 i = info.info()
-                                i.setPluginName(self.getName())
+                                i.setPluginName(self.name)
                                 i.setName( hash_type + 'hash in HTML content')
                                 i.setURL( response.getURL() )
                                 i.addToHighlight(possible_hash)
@@ -87,7 +87,7 @@ class hashFind(baseGrepPlugin):
                                 msg += ' contain a "' + hash_type + '" hash. The hash is: "'+ possible_hash
                                 msg += '". This is uncommon and requires human verification.'
                                 i.setDesc( msg )
-                                kb.kb.append( self, 'hashFind', i )
+                                kb.kb.append( self.name, 'hashFind', i )
                                 
                                 self._already_reported.add( (possible_hash, response.getURL()) )
     

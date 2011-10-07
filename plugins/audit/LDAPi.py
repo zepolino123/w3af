@@ -103,13 +103,13 @@ class LDAPi(baseAuditPlugin):
                 for ldap_error_regex, ldap_error_string in ldap_error_list:
                     if not ldap_error_regex.search( mutant.getOriginalResponseBody(), re.IGNORECASE ):
                         v = vuln.vuln( mutant )
-                        v.setPluginName(self.getName())
+                        v.setPluginName(self.name)
                         v.setId( response.id )
                         v.setSeverity(severity.HIGH)
                         v.setName( 'LDAP injection vulnerability' )
                         v.setDesc( 'LDAP injection was found at: ' + mutant.foundAt() )
                         v.addToHighlight( ldap_error_string )
-                        kb.kb.append( self, 'LDAPi', v )
+                        kb.kb.append( self.name, 'LDAPi', v )
     
     def end(self):
         '''

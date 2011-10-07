@@ -107,7 +107,7 @@ class metaTags(baseGrepPlugin):
                             if where:
                                 # The atribute is interesting!
                                 i = info.info()
-                                i.setPluginName(self.getName())
+                                i.setPluginName(self.name)
                                 i.setName('Interesting META tag')
                                 i.setURI( response.getURI() )
                                 i.setId( response.id )
@@ -119,7 +119,7 @@ class metaTags(baseGrepPlugin):
                                     msg += ' The tag is used for '
                                     msg += self._interesting_words[name] + '.'
                                 i.setDesc( msg )
-                                kb.kb.append( self , 'metaTags' , i )
+                                kb.kb.append( self.name , 'metaTags' , i )
 
                             else:
                                 # The attribute is not interesting

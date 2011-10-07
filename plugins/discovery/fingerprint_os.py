@@ -83,18 +83,18 @@ class fingerprint_os(baseDiscoveryPlugin):
             if relative_distance_ge(original_response.getBody(),
                                     windows_response.getBody(), 0.98):
                 i = info.info()
-                i.setPluginName(self.getName())
+                i.setPluginName(self.name)
                 i.setName('Operating system')
                 i.setURL( windows_response.getURL() )
                 i.setMethod( 'GET' )
                 i.setDesc('Fingerprinted this host as a Microsoft Windows system.' )
                 i.setId( [windows_response.id, original_response.id] )
-                kb.kb.append( self, 'operating_system_str', 'windows' )
-                kb.kb.append( self, 'operating_system', i )
+                kb.kb.append( self.name, 'operating_system_str', 'windows' )
+                kb.kb.append( self.name, 'operating_system', i )
                 om.out.information( i.getDesc() )
             else:
                 i = info.info()
-                i.setPluginName(self.getName())
+                i.setPluginName(self.name)
                 i.setName('Operating system')
                 i.setURL( original_response.getURL() )
                 i.setMethod( 'GET' )
@@ -102,8 +102,8 @@ class fingerprint_os(baseDiscoveryPlugin):
                 msg += ' system is weak, "if not windows: is linux".'
                 i.setDesc( msg )
                 i.setId( [original_response.id, windows_response.id] )
-                kb.kb.append( self, 'operating_system_str', 'unix' )
-                kb.kb.append( self, 'operating_system', i )
+                kb.kb.append( self.name, 'operating_system_str', 'unix' )
+                kb.kb.append( self.name, 'operating_system', i )
                 om.out.information( i.getDesc() )
         
         return found_os

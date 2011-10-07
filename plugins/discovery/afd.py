@@ -140,14 +140,14 @@ class afd(baseDiscoveryPlugin):
         '''
         if len( filtered ) >= len(self._get_offending_strings()) / 5.0:
             i = info.info()
-            i.setPluginName(self.getName())
+            i.setPluginName(self.name)
             i.setName('Active filter detected')
             msg = 'The remote network has an active filter. IMPORTANT: The result of all the other'
             msg += ' plugins will be unaccurate, web applications could be vulnerable but '
             msg += '"protected" by the active filter.'
             i.setDesc( msg )
             i['filtered'] = filtered
-            kb.kb.append( self, 'afd', i )
+            kb.kb.append( self.name, 'afd', i )
             om.out.information( i.getDesc() )
             
             om.out.information('The following URLs were filtered:')

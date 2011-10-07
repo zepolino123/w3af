@@ -108,7 +108,7 @@ class oracle(baseGrepPlugin):
                 if msg in response:
                     
                     i = info.info()
-                    i.setPluginName(self.getName())
+                    i.setPluginName(self.name)
                     i.setName('Oracle application')
                     i.setURL(url)
                     i.setId( response.id )
@@ -116,7 +116,7 @@ class oracle(baseGrepPlugin):
                     msg = 'The URL: "' + url + '" was created using Oracle'
                     msg += ' Application server.'
                     i.setDesc( msg )
-                    kb.kb.append( self , 'oracle' , i )
+                    kb.kb.append( self.name , 'oracle' , i )
 
     def _getDescriptiveMessages( self ):
         res = []

@@ -87,7 +87,7 @@ class dav(baseAuditPlugin):
         
         if content_matches and res.getCode() in xrange(200, 300):
             v = vuln.vuln()
-            v.setPluginName(self.getName())
+            v.setPluginName(self.name)
             v.setURL( res.getURL() )
             v.setId( res.id )
             v.setSeverity(severity.MEDIUM)
@@ -96,7 +96,7 @@ class dav(baseAuditPlugin):
             msg = 'Directory listing with HTTP SEARCH method was found at directory: "'
             msg += domain_path + '"'
             v.setDesc( msg )
-            kb.kb.append( self, 'dav', v )
+            kb.kb.append( self.name, 'dav', v )
             
     def _PROPFIND( self, domain_path ):
         '''
@@ -115,7 +115,7 @@ class dav(baseAuditPlugin):
         # string in response               
         if "D:href" in res and res.getCode() in xrange(200, 300):
             v = vuln.vuln()
-            v.setPluginName(self.getName())
+            v.setPluginName(self.name)
             v.setURL( res.getURL() )
             v.setId( res.id )
             v.setSeverity(severity.MEDIUM)
@@ -124,7 +124,7 @@ class dav(baseAuditPlugin):
             msg = 'Directory listing with HTTP PROPFIND method was found at directory: "'
             msg += domain_path + '"'
             v.setDesc( msg )
-            kb.kb.append( self, 'dav', v )
+            kb.kb.append( self.name, 'dav', v )
         
     def _PUT( self, domain_path ):
         '''
@@ -139,7 +139,7 @@ class dav(baseAuditPlugin):
         res = self._urlOpener.GET( url , useCache=True )
         if res.getBody() == rndContent:
             v = vuln.vuln()
-            v.setPluginName(self.getName())
+            v.setPluginName(self.name)
             v.setURL( url )
             v.setId( [put_response.id, res.id] )
             v.setSeverity(severity.HIGH)
@@ -148,12 +148,12 @@ class dav(baseAuditPlugin):
             msg = 'File upload with HTTP PUT method was found at resource: "' + domain_path + '".'
             msg += ' A test file was uploaded to: "' + res.getURL() + '".'
             v.setDesc( msg )
-            kb.kb.append( self, 'dav', v )
+            kb.kb.append( self.name, 'dav', v )
         
         # Report some common errors
         elif put_response.getCode() == 500:
             i = info.info()
-            i.setPluginName(self.getName())
+            i.setPluginName(self.name)
             i.setURL( url )
             i.setId( res.id )
             i.setName( 'DAV incorrect configuration' )
@@ -162,12 +162,12 @@ class dav(baseAuditPlugin):
             msg += ' error code. In most cases, this means that the DAV extension failed in'
             msg += ' some way. This error was found at: "' + put_response.getURL() + '".'
             i.setDesc( msg )
-            kb.kb.append( self, 'dav', i )
+            kb.kb.append( self.name, 'dav', i )
         
         # Report some common errors
         elif put_response.getCode() == 403:
             i = info.info()
-            i.setPluginName(self.getName())
+            i.setPluginName(self.name)
             i.setURL( url )
             i.setId( [put_response.id, res.id] )
             i.setName( 'DAV insufficient privileges' )
@@ -177,7 +177,7 @@ class dav(baseAuditPlugin):
             msg += ' the web server to write to it. This error was found at: "'
             msg += put_response.getURL() + '".'
             i.setDesc( msg )
-            kb.kb.append( self, 'dav', i )
+            kb.kb.append( self.name, 'dav', i )
             
     def end(self):
         '''

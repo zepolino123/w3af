@@ -82,7 +82,7 @@ class findvhost(baseDiscoveryPlugin):
         # Report our findings
         for vhost, request_id in vhost_list:
             v = vuln.vuln()
-            v.setPluginName(self.getName())
+            v.setPluginName(self.name)
             v.setURL( fuzzableRequest.getURL() )
             v.setMethod( 'GET' )
             v.setName( 'Shared hosting' )
@@ -96,7 +96,7 @@ class findvhost(baseDiscoveryPlugin):
             msg += domain + '".'
             v.setDesc( msg )
             v.setId( request_id )
-            kb.kb.append( self, 'findvhost', v )
+            kb.kb.append( self.name, 'findvhost', v )
             om.out.information( v.getDesc() )       
         
         return []
@@ -191,7 +191,7 @@ class findvhost(baseDiscoveryPlugin):
                     socket.gethostbyname( domain )
                 except:
                     i = info.info()
-                    i.setPluginName(self.getName())
+                    i.setPluginName(self.name)
                     i.setName('Internal hostname in HTML link')
                     i.setURL( fuzzableRequest.getURL() )
                     i.setMethod( 'GET' )
@@ -200,7 +200,7 @@ class findvhost(baseDiscoveryPlugin):
                     msg += 'existant domain: "' + link + '". This may be a broken link, or an'
                     msg += ' internal domain name.'
                     i.setDesc( msg )
-                    kb.kb.append( self, 'findvhost', i )
+                    kb.kb.append( self.name, 'findvhost', i )
                     om.out.information( i.getDesc() )
         
         res = [ r for r in res if r != '']

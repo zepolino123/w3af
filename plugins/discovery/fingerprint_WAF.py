@@ -331,7 +331,7 @@ class fingerprint_WAF(baseDiscoveryPlugin):
         @parameter protected_by: A more detailed description/version of the WAF
         '''
         i = info.info()
-        i.setPluginName(self.getName())
+        i.setPluginName(self.name)
         i.setURL( response.getURL() )
         i.setId( response.id )
         msg = 'The remote web server seems to deploy a "'+name+'" WAF.'
@@ -339,7 +339,7 @@ class fingerprint_WAF(baseDiscoveryPlugin):
             msg += ' The following is a detailed version of the WAF: "' + protected_by + '".'
         i.setDesc( msg )
         i.setName('Found '+name)
-        kb.kb.append( self, name, i )
+        kb.kb.append( self.name, name, i )
         om.out.information( i.getDesc() )
 
     def getOptions( self ):

@@ -72,7 +72,7 @@ class svnUsers(baseGrepPlugin):
             for regex in self._regex_list:
                 for m in regex.findall(response.getBody()):
                     v = vuln.vuln()
-                    v.setPluginName(self.getName())
+                    v.setPluginName(self.name)
                     v.setURI(uri)
                     v.setId(response.id)
                     msg = 'The URL: "' + uri + '" contains a SVN versioning '
@@ -82,7 +82,7 @@ class svnUsers(baseGrepPlugin):
                     v.setSeverity(severity.LOW)
                     v.setName('SVN user disclosure vulnerability')
                     v.addToHighlight(m[0])
-                    kb.kb.append(self, 'users', v)
+                    kb.kb.append(self.name, 'users', v)
 
         
     def setOptions( self, OptionList ):

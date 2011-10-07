@@ -108,22 +108,22 @@ class responseSplitting(baseAuditPlugin):
                         msg += ' testing for response splitting: "' + error + '"'
                         
                         i = info.info()
-                        i.setPluginName(self.getName())
+                        i.setPluginName(self.name)
                         i.setDesc( msg )
                         i.setId( response.id )
                         i.setName( 'Parameter modifies headers' )
-                        kb.kb.append( self, 'responseSplitting', i )
+                        kb.kb.append( self.name, 'responseSplitting', i )
 
                         return
                     
                 if self._header_was_injected( response ):
                     v = vuln.vuln( mutant )
-                    v.setPluginName(self.getName())
+                    v.setPluginName(self.name)
                     v.setDesc( 'Response Splitting was found at: ' + mutant.foundAt() )
                     v.setId( response.id )
                     v.setSeverity(severity.MEDIUM)
                     v.setName( 'Response splitting vulnerability' )
-                    kb.kb.append( self, 'responseSplitting', v )
+                    kb.kb.append( self.name, 'responseSplitting', v )
     
     def end(self):
         '''
@@ -185,11 +185,11 @@ class responseSplitting(baseAuditPlugin):
                 om.out.information(msg)
 
                 i = info.info()
-                i.setPluginName(self.getName())
+                i.setPluginName(self.name)
                 i.setDesc( msg )
                 i.setId( response.id )
                 i.setName( 'Parameter modifies headers' )
-                kb.kb.append( self, 'responseSplitting', i )
+                kb.kb.append( self.name, 'responseSplitting', i )
                 return False
                 
             elif HEADER_NAME in value.lower():
@@ -199,7 +199,7 @@ class responseSplitting(baseAuditPlugin):
                 om.out.information(msg)
 
                 i = info.info()
-                i.setPluginName(self.getName())
+                i.setPluginName(self.name)
                 i.setDesc( msg )
                 i.setId( response.id )
                 i.setName( 'Parameter modifies headers' )
