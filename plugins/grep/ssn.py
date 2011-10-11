@@ -19,21 +19,16 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
-import re
 import itertools
+import re
 
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
-
+from .ssndata.ssnAreasGroups import areas_groups_map
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
 from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
-
-import core.data.kb.knowledgeBase as kb
-import core.data.kb.vuln as vuln
+from core.data.kb.knowledgeBase import kb
+from core.data.options.optionList import optionList
 import core.data.constants.severity as severity
-from .ssndata.ssnAreasGroups import areas_groups_map
+import core.data.kb.vuln as vuln
 
 
 class ssn(baseGrepPlugin):
@@ -75,43 +70,43 @@ class ssn(baseGrepPlugin):
         >>> s = ssn()
         >>> s._already_inspected = set()
         >>> s.grep(request, response)
-        >>> len(kb.kb.getData('ssn', 'ssn'))
+        >>> len(kb.getData('ssn', 'ssn'))
         0
 
         With "-" separating the SSN parts
-        >>> kb.kb.cleanup(); s._already_inspected = set()
+        >>> kb.cleanup(); s._already_inspected = set()
         >>> body = 'header 771-12-9876 footer'
         >>> headers = {'content-type': 'text/html'}
         >>> response = httpResponse(200, body , headers, url, url)
         >>> s.grep(request, response)
-        >>> len(kb.kb.getData('ssn', 'ssn'))
+        >>> len(kb.getData('ssn', 'ssn'))
         1
 
         With HTML tags in the middle:
-        >>> kb.kb.cleanup(); s._already_inspected = set()
+        >>> kb.cleanup(); s._already_inspected = set()
         >>> body = 'header <b>771</b>-<b>12</b>-<b>9876</b> footer'
         >>> headers = {'content-type': 'text/html'}
         >>> response = httpResponse(200, body , headers, url, url)
         >>> s.grep(request, response)
-        >>> len(kb.kb.getData('ssn', 'ssn'))
+        >>> len(kb.getData('ssn', 'ssn'))
         1
 
         All the numbers together:
-        >>> kb.kb.cleanup(); s._already_inspected = set()
+        >>> kb.cleanup(); s._already_inspected = set()
         >>> body = 'header 771129876 footer'
         >>> headers = {'content-type': 'text/html'}
         >>> response = httpResponse(200, body , headers, url, url)
         >>> s.grep(request, response)
-        >>> len(kb.kb.getData('ssn', 'ssn'))
+        >>> len(kb.getData('ssn', 'ssn'))
         1
 
         One extra number at the end:
-        >>> kb.kb.cleanup(); s._already_inspected = set()
+        >>> kb.cleanup(); s._already_inspected = set()
         >>> body = 'header 7711298761 footer'
         >>> headers = {'content-type': 'text/html'}
         >>> response = httpResponse(200, body , headers, url, url)
         >>> s.grep(request, response)
-        >>> len(kb.kb.getData('ssn', 'ssn'))
+        >>> len(kb.getData('ssn', 'ssn'))
         0
         '''
         uri = response.getURI()
@@ -133,7 +128,7 @@ class ssn(baseGrepPlugin):
                 msg += 'Social Security Number: "'+ validated_ssn +'"'
                 v.setDesc( msg )
                 v.addToHighlight( found_ssn )
-                kb.kb.append( self.name, 'ssn', v )
+                kb.append( self.name, 'ssn', v )
      
     def _find_SSN(self, body_without_tags):
         '''
@@ -235,7 +230,7 @@ class ssn(baseGrepPlugin):
         This method is called when the plugin won't be used anymore.
         '''
         # Print results
-        self.printUniq( kb.kb.getData( 'ssn', 'ssn' ), 'URL' )
+        self.printUniq( kb.getData( 'ssn', 'ssn' ), 'URL' )
 
     def getOptions(self):
         '''

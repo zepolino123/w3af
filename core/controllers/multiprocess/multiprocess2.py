@@ -180,7 +180,7 @@ class GrepMngr(PluginMngr):
                     pass
                 else:
                     try:
-                    cache[jobid].set_result(res)
+                        cache[jobid].set_result(res)
                     except KeyError:
                         pass
 
@@ -209,7 +209,6 @@ class GrepWorker(Worker):
             jobid = None
             try:
                 jobid, args, kb = self.task_queue.get()
-                print 'job_id', jobid
                 if args is None:
                     # 'Poison pill' means shutdown.
                     break
@@ -221,7 +220,6 @@ class GrepWorker(Worker):
                     except KeyboardInterrupt:
                         raise
                     except Exception, ex:
-                        print 'FAIL!!!'
                         value = Failure(ex)
                     res.append(value or [])
                 
@@ -272,7 +270,7 @@ class Result(object):
             self._cond.release()
     
     def set_result(self, res):
-                
+		
         self._value.extend(res)
         
         if len(self._value) == self._length:

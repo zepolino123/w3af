@@ -56,7 +56,6 @@ from core.data.url.httpResponse import httpResponse, from_httplib_resp
 from core.data.url.HTTPRequest import HTTPRequest as HTTPRequest
 from core.data.url.handlers.localCache import CachedResponse
 import core.controllers.outputManager as om
-import core.data.kb.knowledgeBase as kb
 import core.data.kb.config as cf
 import urlOpenerSettings
 
@@ -804,7 +803,6 @@ class xUrllib(object):
                 
         return request
     
-    
     def _grep_result(self, req, resp):
         
         url = url_object(req.get_full_url(), encoding=resp.charset)
@@ -821,7 +819,7 @@ class xUrllib(object):
                               mngr_type=MNGR_TYPE_GREP,
                               plugins=grep_plugins
                               )
-            timeout = 10
+            timeout = 20
             try:
                 mngr.work(args=(fuzz_req, resp), timeout=timeout)
             except KeyboardInterrupt:

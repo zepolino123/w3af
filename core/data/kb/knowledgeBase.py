@@ -21,7 +21,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 '''
 
 from multiprocessing.managers import SyncManager
-from multiprocessing import RLock
+from multiprocessing import Lock
 
 import core.data.kb.info as info
 import core.data.kb.shell as shell
@@ -38,7 +38,7 @@ class KnowledgeBase(object):
     
     def __init__(self):
         self._kb = {}
-        self._kb_lock = RLock()
+        self._kb_lock = Lock()
 
     def save(self, pluginname, variableName, value):
         '''

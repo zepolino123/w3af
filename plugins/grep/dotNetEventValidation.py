@@ -80,7 +80,7 @@ class dotNetEventValidation(baseGrepPlugin):
                     msg = 'The URL: "' + i.getURL() + '" has .NET Event Validation disabled. '
                     msg += 'This programming/configuration error should be manually verified.'
                     i.setDesc( msg )
-                    kb.kb.append( self.name, 'dotNetEventValidation', i )
+                    kb.append( self.name, 'dotNetEventValidation', i )
 
                 if not self._encryptedVs.search(response.getBody()):
                     # Nice! We can decode the viewstate! =)
@@ -93,7 +93,7 @@ class dotNetEventValidation(baseGrepPlugin):
                     msg += 'This programming/configuration error could be exploited '
                     msg += 'to decode the viewstate contents.'
                     i.setDesc( msg )
-                    kb.kb.append( self.name, 'dotNetEventValidation', i )
+                    kb.append( self.name, 'dotNetEventValidation', i )
 
     
     def setOptions( self, OptionList ):
@@ -114,7 +114,7 @@ class dotNetEventValidation(baseGrepPlugin):
         This method is called when the plugin wont be used anymore.
         '''
         # Print alerts
-        self.printUniq( kb.kb.getData( 'dotNetEventValidation', 'dotNetEventValidation' ), 'URL' )
+        self.printUniq( kb.getData( 'dotNetEventValidation', 'dotNetEventValidation' ), 'URL' )
         
     def getPluginDeps( self ):
         '''

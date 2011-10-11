@@ -21,21 +21,17 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-import core.data.parsers.dpCache as dpCache
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
+import re
 
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-from core.controllers.w3afException import w3afException
-
 from core.controllers.coreHelpers.fingerprint_404 import is_404
-import core.data.kb.knowledgeBase as kb
+from core.controllers.w3afException import w3afException
+from core.data.kb.knowledgeBase import kb
+from core.data.options.option import option
+from core.data.options.optionList import optionList
+import core.controllers.outputManager as om
 import core.data.kb.info as info
-
-import re
+import core.data.parsers.dpCache as dpCache
 
 
 class findComments(baseGrepPlugin):
@@ -108,11 +104,11 @@ class findComments(baseGrepPlugin):
                             msg += response.getURL() + '". This could be interesting.'
                             i.setDesc( msg )
                             i.setId( response.id )
-                            i.setDc( request.getDc )
+                            i.setDc( request.getDc() )
                             i.setURI( response.getURI() )
                             i.addToHighlight( word )
-                            kb.kb.append( self.name, 'interestingComments', i )
-                            om.out.information( i.getDesc() )
+                            kb.append( self.name, 'interestingComments', i )
+                            om.out.information( msg )
                             self._already_reported_interesting.append( ( word, response.getURL() ) )
                     
                     html_in_comment = re.search('<[a-zA-Z]*.*?>.*?</[a-zA-Z]>', comment)
@@ -129,7 +125,7 @@ class findComments(baseGrepPlugin):
                         i.setDc( request.getDc )
                         i.setURI( response.getURI() )
                         i.addToHighlight( html_in_comment.group(0) )
-                        kb.kb.append( self.name, 'htmlCommentsHideHtml', i )
+                        kb.append( self.name, 'htmlCommentsHideHtml', i )
                         om.out.information( i.getDesc() )
                         self._already_reported_interesting.append( ( comment, response.getURL() ) )
                             

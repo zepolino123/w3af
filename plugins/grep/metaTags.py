@@ -17,24 +17,17 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
 '''
 
-import core.data.parsers.dpCache as dpCache
-import core.controllers.outputManager as om
-
-# options
+from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
+from core.controllers.coreHelpers.fingerprint_404 import is_404
+from core.controllers.w3afException import w3afException
+from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
+from core.data.kb.knowledgeBase import kb
 from core.data.options.option import option
 from core.data.options.optionList import optionList
-
-from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
-
-from core.controllers.coreHelpers.fingerprint_404 import is_404
-import core.data.kb.knowledgeBase as kb
 import core.data.kb.info as info
-
-from core.controllers.w3afException import w3afException
+import core.data.parsers.dpCache as dpCache
 
 
 class metaTags(baseGrepPlugin):
@@ -43,17 +36,21 @@ class metaTags(baseGrepPlugin):
       
     @author: Andres Riancho ( andres.riancho@gmail.com )
     '''
+    
+    _interesting_words = {
+        'user': None, 'pass': None,
+        'microsoft': None, 'visual': None,
+        'linux': None, 'source': None,
+        'author': None, 'release': None,
+        'version': None, 'verify-v1': 'Google Sitemap'
+        }
+    _already_inspected = scalable_bloomfilter()
 
     def __init__(self):
         baseGrepPlugin.__init__(self)
         
         self._comments = {}
         self._search404 = False
-        
-        self._interesting_words = {'user':None, 'pass':None, 'microsoft':None,
-        'visual':None, 'linux':None, 'source':None, 'author':None, 'release':None,
-        'version':None, 'verify-v1':'Google Sitemap' }
-        self._already_inspected = scalable_bloomfilter()
         
         '''
         Can someone explain what this meta tag does?
@@ -76,30 +73,30 @@ class metaTags(baseGrepPlugin):
         '''
         uri = response.getURI()
         
-        if response.is_text_or_html() and not is_404( response ) and \
-            uri not in self._already_inspected:
+        if response.is_text_or_html() and not is_404(response) and \
+            uri not in metaTags._already_inspected:
 
-            self._already_inspected.add(uri)
+            metaTags._already_inspected.add(uri)
             
             try:
-                dp = dpCache.dpc.getDocumentParserFor( response )
+                dp = dpCache.dpc.getDocumentParserFor(response)
             except w3afException:
                 pass
             else:
                 meta_tag_list = dp.getMetaTags()
                 
                 for tag in meta_tag_list:
-                    name = self._find_name( tag )
+                    name = self._find_name(tag)
                     for attr in tag:
-                        for word in self._interesting_words:
+                        for word in metaTags._interesting_words:
 
                             # Check if we have something interesting
                             # and WHERE that thing actually is
                             where = value = None
-                            if ( word in attr[0].lower() ):
+                            if word in attr[0].lower():
                                 where = 'name'
                                 value = attr[0].lower()
-                            elif ( word in attr[1].lower() ):
+                            elif word in attr[1].lower():
                                 where = 'value'
                                 value = attr[1].lower()
                             
@@ -109,23 +106,23 @@ class metaTags(baseGrepPlugin):
                                 i = info.info()
                                 i.setPluginName(self.name)
                                 i.setName('Interesting META tag')
-                                i.setURI( response.getURI() )
-                                i.setId( response.id )
-                                msg = 'The URI: "' +  i.getURI() + '" sent a META tag with '
-                                msg += 'attribute '+ where +' "'+ value +'" which'
-                                msg += ' looks interesting.'
-                                i.addToHighlight( where, value )
-                                if self._interesting_words.get(name, None):
+                                i.setURI(uri)
+                                i.setId(response.id)
+                                
+                                msg = ('The URI: "%s" sent a META tag with '
+                                'attribute %s "%s" which looks interesting.' 
+                                % (uri, where, value))
+                                
+                                i.addToHighlight(where, value)
+                                
+                                if metaTags._interesting_words.get(name, None):
                                     msg += ' The tag is used for '
-                                    msg += self._interesting_words[name] + '.'
-                                i.setDesc( msg )
-                                kb.kb.append( self.name , 'metaTags' , i )
-
-                            else:
-                                # The attribute is not interesting
-                                pass
+                                    msg += metaTags._interesting_words[name] + '.'
+                                
+                                i.setDesc(msg)
+                                kb.append(self.name , 'metaTags' , i)
     
-    def _find_name( self, tag ):
+    def _find_name(self, tag):
         '''
         @return: the tag name.
         '''
@@ -153,7 +150,7 @@ class metaTags(baseGrepPlugin):
         This method is called when the plugin wont be used anymore.
         '''
         # Now print the information objects
-        self.printUniq( kb.kb.getData( 'metaTags', 'metaTags' ), 'URL' )
+        self.printUniq( kb.getData( 'metaTags', 'metaTags' ), 'URL' )
 
     def getPluginDeps( self ):
         '''

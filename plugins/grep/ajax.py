@@ -19,14 +19,13 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
 import re
 
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
 from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
+from core.data.kb.knowledgeBase import kb
 from core.data.options.optionList import optionList
 import core.data.kb.info as info
-from core.data.kb.knowledgeBase import kb
 
 
 class ajax(baseGrepPlugin):

@@ -19,20 +19,13 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-from __future__ import with_statement
-
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
+import re
 
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-
 from core.controllers.coreHelpers.fingerprint_404 import is_404
-import core.data.kb.knowledgeBase as kb
-
-import re
+from core.data.kb.knowledgeBase import kb
+from core.data.options.optionList import optionList
+import core.controllers.outputManager as om
 
 
 class lang(baseGrepPlugin):
@@ -41,37 +34,45 @@ class lang(baseGrepPlugin):
     
     @author: Andres Riancho ( andres.riancho@gmail.com )
     '''
+    
+    # Some constants
+    _prepositions = {
+        'en': [
+            'aboard', 'about', 'above', 'absent', 'across', 'after',
+            'against', 'along', 'alongside', 'amid', 'amidst', 'among',
+            'amongst', 'around', 'as', 'astride', 'at', 'atop', 'before',
+            'behind', 'below', 'beneath', 'beside', 'besides', 'between',
+            'beyond', 'but', 'by', 'despite', 'down', 'during', 'except',
+            'following', 'for', 'from', 'in', 'inside', 'into', 'like',
+            'mid', 'minus', 'near', 'nearest', 'notwithstanding', 'of',
+            'off', 'on', 'onto', 'opposite', 'out', 'outside', 'over',
+            'past', 're', 'round', 'save', 'since', 'than', 'through',
+            'throughout', 'till', 'to', 'toward', 'towards', 'under',
+            'underneath', 'unlike', 'until', 'up', 'upon', 'via', 'with',
+            'within', 'without'
+            ],
+    # The 'a' preposition was removed, cause its also used in english
+        'es': [
+           'ante', 'bajo', 'cabe', 'con' , 'contra' , 'de', 'desde', 'en',
+           'entre', 'hacia', 'hasta', 'para', 'por' , 'segun', 'si', 'so',
+           'sobre', 'tras'
+           ],
+    
+    # Turkish
+    # Sertan Kolat <sertan@gmail.com>
+        'tr': [
+           'ancak', 'burada', 'duyuru', 'evet', 'fakat', 'gibi', 'haber',
+           'kadar', 'karar', 'kaynak', 'olarak', 'sayfa', 'siteye',
+           'sorumlu', 'tamam', 'yasak', 'zorunlu'
+           ]
+    }
+
 
     def __init__(self):
         baseGrepPlugin.__init__(self)
         
         # Internal variables
         self._exec = True
-        
-        # Some constants
-        self._prepositions = {}
-        
-        self._prepositions[ 'en' ] = ['aboard', 'about', 'above', 'absent', 'across', 'after', 
-        'against', 'along', 'alongside', 'amid', 'amidst', 'among', 'amongst', 'around', 'as', 
-        'astride', 'at', 'atop', 'before', 'behind', 'below', 'beneath', 'beside', 'besides',
-        'between', 'beyond', 'but', 'by', 'despite', 'down', 'during', 'except', 'following',
-        'for', 'from', 'in', 'inside', 'into', 'like', 'mid', 'minus', 'near', 'nearest', 
-        'notwithstanding', 'of', 'off', 'on', 'onto', 'opposite', 'out', 'outside', 'over', 
-        'past', 're', 'round', 'save', 'since', 'than', 'through', 'throughout', 'till', 'to',
-        'toward', 'towards', 'under', 'underneath', 'unlike', 'until', 'up', 'upon', 'via',
-        'with', 'within', 'without']
-
-        
-        # The 'a' preposition was removed, cause its also used in english
-        self._prepositions[ 'es' ] = ['ante', 'bajo', 'cabe', 'con' , 'contra' , 'de',
-        'desde', 'en', 'entre', 'hacia', 'hasta', 'para', 'por' , 'segun', 'si', 'so', 
-        'sobre', 'tras']
-        
-        # Turkish
-        # Sertan Kolat <sertan@gmail.com>
-        self._prepositions[ 'tr' ] = ['ancak', 'burada', 'duyuru', 'evet', 'fakat', 
-        'gibi', 'haber', 'kadar', 'karar', 'kaynak', 'olarak', 'sayfa', 'siteye', 
-        'sorumlu', 'tamam', 'yasak', 'zorunlu']
         
     def grep(self, request, response):
         '''
@@ -82,7 +83,7 @@ class lang(baseGrepPlugin):
         '''
         with self._plugin_lock:
             if self._exec and not is_404( response ) and response.is_text_or_html():
-                kb.kb.save( self, 'lang', 'unknown' )
+                kb.save( self.name, 'lang', 'unknown' )
                 
                 number_of_matches = {}
                 
@@ -112,9 +113,9 @@ class lang(baseGrepPlugin):
                     
                     # This if was added so no duplicated messages are printed
                     # to the user, when w3af runs with multithreading.
-                    if kb.kb.getData( 'lang', 'lang' ) == 'unknown':
+                    if kb.getData( 'lang', 'lang' ) == 'unknown':
                         om.out.information('The page language is: '+ items[0][0] )
-                        kb.kb.save( self, 'lang', items[0][0] )
+                        kb.save( self.name, 'lang', items[0][0] )
                 
                 else:
                     msg = 'Could not determine the page language using ' + response.getURL() 

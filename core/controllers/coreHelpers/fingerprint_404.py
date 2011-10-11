@@ -19,26 +19,21 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-from __future__ import with_statement
-
-import core.data.kb.config as cf
-from core.data.fuzzer.fuzzer import createRandAlNum
-
+import cgi
 import core.controllers.outputManager as om
-from core.controllers.w3afException import w3afException, w3afMustStopException
-from core.controllers.threads.threadManager import threadManagerObj as tm
+import core.data.kb.config as cf
+import thread
+import urllib
 
+from core.controllers.misc.decorators import retry
 from core.controllers.misc.levenshtein import relative_distance_ge
 from core.controllers.misc.lru import LRU
-from core.controllers.misc.decorators import retry
+from core.controllers.threads.threadManager import threadManagerObj as tm
+from core.controllers.w3afException import w3afException, w3afMustStopException
+from core.data.fuzzer.fuzzer import createRandAlNum
 
-
-import urllib
-import thread
-import cgi
 
 IS_EQUAL_RATIO = 0.90
-
 
 class fingerprint_404:
     '''
@@ -46,8 +41,14 @@ class fingerprint_404:
     
     @author: Andres Riancho ( andres.riancho@gmail.com )
     '''
-
+    
+    # Instance of this class
     _instance = None
+    # Sequence of the most common handlers
+    handlers = (
+        'py', 'php', 'asp', 'aspx', 'do', 'jsp', 'rb',
+        'do', 'gif', 'htm', 'pl', 'cgi', 'xhtml', 'htmls'
+        )
     
     def __init__( self, test_db=[] ):
         #
@@ -75,7 +76,7 @@ class fingerprint_404:
     def generate_404_knowledge( self, url ):
         '''
         Based on a URL, request something that we know is going to be a 404.
-        Afterwards analyze the 404's and summarise them.
+        Afterwards analyze the 404's and summarize them.
         
         @return: A list with 404 bodies.
         '''
@@ -85,35 +86,35 @@ class fingerprint_404:
         #
         if self._urlOpener is None:
             raise w3afException('404 fingerprint database was incorrectly initialized.')
-        
+
         with self._lock:        
             # Get the filename extension and create a 404 for it
-            extension = url.getExtension()
             domain_path = url.getDomainPath()
-            
             # the result
             self._response_body_list = []
             
-            #
-            #   This is a list of the most common handlers, in some configurations, the 404
-            #   depends on the handler, so I want to make sure that I catch the 404 for each one
-            #
-            handlers = ['py', 'php', 'asp', 'aspx', 'do', 'jsp', 'rb', 'do', 'gif', 'htm', extension]
-            handlers += ['pl', 'cgi', 'xhtml', 'htmls']
-            handlers = list(set(handlers))
+
+            handlers = set(fingerprint_404.handlers)
+            handlers.add(url.getExtension())
             
-            for extension in handlers:
-    
-                rand_alnum_file = createRandAlNum( 8 ) + '.' + extension
-                    
+            for ext in handlers:
+                rand_alnum_file = createRandAlNum( 8 ) + '.' + ext
                 url404 = domain_path.urlJoin( rand_alnum_file )
-    
-                #   Send the requests using threads:
-                targs = ( url404,  )
-                tm.startFunction( target=self._send_404, args=targs , ownerObj=self )
                 
-            # Wait for all threads to finish sending the requests.
-            tm.join( self )
+                #
+                ## JAP Oct 10, 2011
+                ## TODO: Comment out next lines due to deadlock occurred
+                ## when grep plugins call `is_404` method using 
+                ## multiprocessing. Using temporarily sequential approach
+                ##
+                ###   Send the requests using threads:
+                ##targs = (url404,)
+                ##tm.startFunction(target=self._send_404, args=targs , ownerObj=self)
+                self._send_404(url404)
+                
+            ### Wait for all threads to finish sending the requests.
+            ##tm.join(self)
+            #
             
             #
             #   I have the bodies in self._response_body_list , but maybe they all look the same, so I'll
@@ -159,7 +160,7 @@ class fingerprint_404:
         except w3afMustStopException, mse:
             # Someone else will raise this exception and handle it as expected
             # whenever the next call to GET is done
-            raise w3afException('w3afMustStopException <%s> found by _send_404,' \
+            raise w3afException('w3afMustStopException <%s> found by _send_404,'
                                 ' someone else will handle it.' % mse)
         except Exception, e:
             om.out.error('Unhandled exception while fetching a 404 page, error: ' + str(e))
@@ -178,7 +179,7 @@ class fingerprint_404:
         I changed my 404 detection once again, but keeping it as simple as possible.
         
         Also, and because I was trying to cover ALL CASES, I was performing a lot of
-        requests in order to cover them, which in most situations was unnecesary.
+        requests in order to cover them, which in most situations was unnecessary.
         
         So now I go for a much simple approach:
             1- Cover the simplest case of all using only 1 HTTP request
@@ -187,7 +188,7 @@ class fingerprint_404:
         
         @parameter http_response: The HTTP response which we want to know if it is a 404 or not.
         '''
-    
+        
         #   This is here for testing.
         if self._test_db:
             i = self._test_db_index

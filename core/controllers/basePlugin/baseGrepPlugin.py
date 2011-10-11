@@ -36,7 +36,7 @@ class baseGrepPlugin(basePlugin):
     def __init__(self):
         basePlugin.__init__(self)
         self._urlOpener = None
-        del self._plugin_lock
+        self._plugin_lock
 
     def grep(self, fuzzableRequest, response):
         '''
