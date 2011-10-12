@@ -19,17 +19,17 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
 from itertools import chain
 
 from lxml import etree
 
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-import core.controllers.outputManager as om
 from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
-import core.data.kb.knowledgeBase as kb
-from core.data.options.optionList import optionList
 from core.data.kb.info import info
+from core.data.kb.knowledgeBase import kb
+from core.data.options.optionList import optionList
+import core.controllers.outputManager as om
+
 
 # Find all form elements that don't include the'autocomplete' attribute;
 # otherwise (if included) not equals 'off'
@@ -95,7 +95,7 @@ class formAutocomplete(baseGrepPlugin):
                         form_str = etree.tostring(form)
                         to_highlight = form_str[:(form_str).find('>') + 1]
                         inf.addToHighlight(to_highlight)
-                        kb.kb.append(self, 'formAutocomplete', inf)
+                        kb.append(self.name, 'formAutocomplete', inf)
                         # Also send 'msg' to console
                         om.out.information(msg)
 

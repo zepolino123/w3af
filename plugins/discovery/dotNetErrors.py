@@ -62,7 +62,7 @@ class dotNetErrors(baseDiscoveryPlugin):
             to_test = self._generate_URLs( fuzzableRequest.getURL() )
             for url in to_test:
                 try:
-                    response = self._urlOpener.GET( url, useCache=True )
+                    response = self._url_opener.GET( url, useCache=True )
                 except KeyboardInterrupt,e:
                     raise e
                 except w3afException,w3:

@@ -20,21 +20,14 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
-
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-
-import core.data.kb.knowledgeBase as kb
-import core.data.kb.vuln as vuln
-import core.data.constants.severity as severity
-
 from core.controllers.coreHelpers.fingerprint_404 import is_404
 from core.controllers.misc.is_source_file import is_source_file
 from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
+from core.data.kb.knowledgeBase import kb
+from core.data.options.optionList import optionList
+import core.data.constants.severity as severity
+import core.data.kb.vuln as vuln
 
 
 class codeDisclosure(baseGrepPlugin):
@@ -83,11 +76,11 @@ class codeDisclosure(baseGrepPlugin):
         >>> request.setMethod('GET')
         >>> c = codeDisclosure.codeDisclosure()
         >>> c.grep(request, response)
-        >>> len(kb.kb.getData('codeDisclosure', 'codeDisclosure'))
+        >>> len(kb.getData('codeDisclosure', 'codeDisclosure'))
         0
         
         Disclose some PHP code,
-        >>> kb.kb.cleanup()
+        >>> kb.cleanup()
         >>> body = 'header <? echo "a"; ?> footer'
         >>> url = url_object('http://www.w3af.com/')
         >>> headers = {'content-type': 'text/html'}
@@ -97,7 +90,7 @@ class codeDisclosure(baseGrepPlugin):
         >>> request.setMethod('GET')
         >>> c = codeDisclosure.codeDisclosure()
         >>> c.grep(request, response)
-        >>> len(kb.kb.getData('codeDisclosure', 'codeDisclosure'))
+        >>> len(kb.getData('codeDisclosure', 'codeDisclosure'))
         1
 
         '''
@@ -117,7 +110,7 @@ class codeDisclosure(baseGrepPlugin):
                     v.addToHighlight(match.group())
                     msg = 'The URL: "' + v.getURL() + '" has a '+lang+' code disclosure vulnerability.'
                     v.setDesc( msg )
-                    kb.kb.append( self.name, 'codeDisclosure', v )
+                    kb.append( self.name, 'codeDisclosure', v )
                     self._already_added.add( response.getURL() )
                 
                 else:
@@ -132,7 +125,7 @@ class codeDisclosure(baseGrepPlugin):
                     msg = 'The URL: "' + v.getURL() + '" has a '+lang+' code disclosure vulnerability in'
                     msg += ' the customized 404 script.'
                     v.setDesc( msg )
-                    kb.kb.append( self.name, 'codeDisclosure', v )
+                    kb.append( self.name, 'codeDisclosure', v )
     
     def setOptions( self, OptionList ):
         '''
@@ -152,7 +145,7 @@ class codeDisclosure(baseGrepPlugin):
         This method is called when the plugin wont be used anymore.
         '''
         # Print codeDisclosure
-        self.printUniq( kb.kb.getData( 'codeDisclosure', 'codeDisclosure' ), 'URL' )
+        self.printUniq( kb.getData( 'codeDisclosure', 'codeDisclosure' ), 'URL' )
         
     def getPluginDeps( self ):
         '''

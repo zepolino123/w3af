@@ -19,14 +19,12 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
 from lxml import etree
 
-# options
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
 from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
+from core.data.kb.knowledgeBase import kb
 from core.data.options.optionList import optionList
-import core.data.kb.knowledgeBase as kb
 import core.data.kb.info as info
 
 
@@ -76,7 +74,7 @@ class fileUpload(baseGrepPlugin):
                     i.setDesc(msg)
                     to_highlight = etree.tostring(input_file)
                     i.addToHighlight(to_highlight)
-                    kb.kb.append(self.name, 'fileUpload', i)
+                    kb.append(self.name, 'fileUpload', i)
 
     
     def setOptions( self, OptionList ):
@@ -93,7 +91,7 @@ class fileUpload(baseGrepPlugin):
         '''
         This method is called when the plugin wont be used anymore.
         '''
-        self.printUniq( kb.kb.getData( 'fileUpload', 'fileUpload' ), 'URL' )
+        self.printUniq( kb.getData( 'fileUpload', 'fileUpload' ), 'URL' )
 
     def getPluginDeps( self ):
         '''

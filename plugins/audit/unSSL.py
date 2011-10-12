@@ -65,7 +65,7 @@ class unSSL(baseAuditPlugin):
             
             if self._first_run:
                 try:
-                    self._urlOpener.GET( insecure )
+                    self._url_opener.GET( insecure )
                 except:
                     # The request failed because the HTTP port is closed or something like that
                     # we shouldn't test any other fuzzable requests.
@@ -83,7 +83,7 @@ class unSSL(baseAuditPlugin):
 
                 # We are going to perform requests that (in normal cases)
                 # are going to fail, so we set the ignore errors flag to True
-                self._urlOpener.ignore_errors( True )
+                self._url_opener.ignore_errors( True )
                 
                 https_response = self._sendMutant( freq )
                 freq.setURL( insecure )
@@ -103,7 +103,7 @@ class unSSL(baseAuditPlugin):
                         om.out.vulnerability( v.getDesc(), severity=v.getSeverity() )
 
                 # Disable error ignoring
-                self._urlOpener.ignore_errors( False )
+                self._url_opener.ignore_errors( False )
     
     def _analyzeResult( self, fuzzableRequest, res ):
         pass

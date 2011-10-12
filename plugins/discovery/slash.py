@@ -62,7 +62,7 @@ class slash( baseDiscoveryPlugin ):
             om.out.debug( 'slash plugin is testing: "' + fuzzableRequest.getURI() + '".' )
             
             fr = self._get_fuzzed_request( fuzzableRequest )
-            original_response = self._urlOpener.GET( fuzzableRequest.getURL(), useCache = True )
+            original_response = self._url_opener.GET( fuzzableRequest.getURL(), useCache = True )
                   
             targs = ( fr, original_response )
             self._tm.startFunction( target = self._do_request, args = targs , ownerObj = self )
@@ -98,7 +98,7 @@ class slash( baseDiscoveryPlugin ):
         @parameter orig_resp: The response for the original request that was sent.
         '''
         try:
-            resp = self._urlOpener.GET(fuzzableRequest.getURI(), useCache=True)
+            resp = self._url_opener.GET(fuzzableRequest.getURI(), useCache=True)
         except KeyboardInterrupt, e:
             raise e
         else:

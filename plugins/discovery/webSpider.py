@@ -265,7 +265,7 @@ class webSpider(baseDiscoveryPlugin):
             headers = {'Referer': referer}
             
             try:
-                resp = self._urlOpener.GET(reference, useCache=True, 
+                resp = self._url_opener.GET(reference, useCache=True, 
                                            headers=headers)
             except KeyboardInterrupt:
                 raise
@@ -316,7 +316,7 @@ class webSpider(baseDiscoveryPlugin):
                             new_reference.setFileName(createRandAlpha(3) +
                                                       filename)
                             
-                            check_response = self._urlOpener.GET(new_reference,
+                            check_response = self._url_opener.GET(new_reference,
                                                 useCache=True, headers=headers)
                             resp_body = resp.getBody()
                             check_resp_body = check_response.getBody()

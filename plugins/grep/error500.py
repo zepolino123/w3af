@@ -20,16 +20,11 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
-import core.controllers.outputManager as om
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
-
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-
-import core.data.kb.knowledgeBase as kb
-import core.data.kb.vuln as vuln
+from core.data.kb.knowledgeBase import kb
+from core.data.options.optionList import optionList
 import core.data.constants.severity as severity
+import core.data.kb.vuln as vuln
 
 
 class error500(baseGrepPlugin):
@@ -98,7 +93,7 @@ class error500(baseGrepPlugin):
         The real job of this plugin is done here, where I will try to see if one
         of the error500 responses were not identified as a vuln by some of my audit plugins
         '''
-        all_vulns = kb.kb.getAllVulns()
+        all_vulns = kb.getAllVulns()
         all_vulns_tuples = [ (v.getURI(), v.getDc()) for v in all_vulns ]
 
         for request, error_500_response in self._error_500_responses:
@@ -116,9 +111,9 @@ class error500(baseGrepPlugin):
                 msg += ' Enable all plugins and try again, if the vulnerability still is not'
                 msg += ' identified, please verify mannually and report it to the w3af developers.'
                 v.setDesc( msg )
-                kb.kb.append( self.name, 'error500', v )
+                kb.append( self.name, 'error500', v )
                 
-        self.printUniq( kb.kb.getData( 'error500', 'error500' ), 'VAR' )
+        self.printUniq( kb.getData( 'error500', 'error500' ), 'VAR' )
 
     def getPluginDeps( self ):
         '''

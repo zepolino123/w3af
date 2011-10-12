@@ -20,18 +20,12 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
-import core.controllers.outputManager as om
-
-# options
+from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
+from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
+from core.data.kb.knowledgeBase import kb
 from core.data.options.option import option
 from core.data.options.optionList import optionList
-
-from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-
-import core.data.kb.knowledgeBase as kb
 import core.data.kb.info as info
-
-from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
 
 
 class objects(baseGrepPlugin):
@@ -79,7 +73,7 @@ class objects(baseGrepPlugin):
                         i.setDesc( 'The URL: "' + i.getURL() + '" has an '+ tag_name + ' tag.' )          
                         i.addToHighlight( tag_name )
 
-                        kb.kb.append( self.name, tag_name, i )
+                        kb.append( self.name, tag_name, i )
     
     def setOptions( self, OptionList ):
         pass
@@ -96,10 +90,10 @@ class objects(baseGrepPlugin):
         This method is called when the plugin wont be used anymore.
         '''
         # Print objects
-        self.printUniq( kb.kb.getData( 'objects', 'object' ), 'URL' )
+        self.printUniq( kb.getData( 'objects', 'object' ), 'URL' )
         
         # Print applets
-        self.printUniq( kb.kb.getData( 'objects', 'applet' ), 'URL' )
+        self.printUniq( kb.getData( 'objects', 'applet' ), 'URL' )
         
     def getPluginDeps( self ):
         '''

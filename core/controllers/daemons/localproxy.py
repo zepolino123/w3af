@@ -83,7 +83,7 @@ class w3afLocalProxyHandler(w3afProxyHandler):
                         head, body = self._fixContentLength(head, body)
                     
                     try:
-                        res = self._urlOpener.sendRawRequest( head,  body )
+                        res = self._url_opener.sendRawRequest( head,  body )
                     except Exception,  e:
                         res = e
 
@@ -135,7 +135,7 @@ class w3afLocalProxyHandler(w3afProxyHandler):
             headers['Cookie'] = str(cookie)
 
         args = ( uri, )
-        functor = getattr( self._urlOpener , method )
+        functor = getattr( self._url_opener , method )
         # run functor , run !   ( forest gump flash )
         res = apply( functor, args, {'data': data, 'headers': headers, 'grepResult': True } ) 
         return res

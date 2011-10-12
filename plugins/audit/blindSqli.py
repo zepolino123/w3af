@@ -60,14 +60,14 @@ class blindSqli(baseAuditPlugin):
         for parameter in freq.getDc():
             
             # Try to identify the vulnerabilities using response string differences
-            self._bsqli_response_diff.setUrlOpener( self._urlOpener )
+            self._bsqli_response_diff.setUrlOpener( self._url_opener )
             self._bsqli_response_diff.setEqualLimit( self._equalLimit )
             self._bsqli_response_diff.setEquAlgorithm( self._equAlgorithm )
             # FIXME: what about repeated parameter names?
             response_diff = self._bsqli_response_diff.is_injectable( freq, parameter )
             
             # And I also check for Blind SQL Injections using time delays
-            self._blind_sqli_time_delay.setUrlOpener( self._urlOpener )
+            self._blind_sqli_time_delay.setUrlOpener( self._url_opener )
             time_delay = self._blind_sqli_time_delay.is_injectable( freq, parameter )
             
             if response_diff is not None:

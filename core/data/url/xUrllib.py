@@ -43,9 +43,13 @@ from core.controllers.multiprocess import (
                                     TimeLimitExpired,
                                     TerminatedWork
                                     )
-from core.controllers.w3afException import (w3afMustStopException,
-    w3afMustStopByUnknownReasonExc, w3afMustStopByKnownReasonExc,
-    w3afException, w3afMustStopOnUrlError)
+from core.controllers.w3afException import (
+                                        w3afMustStopException,
+                                        w3afMustStopByUnknownReasonExc,
+                                        w3afMustStopByKnownReasonExc,
+                                        w3afException,
+                                        w3afMustStopOnUrlError
+                                        )
 from core.data.constants.httpConstants import NO_CONTENT
 from core.data.parsers.httpRequestParser import httpRequestParser
 from core.data.parsers.urlParser import url_object
@@ -140,7 +144,7 @@ class xUrllib(object):
             # It has almost the same effect that a ctrl+c by the user if in consoleUi
             # TODO: THIS SUCKS
             raise KeyboardInterrupt
-    
+        
     def end(self):
         '''
         This method is called when the xUrllib is not going to be used anymore.
@@ -842,6 +846,5 @@ class xUrllib(object):
                     getattr(e, '_traceback_', '') or traceback.format_exc()
                     )
     
-            
             om.out.debug('Finished grep_worker for response: %r' % resp)
     

@@ -36,7 +36,7 @@ class baseAuditPlugin(basePlugin):
 
     def __init__(self):
         basePlugin.__init__( self )
-        self._urlOpener = None
+        self._url_opener = None
 
     def audit_wrapper( self, fuzzable_request ):
         '''

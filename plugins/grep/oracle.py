@@ -19,14 +19,10 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
-# options
-from core.data.options.optionList import optionList
-
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
 from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
-
-import core.data.kb.knowledgeBase as kb
+from core.data.kb.knowledgeBase import kb
+from core.data.options.optionList import optionList
 import core.data.kb.info as info
 
 
@@ -66,7 +62,7 @@ class oracle(baseGrepPlugin):
         >>> request.setMethod('GET')
         >>> o = oracle()
         >>> o.grep(request, response)
-        >>> len(kb.kb.getData('oracle', 'oracle'))
+        >>> len(kb.getData('oracle', 'oracle'))
         0
 
         One long string
@@ -79,7 +75,7 @@ class oracle(baseGrepPlugin):
         >>> request.setMethod('GET')
         >>> o = oracle()
         >>> o.grep(request, response)
-        >>> len(kb.kb.getData('oracle', 'oracle'))
+        >>> len(kb.getData('oracle', 'oracle'))
         0
 
         Something interesting to match
@@ -94,7 +90,7 @@ class oracle(baseGrepPlugin):
         >>> request.setMethod('GET')
         >>> o = oracle()
         >>> o.grep(request, response)
-        >>> len(kb.kb.getData('oracle', 'oracle'))
+        >>> len(kb.getData('oracle', 'oracle'))
         1
         '''
         url = response.getURL()
@@ -116,7 +112,7 @@ class oracle(baseGrepPlugin):
                     msg = 'The URL: "' + url + '" was created using Oracle'
                     msg += ' Application server.'
                     i.setDesc( msg )
-                    kb.kb.append( self.name , 'oracle' , i )
+                    kb.append( self.name , 'oracle' , i )
 
     def _getDescriptiveMessages( self ):
         res = []
@@ -137,7 +133,7 @@ class oracle(baseGrepPlugin):
         '''
         This method is called when the plugin wont be used anymore.
         '''
-        self.printUniq( kb.kb.getData( 'oracle', 'oracle' ), 'URL' )
+        self.printUniq( kb.getData( 'oracle', 'oracle' ), 'URL' )
 
     def getPluginDeps( self ):
         '''

@@ -100,7 +100,7 @@ class ghdb(baseDiscoveryPlugin):
         msg = 'Downloading the new google hack database from '+ self._update_URL
         msg += ' . This may take a while...'
         om.out.information( msg )
-        res = self._urlOpener.GET( self._update_URL )
+        res = self._url_opener.GET( self._update_URL )
         try:
             # Write new ghdb
             fd_new_db = file( self._ghdb_file , 'w')
@@ -135,13 +135,13 @@ class ghdb(baseDiscoveryPlugin):
     def _classic_worker(self, gh, search):
         
         # Init some variables
-        google_se = google(self._urlOpener)
+        google_se = google(self._url_opener)
         
         google_list = google_se.getNResults( search, 9 )
         
         for result in google_list:
             # I found a vuln in the site!
-            response = self._urlOpener.GET(result.URL, useCache=True )
+            response = self._url_opener.GET(result.URL, useCache=True )
             if not is_404( response ):
                 v = vuln.vuln()
                 v.setPluginName(self.name)

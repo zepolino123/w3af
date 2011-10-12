@@ -25,8 +25,8 @@ class w3afException(Exception):
     A small class that defines a w3afException.
     '''
     
-    def __init__(self, value):
-        Exception.__init__( self )
+    def __init__(self, value=''):
+        Exception.__init__(self)
         self.value = str(value)
     
     def __str__(self):
@@ -59,7 +59,7 @@ class w3afMustStopException(Exception):
     process. This exception is raised in a few places. NOT to be used
     extensively.
     '''
-    def __init__(self, msg, errs=()):
+    def __init__(self, msg='', errs=()):
         self.msg = str(msg)
         self.errs = errs
 

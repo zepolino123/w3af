@@ -64,7 +64,7 @@ class fingerGoogle(baseDiscoveryPlugin):
             # This plugin will only run one time. 
             self._run = False
             
-            self._google = google(self._urlOpener)
+            self._google = google(self._url_opener)
             self._domain = domain = fuzzableRequest.getURL().getDomain()
             self._domain_root = fuzzableRequest.getURL().getRootDomain()
             
@@ -119,10 +119,10 @@ class fingerGoogle(baseDiscoveryPlugin):
         try:
             om.out.debug('Searching for mails in: ' + googlePage.getURI() )
             if self._domain == googlePage.getURI().getDomain():
-                response = self._urlOpener.GET( googlePage.getURI(), useCache=True, \
+                response = self._url_opener.GET( googlePage.getURI(), useCache=True, \
                                                                 grepResult=True )
             else:
-                response = self._urlOpener.GET( googlePage.getURI(), useCache=True, \
+                response = self._url_opener.GET( googlePage.getURI(), useCache=True, \
                                                                 grepResult=False )
         except KeyboardInterrupt, e:
             raise e

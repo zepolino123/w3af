@@ -76,9 +76,9 @@ class urlFuzzer(baseDiscoveryPlugin):
         
         self._verify_head_enabled( url )
         if self._head_enabled():
-            response = self._urlOpener.HEAD( url, useCache=True, headers=self._headers )
+            response = self._url_opener.HEAD( url, useCache=True, headers=self._headers )
         else:
-            response = self._urlOpener.GET(url, useCache=True, headers=self._headers)
+            response = self._url_opener.GET(url, useCache=True, headers=self._headers)
 
         if response.is_text_or_html() or self._fuzzImages:
             mutants = self._mutate( url )
@@ -96,7 +96,7 @@ class urlFuzzer(baseDiscoveryPlugin):
         run the actual fuzzing.
         '''
         try:
-            response = self._urlOpener.GET( mutant, useCache=True, headers=self._headers )
+            response = self._url_opener.GET( mutant, useCache=True, headers=self._headers )
         except KeyboardInterrupt,e:
             raise e
         else:
@@ -135,7 +135,7 @@ class urlFuzzer(baseDiscoveryPlugin):
         uri.setFileName( uri.getFileName() + createRandAlNum( 7 ) )
             
         try:
-            response = self._urlOpener.GET( uri, useCache=True, headers=self._headers )
+            response = self._url_opener.GET( uri, useCache=True, headers=self._headers )
         except KeyboardInterrupt,e:
             raise e
         except w3afException,e:

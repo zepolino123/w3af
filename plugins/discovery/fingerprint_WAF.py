@@ -94,7 +94,7 @@ class fingerprint_WAF(baseDiscoveryPlugin):
         headers = fuzzableRequest.getHeaders()
         headers['Transfer-Encoding'] = createRandAlpha(1024 + 1)
         try:
-            lock_response2 = self._urlOpener.GET( fuzzableRequest.getURL(), 
+            lock_response2 = self._url_opener.GET( fuzzableRequest.getURL(), 
                                                                     headers=headers, useCache=True )
         except w3afException, w3:
             om.out.debug('Failed to identify secure IIS, exception: ' + str(w3) )
@@ -114,7 +114,7 @@ class fingerprint_WAF(baseDiscoveryPlugin):
         '''
         om.out.debug( 'detect Airlock' )
         try:
-            response = self._urlOpener.GET( fuzzableRequest.getURL(), useCache=True )
+            response = self._url_opener.GET( fuzzableRequest.getURL(), useCache=True )
         except KeyboardInterrupt,e:
             raise e
         else:
@@ -133,7 +133,7 @@ class fingerprint_WAF(baseDiscoveryPlugin):
         '''
         om.out.debug( 'detect Barracuda' )
         try:
-            response = self._urlOpener.GET( fuzzableRequest.getURL(), useCache=True )
+            response = self._url_opener.GET( fuzzableRequest.getURL(), useCache=True )
         except KeyboardInterrupt,e:
             raise e
         else:
@@ -153,7 +153,7 @@ class fingerprint_WAF(baseDiscoveryPlugin):
         '''
         om.out.debug( 'detect Deny All' )
         try:
-            response = self._urlOpener.GET( fuzzableRequest.getURL(), useCache=True )
+            response = self._url_opener.GET( fuzzableRequest.getURL(), useCache=True )
         except KeyboardInterrupt,e:
             raise e
         else:
@@ -172,7 +172,7 @@ class fingerprint_WAF(baseDiscoveryPlugin):
         '''
         om.out.debug( 'detect F5 ASM or TrafficShield' )
         try:
-            response = self._urlOpener.GET( fuzzableRequest.getURL(), useCache=True )
+            response = self._url_opener.GET( fuzzableRequest.getURL(), useCache=True )
         except KeyboardInterrupt,e:
             raise e
         else:
@@ -193,7 +193,7 @@ class fingerprint_WAF(baseDiscoveryPlugin):
         '''
         om.out.debug( 'detect the older version F5 TrafficShield' )
         try:
-            response = self._urlOpener.GET( fuzzableRequest.getURL(), useCache=True )
+            response = self._url_opener.GET( fuzzableRequest.getURL(), useCache=True )
         except KeyboardInterrupt,e:
             raise e
         else:
@@ -214,7 +214,7 @@ class fingerprint_WAF(baseDiscoveryPlugin):
         '''
         om.out.debug( 'detect TEROS' )
         try:
-            response = self._urlOpener.GET( fuzzableRequest.getURL(), useCache=True )
+            response = self._url_opener.GET( fuzzableRequest.getURL(), useCache=True )
         except KeyboardInterrupt,e:
             raise e
         else:
@@ -235,7 +235,7 @@ class fingerprint_WAF(baseDiscoveryPlugin):
         '''
         om.out.debug( 'detect NetContinuum' )
         try:
-            response = self._urlOpener.GET( fuzzableRequest.getURL(), useCache=True )
+            response = self._url_opener.GET( fuzzableRequest.getURL(), useCache=True )
         except KeyboardInterrupt,e:
             raise e
         else:
@@ -254,7 +254,7 @@ class fingerprint_WAF(baseDiscoveryPlugin):
         '''
         om.out.debug( 'detect BinarySec' )
         try:
-            response = self._urlOpener.GET( fuzzableRequest.getURL(), useCache=True )
+            response = self._url_opener.GET( fuzzableRequest.getURL(), useCache=True )
         except KeyboardInterrupt,e:
             raise e
         else:
@@ -274,7 +274,7 @@ class fingerprint_WAF(baseDiscoveryPlugin):
         '''
         om.out.debug( 'detect HyperGuard' )
         try:
-            response = self._urlOpener.GET( fuzzableRequest.getURL(), useCache=True )
+            response = self._url_opener.GET( fuzzableRequest.getURL(), useCache=True )
         except KeyboardInterrupt,e:
             raise e
         else:
@@ -293,26 +293,26 @@ class fingerprint_WAF(baseDiscoveryPlugin):
         '''
         # detect using GET
         # Get the original response
-        originalResponse = self._urlOpener.GET( fuzzableRequest.getURL(), useCache=True )
+        originalResponse = self._url_opener.GET( fuzzableRequest.getURL(), useCache=True )
         if originalResponse.getCode() != 404:
             # Now add the if header and try again
             headers = fuzzableRequest.getHeaders()
             headers['If'] = createRandAlpha(8)
-            if_response = self._urlOpener.GET( fuzzableRequest.getURL(), headers=headers,
+            if_response = self._url_opener.GET( fuzzableRequest.getURL(), headers=headers,
                                                                 useCache=True )
             headers = fuzzableRequest.getHeaders()
             headers['Translate'] = createRandAlpha(8)
-            translate_response = self._urlOpener.GET( fuzzableRequest.getURL(), headers=headers, 
+            translate_response = self._url_opener.GET( fuzzableRequest.getURL(), headers=headers, 
                                                                             useCache=True )
             
             headers = fuzzableRequest.getHeaders()
             headers['Lock-Token'] = createRandAlpha(8)
-            lock_response = self._urlOpener.GET( fuzzableRequest.getURL(), headers=headers, 
+            lock_response = self._url_opener.GET( fuzzableRequest.getURL(), headers=headers, 
                                                                     useCache=True )
             
             headers = fuzzableRequest.getHeaders()
             headers['Transfer-Encoding'] = createRandAlpha(8)
-            transfer_enc_response = self._urlOpener.GET( fuzzableRequest.getURL(), 
+            transfer_enc_response = self._url_opener.GET( fuzzableRequest.getURL(), 
                                                                                     headers=headers,
                                                                                     useCache=True )
         

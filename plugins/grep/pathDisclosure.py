@@ -19,21 +19,15 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
+import re
 
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-
-import core.data.kb.knowledgeBase as kb
-import core.data.kb.vuln as vuln
-import core.data.constants.severity as severity
 from core.data.constants.common_directories import get_common_directories
-
-import re
+from core.data.kb.knowledgeBase import kb
+from core.data.options.optionList import optionList
+import core.controllers.outputManager as om
+import core.data.constants.severity as severity
+import core.data.kb.vuln as vuln
 
 
 class pathDisclosure(baseGrepPlugin):
@@ -105,12 +99,12 @@ class pathDisclosure(baseGrepPlugin):
         
         >>> res = httpResponse(200, 'header body footer' , {'Content-Type':'text/html'}, u, u)
         >>> pd.grep( req, res )
-        >>> kb.kb.getData('pathDisclosure', 'pathDisclosure')
+        >>> kb.getData('pathDisclosure', 'pathDisclosure')
         []
 
         >>> res = httpResponse(200, 'header /etc/passwd footer' , {'Content-Type':'text/html'}, u, u)
         >>> pd.grep( req, res )
-        >>> kb.kb.getData('pathDisclosure', 'pathDisclosure')[0]['path']
+        >>> kb.getData('pathDisclosure', 'pathDisclosure')[0]['path']
         u'/etc/passwd'
         '''
         if response.is_text_or_html():
@@ -170,7 +164,7 @@ class pathDisclosure(baseGrepPlugin):
                             v.setName( 'Path disclosure vulnerability' )
                             v['path'] = match
                             v.addToHighlight( match )
-                            kb.kb.append( self.name, 'pathDisclosure', v )
+                            kb.append( self.name, 'pathDisclosure', v )
         
         self._update_KB_path_list()
     
@@ -206,17 +200,17 @@ class pathDisclosure(baseGrepPlugin):
         If a path disclosure was found, I can create a list of full paths to all URLs ever visited.
         This method updates that list.
         '''
-        path_disc_vulns = kb.kb.getData( 'pathDisclosure', 'pathDisclosure' ) 
+        path_disc_vulns = kb.getData( 'pathDisclosure', 'pathDisclosure' ) 
         if len( path_disc_vulns ) == 0:
             # I can't calculate the list !
             pass
         else:
             # Init the kb variables
-            kb.kb.save( self, 'listFiles', [] )
+            kb.save( self.name, 'listFiles', [] )
             
             # Note that this list is recalculated every time a new page is accesed
             # this is goood :P
-            url_list = kb.kb.getData( 'urls', 'urlList' )
+            url_list = kb.getData( 'urls', 'urlList' )
             
             # Now I find the longest match between one of the URLs that w3af has
             # discovered, and one of the path disclosure strings that this plugin has
@@ -248,7 +242,7 @@ class pathDisclosure(baseGrepPlugin):
                 #   That seems to be because the webroot == ''
                 #
                 if webroot:
-                    kb.kb.save( self, 'webroot', webroot )
+                    kb.save( self.name, 'webroot', webroot )
                     
                     # Check what path separator we should use (linux / windows)
                     if webroot[0] == '/':
@@ -264,7 +258,7 @@ class pathDisclosure(baseGrepPlugin):
                         remote_locations.append( webroot + remote_path )
                     remote_locations = list( set( remote_locations ) )
                     
-                    kb.kb.save( self, 'listFiles', remote_locations )
+                    kb.save( self.name, 'listFiles', remote_locations )
         
     def setOptions( self, OptionList ):
         pass
@@ -280,7 +274,7 @@ class pathDisclosure(baseGrepPlugin):
         '''
         This method is called when the plugin wont be used anymore.
         '''
-        inform = kb.kb.getData( 'pathDisclosure', 'pathDisclosure' )
+        inform = kb.getData( 'pathDisclosure', 'pathDisclosure' )
         
         tmp = {}
         ids = {}

@@ -20,16 +20,11 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
-
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-
-import core.data.kb.knowledgeBase as kb
+from core.data.kb.knowledgeBase import kb
+from core.data.options.optionList import optionList
 import core.data.kb.info as info
+
 
 class strangeReason(baseGrepPlugin):
     '''
@@ -105,7 +100,7 @@ class strangeReason(baseGrepPlugin):
                 #
                 #   I check if the kb already has a info object with this code:
                 #
-                strange_reason_infos = kb.kb.getData('strangeReason', 'strangeReason')
+                strange_reason_infos = kb.getData('strangeReason', 'strangeReason')
                 
                 corresponding_info = None
                 for info_obj in strange_reason_infos:
@@ -131,7 +126,7 @@ class strangeReason(baseGrepPlugin):
                     desc += str(response.getMsg()) + '" manual inspection is advised.'
                     i.setDesc( desc )
                     i.addToHighlight( response.getMsg() )
-                    kb.kb.append( self.name , 'strangeReason' , i )
+                    kb.append( self.name , 'strangeReason' , i )
     
     def setOptions( self, OptionList ):
         pass
@@ -147,7 +142,7 @@ class strangeReason(baseGrepPlugin):
         '''
         This method is called when the plugin wont be used anymore.
         '''
-        self.printUniq( kb.kb.getData( 'strangeReason', 'strangeReason' ), 'URL' )
+        self.printUniq( kb.getData( 'strangeReason', 'strangeReason' ), 'URL' )
 
     def getPluginDeps( self ):
         '''

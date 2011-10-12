@@ -18,11 +18,6 @@ You should have received a copy of the GNU General Public License
 along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 '''
-__all__ = [
-    'get_plugin_manager', 'TimeLimitExpired',
-    'TerminatedWork', 'MNGR_TYPE_GREP'
-    ]
-
 from Queue import Empty
 import itertools
 import multiprocessing
@@ -32,6 +27,11 @@ import traceback
 import types
 
 from core.data.kb.knowledgeBase import kb
+
+__all__ = [
+    'get_plugin_manager', 'TimeLimitExpired',
+    'TerminatedWork', 'MNGR_TYPE_GREP'
+    ]
 
 # Amount of available CPUs
 try:
@@ -69,11 +69,13 @@ class TimeLimitExpired(Exception):
     '''
     pass
 
+
 class TerminatedWork(Exception):
     '''
     Raised when an action is called on a `TERMINATEd` Manager.
     '''
     pass
+
 
 class Failure(object):
     
@@ -152,8 +154,7 @@ class GrepMngr(PluginMngr):
         
         for res_ele in res_list:
             if isinstance(res_ele, Failure):
-                exc = res_ele.exc_obj
-                raise exc
+                raise res_ele.exc_obj
         return res_list
     
     def terminate(self):
@@ -197,6 +198,9 @@ class Worker(multiprocessing.Process):
         raise NotImplementedError
 
 
+import time
+d = {}
+
 class GrepWorker(Worker):
     
     def __init__(self, plugins, task_queue, result_queue):
@@ -216,10 +220,24 @@ class GrepWorker(Worker):
                 res = []
                 for p in self._plugins:
                     try:
+                        #print 'waiting for...', p.name
+                        init = time.time()
+                        
                         value = self._tweaked_grep(p, {'kb': kb})(*args)
+                        
+                        spent = time.time() - init
+                        
+                        l = d.setdefault(p.name, [])
+                        l.append(spent)
+                        
+                        print "=== Average time for plugin '%s' is %.2f seconds" % (p.name, float(sum(l))/len(l))
+                        
                     except KeyboardInterrupt:
                         raise
                     except Exception, ex:
+                        print '^'*80
+                        print traceback.format_exc()
+                        print '^'*80
                         value = Failure(ex)
                     res.append(value or [])
                 
@@ -270,7 +288,6 @@ class Result(object):
             self._cond.release()
     
     def set_result(self, res):
-		
         self._value.extend(res)
         
         if len(self._value) == self._length:

@@ -100,7 +100,7 @@ class sqlmap(baseAttackPlugin):
             freq.setHeaders( {} )
             
             bsql = blind_sqli_response_diff()
-            bsql.setUrlOpener( self._urlOpener )
+            bsql.setUrlOpener( self._url_opener )
             bsql.setEqualLimit( self._equalLimit )
             bsql.setEquAlgorithm( self._equAlgorithm )
             
@@ -146,10 +146,10 @@ class sqlmap(baseAttackPlugin):
         if len(vulns) != 0:
             return True
         else:
-            om.out.console( 'No [blind] SQL injection vulnerabilities have been found.' )
-            om.out.console( 'Hint #1: Try to find vulnerabilities using the audit plugins.' )
-            msg = 'Hint #2: Use the set command to enter the values yourself, and then exploit it using fastExploit.'
-            om.out.console( msg )
+            #om.out.console( 'No [blind] SQL injection vulnerabilities have been found.' )
+            #om.out.console( 'Hint #1: Try to find vulnerabilities using the audit plugins.' )
+            #msg = 'Hint #2: Use the set command to enter the values yourself, and then exploit it using fastExploit.'
+            #om.out.console( msg )
             return False
 
     def exploit( self, vulnToExploit=None ):
@@ -165,7 +165,7 @@ class sqlmap(baseAttackPlugin):
             vulns.extend( kb.kb.getData( 'sqli' , 'sqli' ) )
             
             bsql = blind_sqli_response_diff()
-            bsql.setUrlOpener( self._urlOpener )
+            bsql.setUrlOpener( self._url_opener )
             bsql.setEqualLimit( self._equalLimit )
             bsql.setEquAlgorithm( self._equAlgorithm )
             
@@ -220,7 +220,7 @@ class sqlmap(baseAttackPlugin):
         bsql.setEqualLimit( self._equalLimit )
         bsql.setEquAlgorithm( self._equAlgorithm )
             
-        dbBuilder = dbDriverBuilder( self._urlOpener, bsql.equal )
+        dbBuilder = dbDriverBuilder( self._url_opener, bsql.equal )
         driver = dbBuilder.getDriverForVuln( vuln_obj )
         if driver is None:
             return None

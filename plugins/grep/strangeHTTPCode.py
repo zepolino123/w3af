@@ -20,15 +20,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
-
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-
-import core.data.kb.knowledgeBase as kb
+from core.data.kb.knowledgeBase import kb
+from core.data.options.optionList import optionList
 import core.data.kb.info as info
 
 
@@ -75,53 +69,53 @@ class strangeHTTPCode(baseGrepPlugin):
         >>> s = strangeHTTPCode()
 
         >>> s.grep(request, resp_200)
-        >>> len(kb.kb.getData('strangeHTTPCode', 'strangeHTTPCode'))
+        >>> len(kb.getData('strangeHTTPCode', 'strangeHTTPCode'))
         0
-        >>> kb.kb.cleanup()
+        >>> kb.cleanup()
 
         >>> s.grep(request, resp_999)
-        >>> len(kb.kb.getData('strangeHTTPCode', 'strangeHTTPCode'))
+        >>> len(kb.getData('strangeHTTPCode', 'strangeHTTPCode'))
         1
-        >>> kb.kb.cleanup()
+        >>> kb.cleanup()
 
         >>> s.grep(request, resp_123)
-        >>> len(kb.kb.getData('strangeHTTPCode', 'strangeHTTPCode'))
+        >>> len(kb.getData('strangeHTTPCode', 'strangeHTTPCode'))
         1
-        >>> kb.kb.cleanup()
+        >>> kb.cleanup()
         
         >>> s.grep(request, resp_567)
-        >>> len(kb.kb.getData('strangeHTTPCode', 'strangeHTTPCode'))
+        >>> len(kb.getData('strangeHTTPCode', 'strangeHTTPCode'))
         1
-        >>> kb.kb.cleanup()
+        >>> kb.cleanup()
 
         >>> s.grep(request, resp_666)
-        >>> len(kb.kb.getData('strangeHTTPCode', 'strangeHTTPCode'))
+        >>> len(kb.getData('strangeHTTPCode', 'strangeHTTPCode'))
         1
-        >>> kb.kb.cleanup()
+        >>> kb.cleanup()
 
         >>> s.grep(request, resp_777)
-        >>> len(kb.kb.getData('strangeHTTPCode', 'strangeHTTPCode'))
+        >>> len(kb.getData('strangeHTTPCode', 'strangeHTTPCode'))
         1
-        >>> kb.kb.cleanup()
+        >>> kb.cleanup()
         
         >>> resp_777 = httpResponse(777, body , headers, url, url, id=1)
         >>> s.grep(request, resp_777)
         >>> resp_777 = httpResponse(777, body , headers, url, url, id=2)
         >>> s.grep(request, resp_777)        
-        >>> len(kb.kb.getData('strangeHTTPCode', 'strangeHTTPCode'))
+        >>> len(kb.getData('strangeHTTPCode', 'strangeHTTPCode'))
         1
-        >>> kb.kb.cleanup()
+        >>> kb.cleanup()
 
         >>> s.grep(request, resp_404)
-        >>> len(kb.kb.getData('strangeHTTPCode', 'strangeHTTPCode'))
+        >>> len(kb.getData('strangeHTTPCode', 'strangeHTTPCode'))
         0
-        >>> kb.kb.cleanup()
+        >>> kb.cleanup()
         
         '''
         if response.getCode() not in self._common_http_codes:
             
             # I check if the kb already has a info object with this code:
-            strange_code_infos = kb.kb.getData('strangeHTTPCode', 'strangeHTTPCode')
+            strange_code_infos = kb.getData('strangeHTTPCode', 'strangeHTTPCode')
             
             corresponding_info = None
             for info_obj in strange_code_infos:
@@ -148,7 +142,7 @@ class strangeHTTPCode(baseGrepPlugin):
                 desc += '", manual inspection is advised.'
                 i.setDesc( desc )
                 i.addToHighlight( str(response.getCode()), response.getMsg() )
-                kb.kb.append( self.name , 'strangeHTTPCode' , i )
+                kb.append( self.name , 'strangeHTTPCode' , i )
     
     def setOptions( self, OptionList ):
         pass
@@ -164,7 +158,7 @@ class strangeHTTPCode(baseGrepPlugin):
         '''
         This method is called when the plugin wont be used anymore.
         '''
-        self.printUniq( kb.kb.getData( 'strangeHTTPCode', 'strangeHTTPCode' ), 'URL' )
+        self.printUniq( kb.getData( 'strangeHTTPCode', 'strangeHTTPCode' ), 'URL' )
         
     def _getCommonHTTPCodes(self):
         codes = []

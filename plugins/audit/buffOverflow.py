@@ -112,7 +112,7 @@ class buffOverflow(baseAuditPlugin):
         args = ( url, )
         method = mutant.getMethod()
         
-        functor = getattr( self._urlOpener , method )
+        functor = getattr( self._url_opener , method )
         try:
             kwdargs = {'data': data, 'headers': headers, 'grepResult': grepResult }
             res = apply( functor, args, kwdargs )

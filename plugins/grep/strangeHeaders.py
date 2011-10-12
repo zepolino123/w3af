@@ -20,18 +20,12 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
-
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-
-import core.data.kb.knowledgeBase as kb
-import core.data.kb.info as info
-
 from core.controllers.misc.groupbyMinKey import groupbyMinKey
+from core.data.kb.knowledgeBase import kb
+from core.data.options.optionList import optionList
+import core.controllers.outputManager as om
+import core.data.kb.info as info
 
 
 class strangeHeaders(baseGrepPlugin):
@@ -59,7 +53,7 @@ class strangeHeaders(baseGrepPlugin):
             if header_name.upper() not in self._common_headers:
                 
                 # I check if the kb already has a info object with this code:
-                strange_header_infos = kb.kb.getData('strangeHeaders', 'strangeHeaders')
+                strange_header_infos = kb.getData('strangeHeaders', 'strangeHeaders')
                 
                 corresponding_info = None
                 for info_obj in strange_header_infos:
@@ -86,7 +80,7 @@ class strangeHeaders(baseGrepPlugin):
                     hvalue = response.getHeaders()[header_name]
                     i['header_value'] = hvalue
                     i.addToHighlight( hvalue, header_name )
-                    kb.kb.append( self.name , 'strangeHeaders' , i )
+                    kb.append( self.name , 'strangeHeaders' , i )
 
 
         # Now check for protocol anomalies
@@ -112,7 +106,7 @@ class strangeHeaders(baseGrepPlugin):
             msg += ' a violation to the RFC.'
             i.setDesc( msg )
             i.addToHighlight( 'content-location' )
-            kb.kb.append( self.name , 'anomaly' , i )
+            kb.append( self.name , 'anomaly' , i )
 
     def setOptions( self, OptionList ):
         pass
@@ -128,7 +122,7 @@ class strangeHeaders(baseGrepPlugin):
         '''
         This method is called when the plugin wont be used anymore.
         '''
-        headers = kb.kb.getData( 'strangeHeaders', 'strangeHeaders' )
+        headers = kb.getData( 'strangeHeaders', 'strangeHeaders' )
         # This is how I saved the data:
         #i['header_name'] = header_name
         #i['header_value'] = response.getHeaders()[header_name]

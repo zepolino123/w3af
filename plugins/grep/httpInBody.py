@@ -19,19 +19,14 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
+import re
 
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
 from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
-
-import core.data.kb.knowledgeBase as kb
+from core.data.kb.knowledgeBase import kb
+from core.data.options.optionList import optionList
+import core.controllers.outputManager as om
 import core.data.kb.info as info
-
-import re
 
 
 class httpInBody (baseGrepPlugin):
@@ -87,7 +82,7 @@ class httpInBody (baseGrepPlugin):
                     i.setId(response.id)
                     i.setDesc('An HTTP request was found in the HTTP body of a response')
                     i.addToHighlight(res.group(0))
-                    kb.kb.append(self.name, 'request', i)
+                    kb.append(self.name, 'request', i)
 
                 res = self._re_response.search(body_without_tags)
                 if res:
@@ -97,7 +92,7 @@ class httpInBody (baseGrepPlugin):
                     i.setURI(uri)
                     i.setId(response.id)
                     i.setDesc('An HTTP response was found in the HTTP body of a response')
-                    kb.kb.append(self.name, 'response', i)
+                    kb.append(self.name, 'response', i)
 
     def setOptions( self, optionsMap ):
         pass
@@ -115,10 +110,10 @@ class httpInBody (baseGrepPlugin):
         '''
         for info_type in ['request', 'response']:
             
-            if kb.kb.getData('httpInBody', info_type):
+            if kb.getData('httpInBody', info_type):
                 msg = 'The following URLs have an HTTP '+ info_type +' in the HTTP response body:'
                 om.out.information(msg)
-                for i in kb.kb.getData('httpInBody', info_type):
+                for i in kb.getData('httpInBody', info_type):
                     om.out.information('- ' + i.getURI() + '  (id:' + str(i.getId()) + ')' )
         
     def getPluginDeps( self ):

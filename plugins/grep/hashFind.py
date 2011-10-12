@@ -19,20 +19,13 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
+import re
 
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-
-import core.data.kb.knowledgeBase as kb
-import core.data.kb.info as info
 from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
-
-import re
+from core.data.kb.knowledgeBase import kb
+from core.data.options.optionList import optionList
+import core.data.kb.info as info
 
 
 class hashFind(baseGrepPlugin):
@@ -87,7 +80,7 @@ class hashFind(baseGrepPlugin):
                                 msg += ' contain a "' + hash_type + '" hash. The hash is: "'+ possible_hash
                                 msg += '". This is uncommon and requires human verification.'
                                 i.setDesc( msg )
-                                kb.kb.append( self.name, 'hashFind', i )
+                                kb.append( self.name, 'hashFind', i )
                                 
                                 self._already_reported.add( (possible_hash, response.getURL()) )
     
@@ -161,7 +154,7 @@ class hashFind(baseGrepPlugin):
         '''
         This method is called when the plugin wont be used anymore.
         '''
-        self.printUniq( kb.kb.getData( 'hashFind', 'hashFind' ), None )
+        self.printUniq( kb.getData( 'hashFind', 'hashFind' ), None )
     
     def getPluginDeps( self ):
         '''

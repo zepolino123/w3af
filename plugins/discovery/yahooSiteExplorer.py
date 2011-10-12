@@ -63,7 +63,7 @@ class yahooSiteExplorer(baseDiscoveryPlugin):
         else:
             # I will only run this one time. All calls to yahooSiteExplorer return the same url's
             self._run = False
-            self._yse = yse( self._urlOpener )
+            self._yse = yse( self._url_opener )
             
             domain = fuzzableRequest.getURL().getDomain()
             if is_private_site( domain ):
@@ -91,7 +91,7 @@ class yahooSiteExplorer(baseDiscoveryPlugin):
         @parameter url: The URL to GET.
         '''
         try:
-            response = self._urlOpener.GET( url, useCache=True)
+            response = self._url_opener.GET( url, useCache=True)
         except KeyboardInterrupt, k:
             raise k
         except w3afException, w3:

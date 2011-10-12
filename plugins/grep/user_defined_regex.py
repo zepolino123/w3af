@@ -17,19 +17,15 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
+import re
 
-import core.controllers.outputManager as om
-from core.controllers.w3afException import w3afException
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-
-# options
+from core.controllers.w3afException import w3afException
+from core.data.kb.knowledgeBase import kb
 from core.data.options.option import option
 from core.data.options.optionList import optionList
-
-import core.data.kb.knowledgeBase as kb
+import core.controllers.outputManager as om
 import core.data.kb.info as info
-
-import re
 
 
 class user_defined_regex(baseGrepPlugin):
@@ -77,8 +73,8 @@ class user_defined_regex(baseGrepPlugin):
         >>> options['single_regex'].setValue('".*?"')
         >>> udr.setOptions( options )
         >>> udr.grep(request, response)
-        >>> assert len(kb.kb.getData('user_defined_regex', 'user_defined_regex')) == 1        
-        >>> info_obj = kb.kb.getData('user_defined_regex', 'user_defined_regex')[0]
+        >>> assert len(kb.getData('user_defined_regex', 'user_defined_regex')) == 1        
+        >>> info_obj = kb.getData('user_defined_regex', 'user_defined_regex')[0]
         >>> info_obj.getDesc()
         'The response matches the user defined regular expression "".*?"":\\n"data.txt"\\n. This information was found in the request with id None.'
         
@@ -122,7 +118,7 @@ class user_defined_regex(baseGrepPlugin):
                                 info_object.setDesc( msg )
                                 info_object.setId( response.id )
                                 info_object.setName( 'User defined regex - ' + str(regex.pattern) )
-                                kb.kb.append( self.name , 'user_defined_regex' , info_object )
+                                kb.append( self.name , 'user_defined_regex' , info_object )
                             #set the info_object
                             self._regexlist_compiled[index] = (regex, info_object)
                   
@@ -204,7 +200,7 @@ class user_defined_regex(baseGrepPlugin):
         '''
         This method is called when the plugin wont be used anymore.
         '''
-        self.printUniq( kb.kb.getData( 'user_defined_regex', 'user_defined_regex' ), 'URL' )
+        self.printUniq( kb.getData( 'user_defined_regex', 'user_defined_regex' ), 'URL' )
             
     def getPluginDeps( self ):
         '''

@@ -112,8 +112,8 @@ class findvhost(baseDiscoveryPlugin):
         
         # Get some responses to compare later
         base_url = fuzzableRequest.getURL().baseUrl()
-        original_response = self._urlOpener.GET(fuzzableRequest.getURI(), useCache=True)
-        base_response = self._urlOpener.GET(base_url, useCache=True)
+        original_response = self._url_opener.GET(fuzzableRequest.getURI(), useCache=True)
+        base_response = self._url_opener.GET(base_url, useCache=True)
         base_resp_body = base_response.getBody()
         
         try:
@@ -124,7 +124,7 @@ class findvhost(baseDiscoveryPlugin):
         
         # Set the non existant response
         non_existant = 'iDoNotExistPleaseGoAwayNowOrDie' + createRandAlNum(4) 
-        self._non_existant_response = self._urlOpener.GET(base_url, 
+        self._non_existant_response = self._url_opener.GET(base_url, 
                                                 useCache=False, headers={'Host': non_existant})
         nonexist_resp_body = self._non_existant_response.getBody()
         
@@ -152,7 +152,7 @@ class findvhost(baseDiscoveryPlugin):
                 # This sucks, but it's cool if the document has a link to 
                 # http://some.internal.site.target.com/
                 try:
-                    vhost_response = self._urlOpener.GET(base_url, useCache=False,
+                    vhost_response = self._url_opener.GET(base_url, useCache=False,
                                                          headers={'Host': domain })
                 except w3afException:
                     pass
@@ -232,16 +232,16 @@ class findvhost(baseDiscoveryPlugin):
         common_vhost_list = self._get_common_virtualhosts(base_url)
         
         # Get some responses to compare later
-        original_response = self._urlOpener.GET(base_url, useCache=True)
+        original_response = self._url_opener.GET(base_url, useCache=True)
         orig_resp_body = original_response.getBody()
         non_existant = 'iDoNotExistPleaseGoAwayNowOrDie' + createRandAlNum(4)
-        self._non_existant_response = self._urlOpener.GET(base_url, useCache=False, \
+        self._non_existant_response = self._url_opener.GET(base_url, useCache=False, \
                                                         headers={'Host': non_existant })
         nonexist_resp_body = self._non_existant_response.getBody()
         
         for common_vhost in common_vhost_list:
             try:
-                vhost_response = self._urlOpener.GET( base_url, useCache=False, \
+                vhost_response = self._url_opener.GET( base_url, useCache=False, \
                                                 headers={'Host': common_vhost } )
             except w3afException:
                 pass

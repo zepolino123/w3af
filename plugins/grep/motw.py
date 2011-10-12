@@ -19,19 +19,15 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
+import re
 
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-
 from core.controllers.coreHelpers.fingerprint_404 import is_404
-import core.data.kb.knowledgeBase as kb
+from core.data.kb.knowledgeBase import kb
+from core.data.options.option import option
+from core.data.options.optionList import optionList
+import core.controllers.outputManager as om
 import core.data.kb.info as info
-
-import re
 
 
 class motw (baseGrepPlugin):
@@ -85,20 +81,20 @@ class motw (baseGrepPlugin):
                         msg = 'The  URL: "'  + response.getURL() + '"'
                         msg += ' contains a  valid Mark of the Web.'
                         i.setDesc( msg )
-                        kb.kb.append( self.name, 'motw', i )
+                        kb.append( self.name, 'motw', i )
                     else:
                         msg = 'The URL: "' + response.getURL() + '" will be executed in Local '
                         msg += 'Machine Zone security context because the indicated length is '
                         msg += 'greater than the actual URL length.'
                         i['localMachine'] = True
                         i.setDesc( msg )
-                        kb.kb.append( self.name, 'motw', i )
+                        kb.append( self.name, 'motw', i )
               
                 elif self._withoutMOTW:
                     msg = 'The URL: "' + response.getURL()
                     msg += '" doesn\'t contain a Mark of the Web.'
                     i.setDesc( msg )
-                    kb.kb.append( self.name, 'no_motw', i )
+                    kb.append( self.name, 'no_motw', i )
 
     def setOptions( self, optionsMap ):
         self._withoutMOTW = optionsMap['withoutMOTW'].getValue()
@@ -124,7 +120,7 @@ class motw (baseGrepPlugin):
         pretty_msg['no_motw'] = 'The following URLs don\'t contain a MOTW:'
         for motw_type in pretty_msg:
             inform = []
-            for i in kb.kb.getData( 'motw', motw_type ):
+            for i in kb.getData( 'motw', motw_type ):
                 inform.append( i )
         
             if len( inform ):

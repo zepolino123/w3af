@@ -69,7 +69,7 @@ class findGit(baseDiscoveryPlugin):
             relative_url, regular_expression = self._compiled_git_info[0]
             git_url = domain_path.urlJoin(relative_url)
             try:
-                response = self._urlOpener.GET( git_url, useCache=True )
+                response = self._url_opener.GET( git_url, useCache=True )
             except w3afException:
                 om.out.debug('Failed to GET git file: "' + git_url + '"')
             else:
@@ -95,7 +95,7 @@ class findGit(baseDiscoveryPlugin):
         @parameter git_file_url: The URL to check
         '''
         try:
-            response = self._urlOpener.GET( git_url, useCache=True )
+            response = self._url_opener.GET( git_url, useCache=True )
         except w3afException:
             om.out.debug('Failed to GET git file:' + git_url)
         else:

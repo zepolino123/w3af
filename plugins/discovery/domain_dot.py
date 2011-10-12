@@ -64,9 +64,9 @@ class domain_dot(baseDiscoveryPlugin):
             dot_url.setDomain(domain)
             try:
                 # GET the original response
-                original_response = self._urlOpener.GET( fuzzableRequest.getURL(), useCache=False )
+                original_response = self._url_opener.GET( fuzzableRequest.getURL(), useCache=False )
                 # GET the response with the modified domain (with the trailing dot)
-                response = self._urlOpener.GET( dot_url, useCache=False )
+                response = self._url_opener.GET( dot_url, useCache=False )
             except KeyboardInterrupt,e:
                 raise e
             except w3afException,w3:

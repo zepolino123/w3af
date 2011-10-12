@@ -39,7 +39,7 @@ class dbDriverBuilder:
         '''
         cmpFunction is the function to be used to compare two strings.
         '''
-        self._urlOpener = urlOpener
+        self._url_opener = urlOpener
         self._cmpFunction = cmpFunction
     
     def _getType( self, vuln ):
@@ -48,7 +48,7 @@ class dbDriverBuilder:
         '''
         exploitDc = vuln.getDc()
         exploitDc[ vuln.getVar() ] = "'z'z'z'"
-        functionReference = getattr( self._urlOpener , vuln.getMethod() )
+        functionReference = getattr( self._url_opener , vuln.getMethod() )
         errorResponse = functionReference( vuln.getURL(), str(exploitDc) )
 
         for escape, type in [ ('\'','stringsingle') , ('"','stringdouble'), (' ','numeric')]:
@@ -72,10 +72,10 @@ class dbDriverBuilder:
                 return None
         
         driverList = []
-        driverList.append( mysqlmap( self._urlOpener, self._cmpFunction, vuln ) )
-        driverList.append( postgresqlmap( self._urlOpener, self._cmpFunction, vuln ) )
-        driverList.append( mssqlservermap( self._urlOpener, self._cmpFunction,  vuln ) )
-        #driverList.append( db2( self._urlOpener, vuln ) )
+        driverList.append( mysqlmap( self._url_opener, self._cmpFunction, vuln ) )
+        driverList.append( postgresqlmap( self._url_opener, self._cmpFunction, vuln ) )
+        driverList.append( mssqlservermap( self._url_opener, self._cmpFunction,  vuln ) )
+        #driverList.append( db2( self._url_opener, vuln ) )
 
         for driver in driverList:
             if driver.checkDbms():

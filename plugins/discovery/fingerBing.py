@@ -62,7 +62,7 @@ class fingerBing(baseDiscoveryPlugin):
 
         # This plugin will only run one time. 
         self._run = False
-        bingSE = bing(self._urlOpener)
+        bingSE = bing(self._url_opener)
         self._domain = domain = fuzzableRequest.getURL().getDomain()
         self._domain_root = fuzzableRequest.getURL().getRootDomain()
 
@@ -87,7 +87,7 @@ class fingerBing(baseDiscoveryPlugin):
             om.out.debug('Searching for mails in: %s' % url)
             
             grepResult = True if self._domain == url.getDomain() else False
-            response = self._urlOpener.GET(page.URL, useCache=True,
+            response = self._url_opener.GET(page.URL, useCache=True,
                                            grepResult=grepResult)
         except KeyboardInterrupt, e:
             raise e

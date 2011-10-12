@@ -29,21 +29,31 @@ import time
 import traceback
 
 from core.controllers.coreHelpers.export import export
-from core.controllers.coreHelpers.fingerprint_404 import \
-    fingerprint_404_singleton
+from core.controllers.coreHelpers.fingerprint_404 import is_404
 from core.controllers.coreHelpers.progress import progress
 from core.controllers.misc.factory import factory
 from core.controllers.misc.get_local_ip import get_local_ip
-from core.controllers.misc.homeDir import (create_home_dir,
-    verify_dir_has_perm, HOME_DIR)
+from core.controllers.misc.homeDir import (
+                                       create_home_dir,
+                                       verify_dir_has_perm,
+                                       HOME_DIR
+                                       )
 from core.controllers.misc.number_generator import consecutive_number_generator
-from core.controllers.misc.temp_dir import (create_temp_dir, remove_temp_dir,
-    TEMP_DIR)
+from core.controllers.misc.temp_dir import (
+                                        create_temp_dir,
+                                        remove_temp_dir,
+                                        TEMP_DIR
+                                        )
 from core.controllers.targetSettings import targetSettings as targetSettings
 from core.controllers.threads.threadManager import threadManagerObj as tm
-from core.controllers.w3afException import (w3afException, w3afRunOnce,
-    w3afFileException, w3afMustStopException, w3afMustStopByUnknownReasonExc,
-    w3afMustStopOnUrlError)
+from core.controllers.w3afException import (
+                                        w3afException,
+                                        w3afRunOnce,
+                                        w3afFileException,
+                                        w3afMustStopException,
+                                        w3afMustStopByUnknownReasonExc,
+                                        w3afMustStopOnUrlError
+                                        )
 from core.data.globaldata import globaldata
 from core.data.profile.profile import profile as profile
 from core.data.request.frFactory import createFuzzableRequests
@@ -52,6 +62,7 @@ import core.controllers.miscSettings as miscSettings
 import core.controllers.outputManager as om
 import core.data.kb.config as cf
 import core.data.kb.knowledgeBase as kb
+
 
 class w3afCore(object):
     '''
@@ -78,10 +89,6 @@ class w3afCore(object):
         self.progress = progress()
         self.export = export()
         
-        # I init the 404 detection for the whole framework
-        fp_404_db = fingerprint_404_singleton()
-        fp_404_db.set_urlopener( self.uriOpener )
-
     def _home_directory(self):
         '''
         Handle all the work related to creating/managing the home directory.
@@ -510,7 +517,6 @@ class w3afCore(object):
                         #    because I want to initialize the is_404 database in a controlled
                         #    try/except block.
                         #
-                        from core.controllers.coreHelpers.fingerprint_404 import is_404
                         is_404(response)
 
                     except KeyboardInterrupt:

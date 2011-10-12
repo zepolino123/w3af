@@ -109,7 +109,7 @@ class allowedMethods(baseDiscoveryPlugin):
         
         # First, try to check available methods using OPTIONS, if OPTIONS isn't 
         # enabled, do it manually
-        res = self._urlOpener.OPTIONS( url )
+        res = self._url_opener.OPTIONS( url )
         headers = res.getLowerCaseHeaders()
         for header_name in ['allow', 'public']:
             if header_name in headers:
@@ -128,8 +128,8 @@ class allowedMethods(baseDiscoveryPlugin):
             #   If that request succeds, then all will...
             #
             try:
-                non_exist_response = self._urlOpener.ARGENTINA( url )
-                get_response = self._urlOpener.GET( url )
+                non_exist_response = self._url_opener.ARGENTINA( url )
+                get_response = self._url_opener.GET( url )
             except:
                 pass
             else:
@@ -162,7 +162,7 @@ class allowedMethods(baseDiscoveryPlugin):
             methods_to_test.remove('PUT')
 
             for method in methods_to_test:
-                method_functor = getattr( self._urlOpener, method )
+                method_functor = getattr( self._url_opener, method )
                 try:
                     response = apply( method_functor, (url,) , {} )
                     code = response.getCode()

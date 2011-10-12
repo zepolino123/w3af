@@ -62,7 +62,7 @@ class serverHeader(baseDiscoveryPlugin):
             raise w3afRunOnce()
         else:
             try:
-                response = self._urlOpener.GET( fuzzableRequest.getURL(), useCache=True )       
+                response = self._url_opener.GET( fuzzableRequest.getURL(), useCache=True )       
             except KeyboardInterrupt,e:
                 raise e
             else:
@@ -119,7 +119,7 @@ class serverHeader(baseDiscoveryPlugin):
         Analyze X-Powered-By header.
         '''
         try:
-            response = self._urlOpener.GET( fuzzableRequest.getURL(), useCache=True )
+            response = self._url_opener.GET( fuzzableRequest.getURL(), useCache=True )
         except:
             pass
         else:

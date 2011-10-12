@@ -155,7 +155,7 @@ class fileUpload(baseAuditPlugin):
                 for url in domain_path_list:
                     for path in self._generate_urls(url, mutant.uploaded_file_name):
         
-                        get_response = self._urlOpener.GET(path, useCache=False)
+                        get_response = self._url_opener.GET(path, useCache=False)
                         if not is_404(get_response):
                             # This is necesary, if I dont do this, the session
                             # saver will break cause REAL file objects can't 

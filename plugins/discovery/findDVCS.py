@@ -70,7 +70,7 @@ class findDVCS(baseDiscoveryPlugin):
                 repo_url = domain_path.urlJoin(relative_url)
 
                 try:
-                    response = self._urlOpener.GET( repo_url, useCache=True )
+                    response = self._url_opener.GET( repo_url, useCache=True )
                 except w3afException:
                     om.out.debug('Failed to GET '+repo+' file: "' + repo_url + '"')
                 else:

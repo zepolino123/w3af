@@ -47,7 +47,7 @@ class basePlugin(configurable):
         '''
         Create some generic attributes that are going to be used by most plugins.
         '''
-        self._urlOpener = None
+        self._url_opener = None
         self._tm = tm
         self._plugin_lock = threading.RLock()
     
@@ -72,7 +72,7 @@ class basePlugin(configurable):
         
         @return: No value is returned.
         '''
-        self._urlOpener = UrlOpenerProxy(urlOpener, self)
+        self._url_opener = UrlOpenerProxy(urlOpener, self)
         
 
     def setOptions( self, optionsMap ):
@@ -200,7 +200,7 @@ class basePlugin(configurable):
         args = ( url, )
         method = mutant.getMethod()
         
-        functor = getattr(self._urlOpener , method)
+        functor = getattr(self._url_opener , method)
         # run functor , run !   ( forest gump flash )
         res = functor(*args, data=data, headers=headers,
                       grepResult=grepResult, useCache=useCache)

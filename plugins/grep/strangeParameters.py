@@ -19,25 +19,16 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
+import re
 
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-
-import core.data.kb.knowledgeBase as kb
+from core.controllers.w3afException import w3afException
+from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
+from core.data.kb.knowledgeBase import kb
+from core.data.options.optionList import optionList
 import core.data.kb.info as info
 import core.data.kb.vuln as vuln
-
-from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
-
-from core.controllers.w3afException import w3afException
 import core.data.parsers.dpCache as dpCache
-
-import re
 
 
 class strangeParameters(baseGrepPlugin):
@@ -98,7 +89,7 @@ class strangeParameters(baseGrepPlugin):
                             i['parameterValue'] = qs[param_name][element_index]
                             i.addToHighlight(qs[param_name][element_index])
 
-                            kb.kb.append( self.name , 'strangeParameters' , i )
+                            kb.append( self.name , 'strangeParameters' , i )
                             
                         # To find this kind of vulns
                         # http://thedailywtf.com/Articles/Oklahoma-
@@ -121,7 +112,7 @@ class strangeParameters(baseGrepPlugin):
                             v.setVar( param_name )
                             v['parameterValue'] = qs[param_name][element_index]
                             v.addToHighlight(qs[param_name][element_index])
-                            kb.kb.append( self.name , 'strangeParameters' , v )
+                            kb.append( self.name , 'strangeParameters' , v )
     
     def setOptions( self, OptionList ):
         pass
@@ -137,7 +128,7 @@ class strangeParameters(baseGrepPlugin):
         '''
         This method is called when the plugin wont be used anymore.
         '''
-        self.printUniq( kb.kb.getData( 'strangeParameters', 'strangeParameters' ), 'VAR' )
+        self.printUniq( kb.getData( 'strangeParameters', 'strangeParameters' ), 'VAR' )
 
     def _is_SQL(self, request, parameter, value):
         '''

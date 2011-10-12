@@ -350,12 +350,15 @@ class SQLCachedResponse(CachedResponse):
                    method=request.get_method(),
                    url=request.url_object,
                    postData=str(request.get_data() or ''),
-                   headers=headers)
+                   headers=headers
+                   )
         hi.request = req
 
         # Set the response
-        resp = httpResponse.from_httplib_resp(response,
-                                              original_url=request.url_object)
+        resp = httpResponse.from_httplib_resp(
+                                          response,
+                                          original_url=request.url_object
+                                          )
         resp.setId(response.id)
         resp.setAlias(gen_hash(request))
         hi.response = resp

@@ -80,7 +80,7 @@ class wsdlFinder(baseDiscoveryPlugin):
         @return: None.
         '''
         try:
-            self._urlOpener.GET( url_to_request, useCache=True )
+            self._url_opener.GET( url_to_request, useCache=True )
         except w3afException:
             om.out.debug('Failed to request the WSDL file: ' + url_to_request)
         else:

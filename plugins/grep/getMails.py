@@ -20,20 +20,15 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
-import core.controllers.outputManager as om
-
-# options
+from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
+from core.controllers.w3afException import w3afException
+from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
+from core.data.kb.knowledgeBase import kb
 from core.data.options.option import option
 from core.data.options.optionList import optionList
-
-from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
-
-import core.data.kb.knowledgeBase as kb
+import core.controllers.outputManager as om
 import core.data.kb.info as info
-
 import core.data.parsers.dpCache as dpCache
-from core.controllers.w3afException import w3afException
 
 
 class getMails(baseGrepPlugin):
@@ -95,7 +90,7 @@ class getMails(baseGrepPlugin):
             url = response.getURL()
 
             email_map = {}
-            for info_obj in kb.kb.getData( 'mails', 'mails'):
+            for info_obj in kb.getData( 'mails', 'mails'):
                 mail_string = info_obj['mail']
                 email_map[ mail_string ] = info_obj
 
@@ -114,7 +109,7 @@ class getMails(baseGrepPlugin):
                 i['url_list'] = [url]
                 i['user'] = mail_address.split('@')[0]
                 i.addToHighlight( mail_address )
-                kb.kb.append( 'mails', kb_key, i )
+                kb.append( 'mails', kb_key, i )
             
             else:
             
@@ -154,8 +149,8 @@ class getMails(baseGrepPlugin):
         '''
         This method is called when the plugin wont be used anymore.
         '''
-        self.printUniq( kb.kb.getData( 'mails', 'mails' ), None )
-        self.printUniq( kb.kb.getData( 'mails', 'external_mails' ), None )
+        self.printUniq( kb.getData( 'mails', 'mails' ), None )
+        self.printUniq( kb.getData( 'mails', 'external_mails' ), None )
     
     def getPluginDeps( self ):
         '''

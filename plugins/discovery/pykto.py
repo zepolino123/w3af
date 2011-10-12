@@ -174,7 +174,7 @@ class pykto(baseDiscoveryPlugin):
         
         # fetching remote version
         versions_url = url_object('http://www.cirt.net/nikto/UPDATES/1.36/versions.txt')
-        res_version = self._urlOpener.GET( versions_url )
+        res_version = self._url_opener.GET( versions_url )
         
         fetched_version = False
         for line in res_version.getBody().split():
@@ -203,7 +203,7 @@ class pykto(baseDiscoveryPlugin):
                 msg = 'Updating to scan_database version: "' + str(remote_version) + '".'
                 om.out.information( msg )
                 scan_database_url = url_object('http://www.cirt.net/nikto/UPDATES/1.36/scan_database.db')
-                res = self._urlOpener.GET( scan_database_url )
+                res = self._url_opener.GET( scan_database_url )
                 try:
                     # Write new scan_database
                     os.unlink( self._db_file )
@@ -438,7 +438,7 @@ class pykto(baseDiscoveryPlugin):
         '''
         (server, query , expected_response, method , desc) = parameters
 
-        function_reference = getattr( self._urlOpener , method )
+        function_reference = getattr( self._url_opener , method )
         try:
             response = function_reference( url )
         except KeyboardInterrupt,e:

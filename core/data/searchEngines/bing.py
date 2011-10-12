@@ -38,7 +38,7 @@ class bing(searchEngine):
 
     def __init__(self, urlOpener):
         searchEngine.__init__(self)
-        self._urlOpener = urlOpener
+        self._url_opener = urlOpener
 
     def search(self, query, start, count=10):
         res = self._metSearch(query, start)
@@ -67,7 +67,7 @@ class bing(searchEngine):
         url = 'http://www.bing.com/search?'
         _query = urllib.urlencode({'q':query, 'first':start+1, 'FORM':'PERE'})
         url_instance = url_object(url+_query)
-        response = self._urlOpener.GET( url_instance, headers=self._headers,
+        response = self._url_opener.GET( url_instance, headers=self._headers,
                 useCache=True, grepResult=False)
         results = []
 

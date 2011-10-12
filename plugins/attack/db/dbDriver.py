@@ -41,7 +41,7 @@ class dbDriver(dbDriverFunctions, basePlugin):
         self.args.injParameter = vuln.getVar()
         self.args.httpMethod = vuln.getMethod()
         
-        self._urlOpener = urlOpener
+        self._url_opener = urlOpener
         self._vuln = vuln
         
         mutant = vuln.getMutant()

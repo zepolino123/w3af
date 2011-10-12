@@ -89,7 +89,7 @@ class proxy(w3afThread):
         self._server = None
         self._proxyHandler = proxyHandler
         self._running = False
-        self._urlOpener = urlOpener
+        self._url_opener = urlOpener
         self._tm = tm
         
         # User configured parameters
@@ -153,8 +153,8 @@ class proxy(w3afThread):
         time.sleep(0.1)
         
         om.out.debug( 'Using proxy handler: ' + str(self._proxyHandler) )
-        self._proxyHandler._urlOpener = self._urlOpener
-        self._proxyHandler._urlOpener._proxyCert = self._proxyCert
+        self._proxyHandler._url_opener = self._url_opener
+        self._proxyHandler._url_opener._proxyCert = self._proxyCert
         
         # Starting to handle requests
         message = 'Proxy server listening on '+ self._ip + ':'+ str(self._port)
@@ -287,7 +287,7 @@ class w3afProxyHandler(BaseHTTPRequestHandler):
             postData = self._getPostData()
 
             try:
-                httpCommandMethod = getattr( self._urlOpener, self.command )
+                httpCommandMethod = getattr( self._url_opener, self.command )
                 res = httpCommandMethod( uri_instance, data=postData, headers=self.headers )
             except w3afException, w:
                 om.out.error('The proxy request failed, error: ' + str(w) )
@@ -300,7 +300,7 @@ class w3afProxyHandler(BaseHTTPRequestHandler):
 
             # most likely a GET request
             try:
-                httpCommandMethod = getattr( self._urlOpener, self.command )
+                httpCommandMethod = getattr( self._url_opener, self.command )
                 res = httpCommandMethod(uri_instance, data=None, headers=self.headers,  grepResult=grep )
             except w3afException, w:
                 traceback.print_exc()
@@ -394,12 +394,12 @@ class w3afProxyHandler(BaseHTTPRequestHandler):
                 ctx.set_timeout(5)
                 
                 try:
-                    ctx.use_privatekey_file ( self._urlOpener._proxyCert )
+                    ctx.use_privatekey_file ( self._url_opener._proxyCert )
                 except:
-                    om.out.error( "[proxy error] Couldn't find certificate file %s"% self._urlOpener._proxyCert )
+                    om.out.error( "[proxy error] Couldn't find certificate file %s"% self._url_opener._proxyCert )
                 
-                ctx.use_certificate_file( self._urlOpener._proxyCert )
-                ctx.load_verify_locations( self._urlOpener._proxyCert )
+                ctx.use_certificate_file( self._url_opener._proxyCert )
+                ctx.load_verify_locations( self._url_opener._proxyCert )
                 
                 # Save for later
                 browSoc = self.connection

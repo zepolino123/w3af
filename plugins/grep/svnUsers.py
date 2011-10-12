@@ -19,21 +19,14 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
+import re
 
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
 from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
-
-import core.data.kb.knowledgeBase as kb
-import core.data.kb.vuln as vuln
+from core.data.kb.knowledgeBase import kb
+from core.data.options.optionList import optionList
 import core.data.constants.severity as severity
-
-import re
+import core.data.kb.vuln as vuln
 
 
 class svnUsers(baseGrepPlugin):
@@ -82,7 +75,7 @@ class svnUsers(baseGrepPlugin):
                     v.setSeverity(severity.LOW)
                     v.setName('SVN user disclosure vulnerability')
                     v.addToHighlight(m[0])
-                    kb.kb.append(self.name, 'users', v)
+                    kb.append(self.name, 'users', v)
 
         
     def setOptions( self, OptionList ):
@@ -99,7 +92,7 @@ class svnUsers(baseGrepPlugin):
         '''
         This method is called when the plugin wont be used anymore.
         '''
-        self.printUniq( kb.kb.getData( 'svnUsers', 'users' ), 'URL' )
+        self.printUniq( kb.getData( 'svnUsers', 'users' ), 'URL' )
     
     def getPluginDeps( self ):
         '''

@@ -19,22 +19,14 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
+import re
 
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-
-import core.data.kb.knowledgeBase as kb
-import core.data.kb.vuln as vuln
-import core.data.constants.severity as severity
 from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
-
-import core.data.parsers.urlParser as urlParser
-import re
+from core.data.kb.knowledgeBase import kb
+from core.data.options.optionList import optionList
+import core.data.constants.severity as severity
+import core.data.kb.vuln as vuln
 
 
 class privateIP(baseGrepPlugin):
@@ -96,7 +88,7 @@ class privateIP(baseGrepPlugin):
                         v.setDesc( msg )
                         v['IP'] = match                            
                         v.addToHighlight( match )
-                        kb.kb.append( self.name, 'header', v )       
+                        kb.append( self.name, 'header', v )       
 
             #
             #   Search for IP addresses on HTML
@@ -136,7 +128,7 @@ class privateIP(baseGrepPlugin):
                             v.setDesc( msg )
                             v['IP'] = match
                             v.addToHighlight( match )
-                            kb.kb.append( self.name, 'html', v )     
+                            kb.append( self.name, 'html', v )     
 
     def setOptions( self, OptionList ):
         pass
@@ -152,8 +144,8 @@ class privateIP(baseGrepPlugin):
         '''
         This method is called when the plugin wont be used anymore.
         '''
-        self.printUniq( kb.kb.getData( 'privateIP', 'header' ), None )
-        self.printUniq( kb.kb.getData( 'privateIP', 'html' ), None )
+        self.printUniq( kb.getData( 'privateIP', 'header' ), None )
+        self.printUniq( kb.getData( 'privateIP', 'html' ), None )
             
     def getPluginDeps( self ):
         '''

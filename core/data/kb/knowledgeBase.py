@@ -127,16 +127,6 @@ class KnowledgeBase(object):
     def dump(self):
         return self._kb
     
-    def update(self, otherkb):
-        '''
-        Update self from other kb.
-        '''
-        with self._kb_lock:
-            for othname, othvals in otherkb.iteritems():
-                vals = self._kb.setdefault(othname, {})
-                for othinname, othinvals in othvals:
-                    vals.setdefault(othinname, []).extend(othinvals)
-    
     def cleanup(self):
         '''
         Cleanup internal data.

@@ -122,7 +122,7 @@ class findComments(baseGrepPlugin):
                         desc += response.getURL() + '" . This could be interesting.'
                         i.setDesc( desc )
                         i.setId( response.id )
-                        i.setDc( request.getDc )
+                        i.setDc( request.getDc() )
                         i.setURI( response.getURI() )
                         i.addToHighlight( html_in_comment.group(0) )
                         kb.append( self.name, 'htmlCommentsHideHtml', i )

@@ -63,14 +63,14 @@ class detectReverseProxy(baseDiscoveryPlugin):
             
             # detect using GET
             if not kb.kb.getData( 'detectTransparentProxy', 'detectTransparentProxy'):            
-                response = self._urlOpener.GET( fuzzableRequest.getURL(), useCache=True )
+                response = self._url_opener.GET( fuzzableRequest.getURL(), useCache=True )
                 if self._has_proxy_headers( response ):
                     self._report_finding( response )
            
             # detect using TRACE
             # only if I wasn't able to do it with GET
             if not kb.kb.getData( 'detectReverseProxy', 'detectReverseProxy' ):
-                response = self._urlOpener.TRACE( fuzzableRequest.getURL(), useCache=True )
+                response = self._url_opener.TRACE( fuzzableRequest.getURL(), useCache=True )
                 if self._has_proxy_content( response ):
                     self._report_finding( response )
            
@@ -88,7 +88,7 @@ class detectReverseProxy(baseDiscoveryPlugin):
             # Reverse-Via: MUTUN ------> find this!
             # ....
             if not kb.kb.getData( 'detectReverseProxy', 'detectReverseProxy' ):
-                response = self._urlOpener.TRACK( fuzzableRequest.getURL(), useCache=True )
+                response = self._url_opener.TRACK( fuzzableRequest.getURL(), useCache=True )
                 if self._has_proxy_content( response ):
                     self._report_finding( response )
                 

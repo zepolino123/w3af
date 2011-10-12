@@ -359,7 +359,7 @@ class formAuthBrute(baseBruteforcePlugin):
                                 if 'cookie' in header_name.lower():
                                     additionalHeaders.append(
                                             (header_name, headers[header_name]))                            
-                            self._urlOpener.settings.setHeadersList(
+                            self._url_opener.settings.setHeadersList(
                                                             additionalHeaders)
 
                             om.out.vulnerability(msg, severity=severity.HIGH)

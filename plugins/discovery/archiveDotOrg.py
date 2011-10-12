@@ -146,7 +146,7 @@ class archiveDotOrg(baseDiscoveryPlugin):
                 self._already_visited.add( url )
                 
                 try:
-                    http_response = self._urlOpener.GET( url, useCache=True )
+                    http_response = self._url_opener.GET( url, useCache=True )
                 except Exception:
                     pass
                 else:
@@ -191,7 +191,7 @@ class archiveDotOrg(baseDiscoveryPlugin):
         res = False
         
         try:
-            response = self._urlOpener.GET( url, useCache=True )
+            response = self._url_opener.GET( url, useCache=True )
         except KeyboardInterrupt,e:
             raise e
         except w3afException,e:

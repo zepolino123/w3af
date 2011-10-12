@@ -39,7 +39,7 @@ class yahooSiteExplorer(searchEngine):
     
     def __init__(self, urlOpener ):
         searchEngine.__init__(self)
-        self._urlOpener = urlOpener
+        self._url_opener = urlOpener
         
     def search( self, query, start, count=100 ):
         '''
@@ -64,7 +64,7 @@ class yahooSiteExplorer(searchEngine):
         url += query
         url_instance = url_object(url)
         
-        response = self._urlOpener.GET(url_instance, headers=self._headers, useCache=True, grepResult=False)
+        response = self._url_opener.GET(url_instance, headers=self._headers, useCache=True, grepResult=False)
         
         results = []
 

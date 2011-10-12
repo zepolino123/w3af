@@ -20,16 +20,10 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
-
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
 from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
-
-import core.data.kb.knowledgeBase as kb
+from core.data.kb.knowledgeBase import kb
+from core.data.options.optionList import optionList
 import core.data.kb.info as info
 
 
@@ -74,7 +68,7 @@ class wsdlGreper(baseGrepPlugin):
         >>> request.setMethod('GET')
         >>> w = wsdlGreper()
         >>> w.grep(request, response)
-        >>> len(kb.kb.getData('wsdlGreper', 'wsdl'))
+        >>> len(kb.getData('wsdlGreper', 'wsdl'))
         0
 
         One long string
@@ -87,7 +81,7 @@ class wsdlGreper(baseGrepPlugin):
         >>> request.setMethod('GET')
         >>> w = wsdlGreper()
         >>> w.grep(request, response)
-        >>> len(kb.kb.getData('wsdlGreper', 'wsdl'))
+        >>> len(kb.getData('wsdlGreper', 'wsdl'))
         0
 
         Something interesting to match
@@ -102,11 +96,11 @@ class wsdlGreper(baseGrepPlugin):
         >>> request.setMethod('GET')
         >>> w = wsdlGreper()
         >>> w.grep(request, response)
-        >>> len(kb.kb.getData('wsdlGreper', 'wsdl'))
+        >>> len(kb.getData('wsdlGreper', 'wsdl'))
         1
 
         Something interesting to match
-        >>> kb.kb.cleanup()
+        >>> kb.cleanup()
         >>> body = 'ABC ' * 100
         >>> body += 'disco:discovery '
         >>> body += '</br> ' * 50
@@ -118,7 +112,7 @@ class wsdlGreper(baseGrepPlugin):
         >>> request.setMethod('GET')
         >>> w = wsdlGreper()
         >>> w.grep(request, response)
-        >>> len(kb.kb.getData('wsdlGreper', 'disco'))
+        >>> len(kb.getData('wsdlGreper', 'disco'))
         1
         '''
         url = response.getURL()
@@ -142,7 +136,7 @@ class wsdlGreper(baseGrepPlugin):
                 msg = 'The URL: "' +  i.getURL() + '" is a Web Services '
                 msg += 'Description Language page.'
                 i.setDesc( msg )
-                kb.kb.append( self.name , 'wsdl' , i )
+                kb.append( self.name , 'wsdl' , i )
             
             is_Disco = False
             for disco_string in self._disco_strings:
@@ -158,7 +152,7 @@ class wsdlGreper(baseGrepPlugin):
                 msg += ' references to WSDLs.'
                 i.setDesc( msg )
                 i.addToHighlight( disco_string )
-                kb.kb.append( self.name , 'disco' , i )
+                kb.append( self.name , 'disco' , i )
             
     def setOptions( self, OptionList ):
         pass
@@ -196,8 +190,8 @@ class wsdlGreper(baseGrepPlugin):
         '''
         This method is called when the plugin wont be used anymore.
         '''
-        self.printUniq( kb.kb.getData( 'wsdlGreper', 'wsdl' ), 'URL' )
-        self.printUniq( kb.kb.getData( 'wsdlGreper', 'disco' ), 'URL' )
+        self.printUniq( kb.getData( 'wsdlGreper', 'wsdl' ), 'URL' )
+        self.printUniq( kb.getData( 'wsdlGreper', 'disco' ), 'URL' )
         
     def getLongDesc( self ):
         '''

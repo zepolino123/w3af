@@ -68,7 +68,6 @@ class outputManager:
         
         @parameter message: Message that is sent.
         '''
-        return
         self._call_output_plugins_action('debug', message, newLine)
     
     def information(self, message, newLine=True):

@@ -161,7 +161,7 @@ class findBackdoor(baseDiscoveryPlugin):
         @parameter web_shell_url: The URL to check
         '''
         try:
-            response = self._urlOpener.GET(web_shell_url, useCache=True)
+            response = self._url_opener.GET(web_shell_url, useCache=True)
         except w3afException:
             om.out.debug('Failed to GET webshell:' + web_shell_url)
         else:
