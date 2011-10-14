@@ -20,9 +20,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
-from multiprocessing.managers import SyncManager
 from multiprocessing import Lock
 
+from core.controllers.misc.shared import Shared
 import core.data.kb.info as info
 import core.data.kb.shell as shell
 import core.data.kb.vuln as vuln
@@ -133,11 +133,5 @@ class KnowledgeBase(object):
         '''
         self._kb.clear()
 
-
-# JAP Oct 6th, 2011: Create global proxy object for KnowledgeBase instance.
-# Needed by the new multiprocessing implementation 
-_kb = KnowledgeBase()
-SyncManager.register('kb', lambda: _kb)
-sync_mngr = SyncManager()
-sync_mngr.start()
-kb = sync_mngr.kb()
+# Multiprocess shared KnowledgeBase
+kb = Shared(KnowledgeBase())

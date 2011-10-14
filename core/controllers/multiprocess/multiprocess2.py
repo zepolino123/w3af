@@ -137,6 +137,8 @@ class GrepMngr(PluginMngr):
     def work(self, args=(), timeout=None):
         
         self.assert_is_not_terminated()
+        
+        globalsrepl = {'kb': kb}
 
         result = Result(
                     cache=self._cache,
@@ -147,7 +149,7 @@ class GrepMngr(PluginMngr):
         for worker in self._workers:
             taskq = worker.task_queue
             taskq.put(
-                (result._job_id, args, kb)
+                (result._job_id, args, globalsrepl)
                 )
         
         res_list = result.get(timeout)
@@ -198,9 +200,6 @@ class Worker(multiprocessing.Process):
         raise NotImplementedError
 
 
-import time
-d = {}
-
 class GrepWorker(Worker):
     
     def __init__(self, plugins, task_queue, result_queue):
@@ -212,7 +211,7 @@ class GrepWorker(Worker):
         while not self._shutdown.is_set():
             jobid = None
             try:
-                jobid, args, kb = self.task_queue.get()
+                jobid, args, globalsrepl = self.task_queue.get()
                 if args is None:
                     # 'Poison pill' means shutdown.
                     break
@@ -220,18 +219,7 @@ class GrepWorker(Worker):
                 res = []
                 for p in self._plugins:
                     try:
-                        #print 'waiting for...', p.name
-                        init = time.time()
-                        
-                        value = self._tweaked_grep(p, {'kb': kb})(*args)
-                        
-                        spent = time.time() - init
-                        
-                        l = d.setdefault(p.name, [])
-                        l.append(spent)
-                        
-                        print "=== Average time for plugin '%s' is %.2f seconds" % (p.name, float(sum(l))/len(l))
-                        
+                        value = self._tweaked_grep(p, globalsrepl)(*args)
                     except KeyboardInterrupt:
                         raise
                     except Exception, ex:
@@ -251,11 +239,11 @@ class GrepWorker(Worker):
                 self.result_queue.put(
                                     (jobid, [Failure(ki)])
                                     )
-    def _tweaked_grep(self, plugin, globalrepl):
+    def _tweaked_grep(self, plugin, globalsrepl):
         def _grep(*args):
             grep_func = plugin.grep.im_func
             _globals = dict(grep_func.func_globals)
-            _globals.update(globalrepl)
+            _globals.update(globalsrepl)
             _grep_func = types.FunctionType(grep_func.func_code, _globals)
             return _grep_func(plugin, *args)
         return _grep

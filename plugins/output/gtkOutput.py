@@ -52,7 +52,7 @@ class gtkOutput(baseOutputPlugin):
     def __init__(self):
         baseOutputPlugin.__init__(self)
         
-        if globaldata.get('gtkoutput-db', []):
+        if globaldata.get('gtkoutput-db', None):
             # Restore it from the kb
             self._db = globaldata['gtkoutput-db']
             self.queue = globaldata['gtkoutput-queue']

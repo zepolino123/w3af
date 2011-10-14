@@ -19,7 +19,6 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-from multiprocessing.managers import SyncManager
 import cgi
 import itertools
 import multiprocessing
@@ -28,39 +27,39 @@ import urllib
 from core.controllers.misc.decorators import retry
 from core.controllers.misc.levenshtein import relative_distance_ge
 from core.controllers.misc.lru import LRU
+from core.controllers.misc.shared import Shared
 from core.controllers.w3afException import w3afException, w3afMustStopException
 from core.data.url.xUrllib import xUrllib
 from core.data.fuzzer.fuzzer import createRandAlNum
 import core.controllers.outputManager as om
 import core.data.kb.config as cf
+from core.data.parsers.urlParser import url_object
 
 __all__ = ['is_404']
 
 
-class Fingerprint404:
+class Fingerprint404(object):
     '''
     Read the 404 page(s) returned by the server.
     
     @author: Andres Riancho ( andres.riancho@gmail.com )
     '''
-    __shared_state = {}
-    
+
     # Sequence of the most common handlers
     handlers = (
         'py', 'php', 'asp', 'aspx', 'do', 'jsp', 'rb',
         'do', 'gif', 'htm', 'pl', 'cgi', 'xhtml', 'htmls'
         )
     IS_EQUAL_RATIO = 0.90
+    __shared = {}
     
     def __init__(self, url):
         
-        self.__dict__ = self.__shared_state
+        self.__dict__ = self.__shared
         
-        if not getattr(self, '_inited', False):
-            self._inited = True
-            self._url_opener = xUrllib()
-            self._404_bodies = self._generate_404_knowledge(url)
-            self.is_404_LRU = LRU(500)
+        self._url_opener = xUrllib()
+        self._404_bodies = self._generate_404_knowledge(url)
+        self.is_404_LRU = LRU(500)
     
     def is_404(self, http_response):
         '''
@@ -213,7 +212,7 @@ class Fingerprint404:
 
 def get_clean_body(response):
     '''
-    Definition of clean in this method:
+    Definition of 'clean' in this function:
         - input:
             - response.getURL() == http://host.tld/aaaaaaa/
             - response.getBody() == 'spam aaaaaaa eggs'
@@ -246,16 +245,8 @@ def get_clean_body(response):
 
     return body
 
+
+_sharedfp404 = Shared(Fingerprint404(url_object('http://moth/')), exposed=('is_404',))
+
 def is_404(http_resp):
-    fp404 = sync_mngr.Fingerprint404(http_resp.getURL())
-    return fp404.is_404(http_resp)
-
-
-# Multiprocess accessible unique instance - use this one
-SyncManager.register(
-            'Fingerprint404',
-            Fingerprint404,
-            exposed=('is_404',)
-            )
-sync_mngr = SyncManager()
-sync_mngr.start()
+    return _sharedfp404.is_404(http_resp)

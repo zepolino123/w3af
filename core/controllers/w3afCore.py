@@ -140,12 +140,17 @@ class w3afCore(object):
         
     def _initializeInternalVariables(self):
         '''
-        Init some internal variables; this method is called when the whole process starts, and when the user
-        performs a clear() in the gtk user interface.
+        Init some internal variables; this method is called when the
+        whole process starts, and when the user performs a clear()
+        in the gtk user interface.
         '''
-        # A dict with plugin types as keys and a list of plugin instances as values
-        self._plugins = {'audit':[], 'grep':[], 'bruteforce':[], 'discovery':[], \
-        'evasion':[], 'mangle':[], 'output':[]}
+        # A dict with plugin types as keys and a list of plugin
+        # instances as values
+        self._plugins = {
+                'audit':[], 'grep':[], 'bruteforce':[],
+                'discovery':[], 'evasion':[], 'mangle':[],
+                'output':[]
+                }
         
         self._fuzzableRequestList  = []
         
@@ -475,6 +480,9 @@ class w3afCore(object):
         '''
         om.out.debug('Called w3afCore.start()')
         
+        from core.controllers.misc.shared import Shared
+        Shared.start_sharing()
+        
         # This will help identify the total discovery time
         self._discovery_start_time_epoch = time.time()
         
@@ -667,6 +675,8 @@ class w3afCore(object):
         '''
         # Clean all data that is stored in the kb
         kb.kb.cleanup()
+        # Also globaldata
+        globaldata.clear()
 
         # Zero internal variables from the core
         self._initializeInternalVariables()

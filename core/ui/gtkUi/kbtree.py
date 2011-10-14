@@ -50,8 +50,11 @@ class KBTree(gtk.TreeView):
         self.w3af = w3af
 
         # simple empty Tree Store
-        # columns: string to show; key for the plugin instance, icon, colorLevel, color, child_count
-        self.treestore = gtk.TreeStore(gtk.gdk.Pixbuf, str, str, gtk.gdk.Pixbuf, int, str, str)
+        # columns: string to show; key for the
+        #    plugin instance, icon, colorLevel, color, child_count
+        self.treestore = gtk.TreeStore(
+                    gtk.gdk.Pixbuf, str, str, gtk.gdk.Pixbuf, int, str, str
+                    )
         gtk.TreeView.__init__(self, self.treestore)
         #self.set_enable_tree_lines(True)
 
@@ -102,7 +105,9 @@ class KBTree(gtk.TreeView):
         self.connect("query-tooltip", self._showToolTips)
 ##        self.connect("motion-notify-event", self._changeButtonStyle)
 
-        gobject.timeout_add(500, self._updateTree, self.treestore, self.treeholder)
+        gobject.timeout_add(
+                    500, self._updateTree, self.treestore, self.treeholder
+                    )
         self.postcheck = False
         
         self.show()
@@ -190,7 +195,9 @@ class KBTree(gtk.TreeView):
         @param active: which types should be shown.
         '''
         self.filter = active
-        new_treestore = gtk.TreeStore(gtk.gdk.Pixbuf, str, str, gtk.gdk.Pixbuf, int, str, str)
+        new_treestore = gtk.TreeStore(
+                    gtk.gdk.Pixbuf, str, str, gtk.gdk.Pixbuf, int, str, str
+                    )
         # Sort
         # remember that the 4 is just a number that is then used in
         # set_sort_column_id
@@ -233,8 +240,7 @@ class KBTree(gtk.TreeView):
             else:
                 self.lastcheck = True
         self.lastcheck = False
-
-
+        
         # get the filtered knowledge base info
         filteredKB = self._filterKB()
         

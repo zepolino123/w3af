@@ -22,20 +22,22 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 import itertools
 
+from core.controllers.misc.shared import Shared
 from core.data.parsers.urlParser import url_object
 import core.data.constants.severity as severity
 
+
+counter = Shared(itertools.count(), exposed=('next',))
 
 class info(dict):
     '''
     This class represents an information that is saved to the kb.
     @author: Andres Riancho ( andres.riancho@gmail.com )
     '''
-    counter = itertools.count()
     
     def __init__(self, data_obj=None):
         
-        self._id_key = info.counter.next()
+        self._id_key = counter.next()
         # Default values
         self._url = None
         self._uri = None
