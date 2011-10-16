@@ -33,9 +33,43 @@ from core.data.url.xUrllib import xUrllib
 from core.data.fuzzer.fuzzer import createRandAlNum
 import core.controllers.outputManager as om
 import core.data.kb.config as cf
-from core.data.parsers.urlParser import url_object
 
 __all__ = ['is_404']
+
+def get_clean_body(response):
+    '''
+    Definition of 'clean' in this function:
+        - input:
+            - response.getURL() == http://host.tld/aaaaaaa/
+            - response.getBody() == 'spam aaaaaaa eggs'
+            
+        - output:
+            - self._clean_body( response ) == 'spam  eggs'
+    
+    The same works with filenames.
+    All of them, are removed encoded and "as is".
+    
+    @parameter response: The httpResponse object to clean
+    @return: A string that represents the "cleaned" response
+        body of the response.
+    '''
+    
+    body = response.body
+    
+    if response.is_text_or_html():
+        url = response.getURL()
+        to_replace = url.url_string.split('/')
+        to_replace.append(url.url_string)
+        
+        for repl in to_replace:
+            if len(repl) > 6:
+                unquote_repl = urllib.unquote_plus(repl)
+                body = body.replace(repl, '')
+                body = body.replace(unquote_repl, '')
+                body = body.replace(cgi.escape(repl), '')
+                body = body.replace(cgi.escape(unquote_repl), '')
+
+    return body
 
 
 class Fingerprint404(object):
@@ -44,22 +78,23 @@ class Fingerprint404(object):
     
     @author: Andres Riancho ( andres.riancho@gmail.com )
     '''
-
+    __shared_state = {}
     # Sequence of the most common handlers
     handlers = (
         'py', 'php', 'asp', 'aspx', 'do', 'jsp', 'rb',
         'do', 'gif', 'htm', 'pl', 'cgi', 'xhtml', 'htmls'
         )
     IS_EQUAL_RATIO = 0.90
-    __shared = {}
     
     def __init__(self, url):
         
-        self.__dict__ = self.__shared
+        self.__dict__ = self.__shared_state
         
-        self._url_opener = xUrllib()
-        self._404_bodies = self._generate_404_knowledge(url)
-        self.is_404_LRU = LRU(500)
+        if not getattr(self, '_inited', False):
+            self._inited = True
+            self._url_opener = xUrllib()
+            self._404_bodies = self._generate_404_knowledge(url)
+            self.is_404_LRU = LRU(500)
     
     def is_404(self, http_response):
         '''
@@ -143,18 +178,12 @@ class Fingerprint404(object):
         
         @return: A list with 404 bodies.
         '''
-        # This is the case when nobody has properly configured
-        # the object in order to use it.
-        if self._url_opener is None:
-            raise w3afException('404 fingerprint database was '
-                                'incorrectly initialized.')
-
         # Get the filename extension and create a 404 for it
         domain_path = url.getDomainPath()
         # the result
         bodies = []        
-
-        handlers = set(Fingerprint404.handlers)
+        
+        handlers = set(self.handlers)
         handlers.add(url.getExtension())
         
         for ext in handlers:
@@ -185,7 +214,6 @@ class Fingerprint404(object):
             # I don't use the cache, because the URLs are random
             # and the only thing that useCache does is to fill
             # up disk space
-            print 'GET "%s" on "%s"' % (url404, multiprocessing.current_process().name)
             response = self._url_opener.GET(
                                        url404,
                                        useCache=False,
@@ -210,43 +238,12 @@ class Fingerprint404(object):
         return get_clean_body(response)
 
 
-def get_clean_body(response):
-    '''
-    Definition of 'clean' in this function:
-        - input:
-            - response.getURL() == http://host.tld/aaaaaaa/
-            - response.getBody() == 'spam aaaaaaa eggs'
-            
-        - output:
-            - self._clean_body( response ) == 'spam  eggs'
-    
-    The same works with filenames.
-    All of them, are removed encoded and "as is".
-    
-    @parameter response: The httpResponse object to clean
-    @return: A string that represents the "cleaned" response
-        body of the response.
-    '''
-    
-    body = response.body
-    
-    if response.is_text_or_html():
-        url = response.getURL()
-        to_replace = url.url_string.split('/')
-        to_replace.append(url.url_string)
-        
-        for repl in to_replace:
-            if len(repl) > 6:
-                unquote_repl = urllib.unquote_plus(repl)
-                body = body.replace(repl, '')
-                body = body.replace(unquote_repl, '')
-                body = body.replace(cgi.escape(repl), '')
-                body = body.replace(cgi.escape(unquote_repl), '')
+#Fingerprint404 = Shared(Fingerprint404, exposed=('is_404',))
 
-    return body
-
-
-_sharedfp404 = Shared(Fingerprint404(url_object('http://moth/')), exposed=('is_404',))
+from core.data.parsers.urlParser import url_object
+fp404 = Shared(Fingerprint404(url_object('http://www.unifuse.com')), exposed=('is_404',))
 
 def is_404(http_resp):
-    return _sharedfp404.is_404(http_resp)
+    #url = http_resp.getURL()
+    #return Fingerprint404(url).is_404(http_resp)
+    return fp404.is_404(http_resp)

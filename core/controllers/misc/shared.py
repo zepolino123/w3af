@@ -29,46 +29,51 @@ class SharedSyncManager(object):
     '''
     
     def __init__(self):
-        self._registry = {}
+        self.registry = {}
+        self._sync_mngr = None
     
-    def register(self, typeid, callable, exposed=()):
-        self._registry[typeid] = (callable, exposed)
+    def register(self, typeid, callabletype, exposed=()):
+        assert self._sync_mngr is None, \
+                                "Sharing process has already been started"
+        self.registry[typeid] = (callabletype, exposed)
     
     def start(self):
+        assert self._sync_mngr is None, \
+                        "Sharing process has already been started"
         # First register the objects
-        for typeid, callable_tuple in self._registry.items():
+        for typeid, callable_tuple in self.registry.items():
             SyncManager.register(
                         typeid, callable_tuple[0],
                         exposed=callable_tuple[1]
                         )
-        
-        # Then create the instance and start the process!
-        for typeid in self._registry:
-            newmngr = SyncManager()
-            newmngr.start()
-            print 'saving...', getattr(newmngr, typeid)
-            self._registry[typeid] = getattr(newmngr, typeid)()
-    
-    def __getattr__(self, name):
-        return getattr(
-                object.__getattribute__(self, '_registry'), name
-                )
+        # Start the sharing process
+        mngr = SyncManager()
+        mngr.start()
+        # Finally make references to proxy builders methods
+        for typeid in self.registry:
+            self.registry[typeid] = getattr(mngr, typeid)
 
 
 class Shared(object):
     
     _server = SharedSyncManager()
     
-    def __init__(self, sharedinst, exposed=()):
+    def __init__(self, shared, exposed=()):
         self._id_str = str(id(self))
-        callable = lambda: sharedinst
-        Shared._server.register(self._id_str, callable, exposed)
+        _shared = shared
+        if not callable(shared):
+            _shared = lambda: shared
+        Shared._server.register(self._id_str, _shared, exposed)
     
     def __getattr__(self, name):
         id_str = object.__getattribute__(self, '_id_str')
-        proxy = Shared._server._registry[id_str]
-        print '=====proxy', proxy, type(proxy)
-        return getattr(proxy[0](), name)
+        getproxy = Shared._server.registry[id_str]
+        return getattr(getproxy(), name)
+    
+    def __call__(self, *args):
+        id_str = object.__getattribute__(self, '_id_str')
+        getproxy = Shared._server.registry[id_str]
+        return getproxy(*args)
     
     @classmethod
     def start_sharing(cls):
