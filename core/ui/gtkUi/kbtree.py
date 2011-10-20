@@ -280,14 +280,12 @@ class KBTree(gtk.TreeView):
                     holdvariab = set()
                     pathvariab = treestore.get_path(treevariab)
                     holdplugin[variabname] = (pathvariab, holdvariab)
+                    
 
                 # iterate the third layer, the variable objects
                 for name,instance,obtype,severity,color in variabobjects:
-
                     inst_id = str(instance._id_key)
-                    
                     if inst_id not in holdvariab:
-                                                
                         holdvariab.add(inst_id)
                         icon = helpers.KB_ICONS.get((obtype, severity))
                         if icon is not None:
@@ -295,7 +293,7 @@ class KBTree(gtk.TreeView):
                         
                         iconExploit = helpers.loadIcon('STOCK_EXECUTE') if \
                                         self._isExploitable(instance) else None
-
+                        
                         treestore.append(
                              treevariab,
                              [iconExploit, name, inst_id, icon, 0, color, '']

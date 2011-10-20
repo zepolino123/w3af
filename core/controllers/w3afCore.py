@@ -480,9 +480,6 @@ class w3afCore(object):
         '''
         om.out.debug('Called w3afCore.start()')
         
-        from core.controllers.misc.shared import Shared
-        Shared.start_sharing()
-        
         # This will help identify the total discovery time
         self._discovery_start_time_epoch = time.time()
         
@@ -512,20 +509,21 @@ class w3afCore(object):
                 for url in cf.cf.getData('targets'):
                     try:
                         #
-                        #    GET the initial target URLs in order to save them
-                        #    in a list and use them as our bootstrap URLs
+                        # GET the initial target URLs in order to save them
+                        # in a list and use them as our bootstrap URLs
                         #
-                        response = self.uriOpener.GET(url, useCache=True)
+                        response = self.uriOpener.GET(url, useCache=True, grepResult=False)
                         self._fuzzableRequestList += filter(
                             get_curr_scope_pages, createFuzzableRequests(response))
 
                         #
-                        #    NOTE: I need to perform this test here in order to avoid some weird
-                        #    thread locking that happens when the webspider calls is_404, and
-                        #    because I want to initialize the is_404 database in a controlled
-                        #    try/except block.
+                        # NOTE: I need to perform this test here in order to
+                        # avoid some weird thread locking that happens when
+                        # the webspider calls is_404, and because I want to
+                        # initialize the is_404 database in a controlled
+                        # try/except block.
                         #
-                        is_404(response)
+                        is_404(response, reset=True)
 
                     except KeyboardInterrupt:
                         raise

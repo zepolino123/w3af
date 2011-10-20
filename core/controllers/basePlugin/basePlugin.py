@@ -26,6 +26,7 @@ import threading
 from core.controllers.configurable import configurable
 from core.controllers.threads.threadManager import threadManagerObj as tm
 from core.controllers.w3afException import w3afException, w3afMustStopOnUrlError
+from core.data.options.optionList import optionList
 import core.controllers.outputManager as om
 import core.data.kb.vuln as vuln
 
@@ -33,7 +34,7 @@ import core.data.kb.vuln as vuln
 class basePlugin(configurable):
     '''
     This is the base class for ALL plugins, all plugins should inherit from it 
-    and implement the following method :
+    and may override the following method :
         1. getPluginDeps()
         
     Please note that this class is a configurable object, so it must implement:
@@ -50,14 +51,7 @@ class basePlugin(configurable):
         self._url_opener = None
         self._tm = tm
         self._plugin_lock = threading.RLock()
-    
-    @property
-    def name(self):
-        return self.__class__.__name__
-    
-    def getName(self):
-        return self.name
-
+        
     def setUrlOpener( self, urlOpener):
         '''
         This method should not be overwritten by any plugin (but you are free
@@ -73,37 +67,40 @@ class basePlugin(configurable):
         @return: No value is returned.
         '''
         self._url_opener = UrlOpenerProxy(urlOpener, self)
+    
+    @property
+    def name(self):
+        return self.__class__.__name__
         
-
-    def setOptions( self, optionsMap ):
+    @staticmethod
+    def setOptions(optionsMap):
         '''
-        Sets the Options given on the OptionList to self. The options are the result of a user
-        entering some data on a window that was constructed using the options that were
-        retrieved from the plugin using getOptions()
+        Sets the Options given on the OptionList to self. The options are
+        the result of a user entering some data on a window that was 
+        constructed using the options that were retrieved from the plugin
+        using getOptions()
         
         This method MUST be implemented on every plugin. 
-        
-        @return: No value is returned.
         ''' 
-        raise NotImplementedError, ('Plugin "%s" is not implementing '
-                                    'required method setOptions' % self.name)
-        
-    def getOptions(self):
+        pass
+    
+    @staticmethod
+    def getOptions():
         '''
         @return: A list of option objects for this plugin.
         '''
-        raise NotImplementedError, ('Plugin "%s" is not implementing '
-                                  'required method getOptions' % self.name)
+        return optionList()
 
-    def getPluginDeps(self):
+    @staticmethod
+    def getPluginDeps():
         '''
         @return: A list with the names of the plugins that should be 
         runned before the current one.
         '''
-        raise NotImplementedError, ('Plugin is not implementing required '
-                                    'method getPluginDeps')
-
-    def getDesc(self):
+        return []
+    
+    @classmethod
+    def getDesc(cls):
         '''
         @return: A description of the plugin.
         
@@ -116,21 +113,25 @@ class basePlugin(configurable):
         >>> b.getDesc()
         'abc'
         '''
-        if self.__doc__ is not None:
-            res2 = self.__doc__.replace( '\t' , '' )
-            res2 = self.__doc__.replace( '    ' , '' )
-            res = ''.join ( [ i for i in res2.split('\n') if i != '' and '@author' not in i ] )
+        if cls.__doc__:
+            res2 = cls.__doc__.replace('\t' , '')
+            res2 = cls.__doc__.replace('    ' , '')
+            res = ''.join ([i for i in res2.split('\n')
+                            if i != '' and '@author' not in i])
         else:
             res = ''
         return res
     
-    def getLongDesc( self ):
+    @staticmethod
+    def getLongDesc():
         '''
         @return: A DETAILED description of the plugin functions and features.
         '''
-        raise w3afException('Plugin is not implementing required method getLongDesc' )
+        raise NotImplementedError, ('Plugin is not implementing required'
+                                    ' method getLongDesc')
     
-    def printUniq( self, infoObjList, unique ):
+    @staticmethod
+    def printUniq(infoObjList, unique):
         '''
         Print the items of infoObjList to the user interface
         

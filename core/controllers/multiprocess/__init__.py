@@ -1,1 +1,2 @@
-from .multiprocess2 import *
+from .shared import Shared
+from .multiprocess import *

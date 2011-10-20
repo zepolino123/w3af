@@ -24,7 +24,6 @@ import re
 from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
 from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
 from core.data.kb.knowledgeBase import kb
-from core.data.options.optionList import optionList
 import core.data.constants.severity as severity
 import core.data.kb.vuln as vuln
 
@@ -35,16 +34,31 @@ class directoryIndexing(baseGrepPlugin):
       
     @author: Andres Riancho ( andres.riancho@gmail.com )
     '''
+    ### TODO: verify if I need to add more values here, IIS !!!
+    _indexing_re = (
+        "<title>Index of /",
+        '<a href="\\?C=N;O=D">Name</a>',
+        "Last modified</a>",
+        "Parent Directory</a>",
+        "Directory Listing for",
+        "<TITLE>Folder Listing.",
+        '<table summary="Directory Listing" ',
+        "- Browsing directory ",
+        '">\\[To Parent Directory\\]</a><br><br>', # IIS 6.0 and 7.0
+        '<A HREF=".*?">.*?</A><br></pre><hr></body></html>' # IIS 5.0
+        )
+
+    # Added performance by compiling all the regular expressions
+    # before using them. The setup time of the whole plugin raises,
+    # but the execution time is lowered *a lot*.
+    _compiled_regex_list = [
+        re.compile(regex, re.IGNORECASE|re.DOTALL) for regex in _indexing_re
+        ]
 
     def __init__(self):
         baseGrepPlugin.__init__(self)
         
         self._already_visited = scalable_bloomfilter()
-        
-        # Added performance by compiling all the regular expressions
-        # before using them. The setup time of the whole plugin raises,
-        # but the execution time is lowered *a lot*.
-        self._compiled_regex_list = [ re.compile(regex, re.IGNORECASE | re.DOTALL) for regex in self._get_indexing_regex() ]
 
     def grep(self, request, response):
         '''
@@ -53,75 +67,37 @@ class directoryIndexing(baseGrepPlugin):
         @parameter response: The HTTP response object
         @return: None
         '''
-        if response.getURL().getDomainPath() in self._already_visited:
-            # Already worked for this URL, no reason to work twice
-            return
+        url = response.getURL()
+        domain = url.getDomainPath()
         
-        else:
-            # Save it,
-            self._already_visited.add( response.getURL().getDomainPath() )
-            
+        if not domain in self._already_visited and response.is_text_or_html():
+            self._already_visited.add(domain)
             # Work,
-            if response.is_text_or_html():
-                html_string = response.getBody()
-                for indexing_regex in self._compiled_regex_list:
-                    if indexing_regex.search( html_string ):
-                        v = vuln.vuln()
-                        v.setPluginName(self.name)
-                        v.setURL( response.getURL() )
-                        msg = 'The URL: "' + response.getURL() + '" has a directory '
-                        msg += 'indexing vulnerability.'
-                        v.setDesc( msg )
-                        v.setId( response.id )
-                        v.setSeverity(severity.LOW)
-                        path = response.getURL().getPath()
-                        v.setName( 'Directory indexing - ' + path )
-                        
-                        kb.append( self.name , 'directory' , v )
-                        break
-    
-    def setOptions( self, OptionList ):
-        pass
-    
-    def getOptions( self ):
-        '''
-        @return: A list of option objects for this plugin.
-        '''    
-        ol = optionList()
-        return ol
-
-    def _get_indexing_regex(self):
-        '''
-        @return: A list of the regular expression strings, in order to be compiled in __init__
-        '''
-        dir_indexing_regexes = []
-        ### TODO: verify if I need to add more values here, IIS !!!
-        dir_indexing_regexes.append("<title>Index of /") 
-        dir_indexing_regexes.append('<a href="\\?C=N;O=D">Name</a>') 
-        dir_indexing_regexes.append("Last modified</a>")
-        dir_indexing_regexes.append("Parent Directory</a>")
-        dir_indexing_regexes.append("Directory Listing for")
-        dir_indexing_regexes.append("<TITLE>Folder Listing.")
-        dir_indexing_regexes.append('<table summary="Directory Listing" ')
-        dir_indexing_regexes.append("- Browsing directory ")
-        dir_indexing_regexes.append('">\\[To Parent Directory\\]</a><br><br>') # IIS 6.0 and 7.0
-        dir_indexing_regexes.append('<A HREF=".*?">.*?</A><br></pre><hr></body></html>') # IIS 5.0
-        return dir_indexing_regexes
+            html_string = response.getBody()
+            for indexing_regex in self._compiled_regex_list:
+                if indexing_regex.search(html_string):
+                    v = vuln.vuln()
+                    v.setPluginName(self.name)
+                    v.setURL(url)
+                    msg = 'The URL: "' + url + '" has a directory '
+                    msg += 'indexing vulnerability.'
+                    v.setDesc(msg)
+                    v.setId(response.id)
+                    v.setSeverity(severity.LOW)
+                    path = url.getPath()
+                    v.setName('Directory indexing - ' + path)
+                    
+                    kb.append(self.name , 'directory' , v)
+                    break
         
     def end(self):
         '''
         This method is called when the plugin wont be used anymore.
         '''
-        self.printUniq( kb.getData( 'directoryIndexing', 'directory' ), 'URL' )
-            
-    def getPluginDeps( self ):
-        '''
-        @return: A list with the names of the plugins that should be runned before the
-        current one.
-        '''
-        return []
+        self.printUniq(kb.getData( 'directoryIndexing', 'directory'), 'URL')
     
-    def getLongDesc( self ):
+    @staticmethod
+    def getLongDesc():
         '''
         @return: A DETAILED description of the plugin functions and features.
         '''

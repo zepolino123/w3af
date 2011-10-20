@@ -21,13 +21,12 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 '''
 import cgi
 import itertools
-import multiprocessing
 import urllib
 
 from core.controllers.misc.decorators import retry
 from core.controllers.misc.levenshtein import relative_distance_ge
 from core.controllers.misc.lru import LRU
-from core.controllers.misc.shared import Shared
+from core.controllers.multiprocess import Shared
 from core.controllers.w3afException import w3afException, w3afMustStopException
 from core.data.url.xUrllib import xUrllib
 from core.data.fuzzer.fuzzer import createRandAlNum
@@ -78,7 +77,6 @@ class Fingerprint404(object):
     
     @author: Andres Riancho ( andres.riancho@gmail.com )
     '''
-    __shared_state = {}
     # Sequence of the most common handlers
     handlers = (
         'py', 'php', 'asp', 'aspx', 'do', 'jsp', 'rb',
@@ -87,14 +85,8 @@ class Fingerprint404(object):
     IS_EQUAL_RATIO = 0.90
     
     def __init__(self, url):
-        
-        self.__dict__ = self.__shared_state
-        
-        if not getattr(self, '_inited', False):
-            self._inited = True
-            self._url_opener = xUrllib()
-            self._404_bodies = self._generate_404_knowledge(url)
-            self.is_404_LRU = LRU(500)
+        self._404_bodies = self._generate_404_knowledge(url)
+        self.is_404_LRU = LRU(500)
     
     def is_404(self, http_response):
         '''
@@ -185,11 +177,12 @@ class Fingerprint404(object):
         
         handlers = set(self.handlers)
         handlers.add(url.getExtension())
+        url_opener = xUrllib()
         
         for ext in handlers:
             rand_alnum_file = createRandAlNum(8) + '.' + ext
             url404 = domain_path.urlJoin(rand_alnum_file)
-            body = self._send_404(url404)
+            body = self._send_404(url_opener, url404)
             bodies.append(body)
             
         # Ignore similar responses
@@ -201,11 +194,10 @@ class Fingerprint404(object):
         
         om.out.debug('The 404 body result database has a length of %s.'
                      % len(result))
-        
         return result 
         
     @retry(tries=2, delay=0.5, backoff=2)
-    def _send_404(self, url404):
+    def _send_404(self, url_opener, url404):
         '''
         Sends a GET request to url404 and saves the response 
             in self._response_body_list .
@@ -214,11 +206,9 @@ class Fingerprint404(object):
             # I don't use the cache, because the URLs are random
             # and the only thing that useCache does is to fill
             # up disk space
-            response = self._url_opener.GET(
-                                       url404,
-                                       useCache=False,
-                                       grepResult=False
-                                       )
+            response = url_opener.GET(
+                                url404, useCache=False, grepResult=False
+                                )
         except w3afException, w3:
             raise w3afException('Exception while fetching a 404 '
                                 'page, error: %s' % w3)
@@ -238,12 +228,13 @@ class Fingerprint404(object):
         return get_clean_body(response)
 
 
-#Fingerprint404 = Shared(Fingerprint404, exposed=('is_404',))
+_fp404 = None
 
-from core.data.parsers.urlParser import url_object
-fp404 = Shared(Fingerprint404(url_object('http://www.unifuse.com')), exposed=('is_404',))
-
-def is_404(http_resp):
-    #url = http_resp.getURL()
-    #return Fingerprint404(url).is_404(http_resp)
-    return fp404.is_404(http_resp)
+def is_404(http_resp, reset=False):
+    global _fp404
+    if not _fp404 or reset:
+        _fp404 = Shared(
+                    Fingerprint404(http_resp.getURL()), exposed=('is_404',)
+                    )
+    is404 = _fp404.is_404(http_resp)
+    return is404

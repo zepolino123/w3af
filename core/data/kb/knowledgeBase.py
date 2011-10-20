@@ -21,8 +21,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 '''
 
 from multiprocessing import Lock
-
-from core.controllers.misc.shared import Shared
+from core.controllers.multiprocess import Shared
 import core.data.kb.info as info
 import core.data.kb.shell as shell
 import core.data.kb.vuln as vuln

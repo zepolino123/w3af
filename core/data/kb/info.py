@@ -22,12 +22,12 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 import itertools
 
-from core.controllers.misc.shared import Shared
+from core.controllers.multiprocess import Shared
 from core.data.parsers.urlParser import url_object
 import core.data.constants.severity as severity
 
 
-counter = Shared(itertools.count(), exposed=('next',))
+counter = Shared(itertools.count(1), exposed=('next',))
 
 class info(dict):
     '''

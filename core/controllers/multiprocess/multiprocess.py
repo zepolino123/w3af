@@ -1,160 +1,319 @@
-__all__ = ['get_plugin_manager']
+'''
+multiprocess.py
 
-from itertools import chain
+Copyright 2011 Andres Riancho
+
+This file is part of w3af, w3af.sourceforge.net .
+
+w3af is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation version 2 of the License.
+
+w3af is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with w3af; if not, write to the Free Software
+Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+'''
+from Queue import Empty
+import itertools
 import multiprocessing
+import sys
+import threading
+import traceback
+import types
 
+__all__ = [
+    'get_plugin_manager', 'TimeLimitExpired',
+    'TerminatedWork', 'MNGR_TYPE_GREP'
+    ]
 
-CPU_COUNT = multiprocessing.cpu_count()
+# Amount of available CPUs
+try:
+    CPU_COUNT = multiprocessing.cpu_count()
+except NotImplementedError:
+    CPU_COUNT = 2
+# Constants representing the state of a pool
+RUN = 0
+TERMINATE = 1
 
-def get_plugin_manager(plugintype, plugins):
-    global grep_plugins
+# Global counter
+job_counter = itertools.count()
+
+MNGR_TYPE_GREP = 'MNGR_TYPE_GREP'
+MNGR_TYPE_AUDIT = 'MNGR_TYPE_AUDIT'
+
+_mngrs = {MNGR_TYPE_GREP: None}
+
+def get_plugin_manager(mngr_type, plugins):
     
-    if not grep_plugins:
-        if callable(plugins):
-            plugins = plugins 
-        grep_plugins.extend(plugins)
+    if mngr_type not in _mngrs:
+        raise ValueError, "Invalid Manager Type: '%s'" % mngr_type
     
-    return grep_mngr
+    mngr = _mngrs[mngr_type]
+    if mngr is None:
+        d = {MNGR_TYPE_GREP: GrepMngr}
+        _mngrs[mngr_type] = mngr = d[mngr_type](plugins)
+
+    return mngr
+
+
+class TimeLimitExpired(Exception):
     '''
-    @param plugintype: A string indicating de plugin type. Valid values 
-        BasePluginManager.PLUGIN_TYPE_XXX
-    @param plugins: Either a list of plugin instances or a plugin factory
-        function
+    Exception raised when time limit expires.
     '''
-    
-    """
-    global _all_plugins
-    try:
-        pmngr = _all_plugins[plugintype][0]
-    except KeyError:
-        raise ValueError, "Invalid plugin type '%s'." % plugintype
-    else:
-        if not pmngr:
-            if callable(plugins):
-                plugins = plugins()            
-            _all_plugins[plugintype][1].extend(plugins)
-            
-            # Create the plugin manager instance
-            class_mapping = {
-                BasePluginManager.PLUGIN_TYPE_GREP: GrepManager
-            }
-            _all_plugins[plugintype][0] = pmngr = class_mapping[plugintype]()
-                        
-    return pmngr
-    """
+    pass
 
-class BasePluginManager(object):
+
+class TerminatedWork(Exception):
+    '''
+    Raised when an action is called on a `TERMINATEd` Manager.
+    '''
+    pass
+
+
+class Failure(object):
     
-    PLUGIN_TYPE_GREP = 'PLUGIN_TYPE_GREP'
-    PLUGIN_TYPE_AUDIT = 'PLUGIN_TYPE_AUDIT'
+    def __init__(self, exc_obj):
+        self.exc_obj = exc_obj
+        exc_obj._traceback_ = traceback.format_exc(sys.exc_info())
+
+
+class PluginMngr(object):
     
-    # To be redefined by subclasses
-    plugin_type = None
+    def __init__(self, plugins):
+        self._state = RUN
+        self._plugins = plugins        
     
-    def work(self, args=()):
+    def work(self, timeout):
+        raise NotImplementedError
+    
+    def assert_is_not_terminated(self):
+        if self._state != RUN:
+            raise TerminatedWork
+    
+    def terminate(self):
         raise NotImplementedError
 
 
-class GrepManager(BasePluginManager):
+class GrepMngr(PluginMngr):
     
-    plugin_type = BasePluginManager.PLUGIN_TYPE_GREP
+    def __init__(self, plugins):
+        PluginMngr.__init__(self, plugins)
+        self._cache = {}
+        Queue = multiprocessing.Queue
+        # Create and start grep-worker processes
+        self._workers = []
+        self._length = len(plugins)
+        chunksize, extra = divmod(self._length, CPU_COUNT)
+        if extra:
+            chunksize += 1
+        
+        for i in xrange(CPU_COUNT):
+            
+            start = i * chunksize
+            _plugins = plugins[start: start+chunksize]
+            
+            if _plugins:
+                worker = GrepWorker(_plugins, Queue(), Queue())
+                self._workers.append(worker)
+                worker.start()
+            else:
+                break
+
+        self._result_handler = threading.Thread(
+                                        target=GrepMngr._handle_results,
+                                        args=(self._workers, self._cache)
+                                        )
+        self._result_handler.daemon = True
+        self._result_handler._state = RUN
+        self._result_handler.start()
     
-    def __init__(self):
-        self._taskmngr = TaskManager(GrepManager._do_grep)
+    def work(self, args=(), timeout=None):
+        
+        self.assert_is_not_terminated()
+        
+        from core.data.kb.knowledgeBase import kb
+        globalsrepl = {'kb': kb()}
+
+        result = Result(
+                    cache=self._cache,
+                    length=self._length,
+                    callback=None
+                    )
+        
+        for worker in self._workers:
+            taskq = worker.task_queue
+            taskq.put(
+                (result._job_id, args, globalsrepl)
+                )
+        
+        res_list = result.get(timeout)
+        
+        for res_ele in res_list:
+            if isinstance(res_ele, Failure):
+                raise res_ele.exc_obj
+        return res_list
     
-    def work(self, args=()):
-#        gplugins = _all_plugins[self.plugin_type]
-#        gplugins[1], 
-        res = self._taskmngr.start_work(
-#                                                plugins=gplugins[1],
-                                                plugins=grep_plugins,
-                                                workargs=args
-                                            )
-        return res
+    def terminate(self):
+        if self._state != TERMINATE:
+            
+            self._state = TERMINATE
+            self._result_handler._state = TERMINATE
+            
+            for worker in self._workers:
+                worker.task_queue.put(None)
+                worker.terminate()
     
     @staticmethod
-    def _do_grep(args):
-        '''
-        Worker method
-        '''        
-        plugins, sliceobj, req, resp = args
-        res = []
-        print '*******************', plugins[sliceobj]
-        for idx, plugin in enumerate(plugins[sliceobj]):
-            print '>>>>>>>>>>>>>>> calling!!!'
-            res.extend(plugin.grep(req, resp) or [])
-            ## IMPORTANT! Updating values through proxy object ##
-            print '############### PLUGIN-TYPE', plugin.name
-            
+    def _handle_results(workers, cache):
+        thread = threading.current_thread()
+        
+        while True:
+            if thread._state == TERMINATE:
+                break
+            for w in workers:
+                try:
+                    jobid, res = w.result_queue.get(0.1)
+                except Empty:
+                    pass
+                else:
+                    try:
+                        cache[jobid].set_result(res)
+                    except KeyError:
+                        pass
+
+
+class Worker(multiprocessing.Process):
+    
+    def __init__(self, task_queue, result_queue):
+        multiprocessing.Process.__init__(self)
+        self.task_queue = task_queue
+        self.result_queue = result_queue
+        self.daemon = True
+    
+    def run(self):
+        raise NotImplementedError
+
+
+class GrepWorker(Worker):
+    
+    def __init__(self, plugins, task_queue, result_queue):
+        Worker.__init__(self, task_queue, result_queue)
+        self._plugins = plugins
+        self._shutdown = threading.Event()
+
+    def run(self):
+        while not self._shutdown.is_set():
+            jobid = None
             try:
-                plugin._already_inspected = plugin._already_inspected
-                plugins[idx] = plugin
-            except AttributeError:
-                pass
-            except Exception, ex:
-                print "=" * 80
-                print ex
-                print "=" * 80
-                raise
+                jobid, args, globalsrepl = self.task_queue.get()
+                if args is None:
+                    # 'Poison pill' means shutdown.
+                    break
                 
-        return res
-
-# Make worker method available at module level. Needed by
-# multiprocessing internal operation
-_do_grep = GrepManager._do_grep
-
-
-_all_plugins = {
-    BasePluginManager.PLUGIN_TYPE_GREP: [None, []]
-    }
-
-
-class TaskManager(object):
-    
-    def __init__(self, worker_func):
-        self._worker_func = worker_func
-        self._pool = ProcessPool()
-    
-    def start_work(self, plugins, workargs=()):
-        '''
-        Perform works in different processes.
-        '''
-        def build_slices():
-            amt = len(plugins)
-            step = (amt // CPU_COUNT) or 1
-            for i in range(0, amt, step):
-                yield slice(i, i + step)
-        
-        
-##        plugins = _plugin_server.list(plugins)
-        
-        res = self._pool.map(
-                    self._worker_func,
-                    (tuple(chain((plugins, slc), workargs)) 
-                                            for slc in build_slices())
-                )
-##        return plugins, chain(res)
-        return chain(res)
-
-
-class ProcessPool(object):
-    '''
-    Wrapper for multiprocessing.Pool object
-    '''
-    _pool = None
-    
-    def __init__(self, processes=None):
-        self._processes = processes
-    
-    def __getattr__(self, name):
-        
-        if ProcessPool._pool is None:
-            ProcessPool._pool = multiprocessing.Pool(
-                                    processes=self._processes or CPU_COUNT
+                res = []
+                for p in self._plugins:
+                    try:
+                        value = self._tweaked_grep(p, globalsrepl)(*args)
+                    except KeyboardInterrupt:
+                        raise
+                    except Exception, ex:
+                        #print '*'*80
+                        #print traceback.format_exc()
+                        #print '*'*80
+                        value = Failure(ex)
+                    res.append(value or [])
+                
+                self.result_queue.put((jobid, res))
+            
+            except KeyboardInterrupt, ki:
+                self._shutdown.set()
+                
+                if not jobid:
+                    jobid = self.task_queue.get()[0]
+                self.result_queue.put(
+                                    (jobid, [Failure(ki)])
                                     )
-        return getattr(ProcessPool._pool, name)
+    def _tweaked_grep(self, plugin, globalsrepl):
+        def _grep(*args):
+            grep_func = plugin.grep.im_func
+            _globals = dict(grep_func.func_globals)
+            _globals.update(globalsrepl)
+            _grep_func = types.FunctionType(grep_func.func_code, _globals)
+            return _grep_func(plugin, *args)
+        return _grep
 
-# Create the 'Plugin Manager' server process
-_plugin_server = multiprocessing.Manager()
-grep_plugins = _plugin_server.list()
-grep_mngr = GrepManager()
+
+class Result(object):
+    
+    def __init__(self, cache, length, callback):
+        self._cache = cache
+        self._length = length
+        self._value = []
+        self._callback = callback
+        self._job_id = job_counter.next()
+        cache[self._job_id] = self
+        self._cond = threading.Condition(threading.Lock())
+        self._is_ready = False
+    
+    def get(self, timeout):
+        self._wait(timeout)
+        if not self._is_ready:
+            raise TimeLimitExpired
+        return self._value
+    
+    def _wait(self, timeout):
+        self._cond.acquire()
+        try:
+            if not self._is_ready:
+                self._cond.wait(timeout)
+        finally:
+            self._cond.release()
+    
+    def set_result(self, res):
+        self._value.extend(res)
+        
+        if len(self._value) == self._length:
+            if self._callback:
+                self._callback(self._value)
+        
+            self._cond.acquire()
+            try:
+                self._is_ready = True
+                self._cond.notify()
+            finally:
+                self._cond.release()
+            
+            del self._cache[self._job_id]
+
+
+if __name__ == '__main__':
+    
+    class MyPlugin(object):
+        
+        def __init__(self, name):
+            self.name = name
+            
+        def grep(self, *args):
+            print "Plugin '%s' is grepping on %s" % (self.name, args)
+            import time, random
+            time.sleep(5)
+            return [random.randint(0, 100)]
+        
+        def __str__(self):
+            return "<Plugin %s>" % self.name
+        __repr__ = __str__
+    
+    plugins = (
+       MyPlugin("AAA"), MyPlugin("BBB"), MyPlugin("CCC"),
+       MyPlugin("DDD"), MyPlugin("EEE"), MyPlugin("FFF"),
+       MyPlugin("GGG"), MyPlugin("HHH"), MyPlugin("III"),
+       )
+    grep_mngr = get_plugin_manager(MNGR_TYPE_GREP, plugins)
+    res = grep_mngr.work(args=("aaaaaaa", "bbbbbbbb"), timeout=30)
+    print 'RESULT:::::::', res
+    
