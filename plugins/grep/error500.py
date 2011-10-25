@@ -33,6 +33,7 @@ class error500(baseGrepPlugin):
       
     @author: Andres Riancho ( andres.riancho@gmail.com )
     '''
+    ALL_500_CODES = set(range(400, 600)) - set((404 , 403, 401, 405, 400, 501))
 
     def __init__(self):
         baseGrepPlugin.__init__(self)
@@ -47,14 +48,16 @@ class error500(baseGrepPlugin):
         @parameter response: The HTTP response object
         @return: None
         '''
-        if response.is_text_or_html() \
-            and response.getCode() in range(400, 600) \
-            and response.getCode() not in (404 , 403, 401, 405, 400, 501)\
-            and not self._falsePositive(response):
+        
+        code = response.getCode()
+        
+        if (response.is_text_or_html() and
+            code in error500.ALL_500_CODES and
+            not self._falsePositive(response)):
             self._error_500_responses.append((request, response))
 
     
-    def _falsePositive( self, response ):
+    def _falsePositive(self, response):
         '''
         Filters out some false positives like this one:
 
@@ -66,12 +69,8 @@ class error500(baseGrepPlugin):
         
         @return: True if the response is a false positive.
         '''
-        falsePositiveStrings = []
-        falsePositiveStrings.append( '<h1>Bad Request (Invalid URL)</h1>' )
-        for fps in falsePositiveStrings:
-            if response.getBody() == fps:
-                return True
-        return False
+        falsePositiveStrings = ('<h1>Bad Request (Invalid URL)</h1>',)
+        return response.getBody() in falsePositiveStrings
     
     def getOptions( self ):
         '''

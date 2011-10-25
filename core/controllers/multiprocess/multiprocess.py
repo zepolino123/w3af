@@ -20,6 +20,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 '''
 from Queue import Empty
 import itertools
+import functools
 import multiprocessing
 import sys
 import threading
@@ -27,7 +28,7 @@ import traceback
 import types
 
 __all__ = [
-    'get_plugin_manager', 'TimeLimitExpired',
+    'get_plugin_manager', 'restart_manager', 'TimeLimitExpired',
     'TerminatedWork', 'MNGR_TYPE_GREP'
     ]
 
@@ -47,20 +48,37 @@ MNGR_TYPE_GREP = 'MNGR_TYPE_GREP'
 MNGR_TYPE_AUDIT = 'MNGR_TYPE_AUDIT'
 
 _mngrs = {MNGR_TYPE_GREP: None}
+_lock = threading.Lock()
 
-def get_plugin_manager(mngr_type, plugins):
-    
-    if mngr_type not in _mngrs:
-        raise ValueError, "Invalid Manager Type: '%s'" % mngr_type
-    
-    mngr = _mngrs[mngr_type]
-    if mngr is None:
-        d = {MNGR_TYPE_GREP: GrepMngr}
-        _mngrs[mngr_type] = mngr = d[mngr_type](plugins)
-
+def get_plugin_manager(mngr_type, plugins=[]):
+    with _lock:
+        try:
+            mngr = _mngrs[mngr_type]
+        except KeyError:
+            raise ValueError, "Invalid Manager Type: '%s'" % mngr_type
+        if mngr is None:
+            d = {MNGR_TYPE_GREP: GrepMngr}
+            _mngrs[mngr_type] = mngr = d[mngr_type](plugins)
     return mngr
 
-
+## TODO: Function `restart_manager` should be refactored into a new
+## and more used GrepManager version. This manager should encapsulate
+## the all logic of dealing with everything related to the grep plugins.
+## Also, see if this idea may be extended to the remaining plugin types. 
+def restart_manager(mngr_type):
+    with _lock:
+        try:
+            mngr = _mngrs[mngr_type]
+        except KeyError:
+            raise ValueError, "Invalid Manager Type: '%s'" % mngr_type
+        if mngr:
+            mngr.terminate()
+            try:
+                _mngrs[mngr_type] = None
+            except KeyError:
+                pass
+        
+    
 class TimeLimitExpired(Exception):
     '''
     Exception raised when time limit expires.
@@ -132,7 +150,7 @@ class GrepMngr(PluginMngr):
         self._result_handler._state = RUN
         self._result_handler.start()
     
-    def work(self, args=(), timeout=None):
+    def work(self, action, args=(), timeout=None):
         
         self.assert_is_not_terminated()
         
@@ -148,7 +166,7 @@ class GrepMngr(PluginMngr):
         for worker in self._workers:
             taskq = worker.task_queue
             taskq.put(
-                (result._job_id, args, globalsrepl)
+                (result._job_id, (action, args), globalsrepl)
                 )
         
         res_list = result.get(timeout)
@@ -205,26 +223,26 @@ class GrepWorker(Worker):
         Worker.__init__(self, task_queue, result_queue)
         self._plugins = plugins
         self._shutdown = threading.Event()
+        self._actions_cache = {}
 
     def run(self):
         while not self._shutdown.is_set():
             jobid = None
             try:
-                jobid, args, globalsrepl = self.task_queue.get()
-                if args is None:
+                jobid, action_args, globalsrepl = self.task_queue.get()
+                if action_args is None:
                     # 'Poison pill' means shutdown.
                     break
                 
                 res = []
                 for p in self._plugins:
                     try:
-                        value = self._tweaked_grep(p, globalsrepl)(*args)
+                        action, args = action_args
+                        value = \
+                            self._tweaked_action(p, action, globalsrepl)(*args)
                     except KeyboardInterrupt:
                         raise
                     except Exception, ex:
-                        #print '*'*80
-                        #print traceback.format_exc()
-                        #print '*'*80
                         value = Failure(ex)
                     res.append(value or [])
                 
@@ -238,14 +256,18 @@ class GrepWorker(Worker):
                 self.result_queue.put(
                                     (jobid, [Failure(ki)])
                                     )
-    def _tweaked_grep(self, plugin, globalsrepl):
-        def _grep(*args):
-            grep_func = plugin.grep.im_func
-            _globals = dict(grep_func.func_globals)
+    def _tweaked_action(self, plugin, action, globalsrepl):
+        def partialaction():
+            func = getattr(plugin, action).im_func
+            _globals = dict(func.func_globals)
             _globals.update(globalsrepl)
-            _grep_func = types.FunctionType(grep_func.func_code, _globals)
-            return _grep_func(plugin, *args)
-        return _grep
+            func = types.FunctionType(func.func_code, _globals)
+            return functools.partial(func, plugin)
+        
+        return self._actions_cache.setdefault(
+                                    (plugin.name, action),
+                                    partialaction()
+                                    )
 
 
 class Result(object):

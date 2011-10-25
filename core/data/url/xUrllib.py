@@ -825,7 +825,7 @@ class xUrllib(object):
                               )
             timeout = 20
             try:
-                mngr.work(args=(fuzz_req, resp), timeout=timeout)
+                mngr.work(action='grep', args=(fuzz_req, resp), timeout=timeout)
             except KeyboardInterrupt:
                 mngr.terminate()
                 raise

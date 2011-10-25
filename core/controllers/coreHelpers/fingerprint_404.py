@@ -230,11 +230,13 @@ class Fingerprint404(object):
 
 _fp404 = None
 
-def is_404(http_resp, reset=False):
-    global _fp404
+def init_404(url, reset=False):
+    assert _fp404 is None or reset, "404 database has already been inited"
     if not _fp404 or reset:
+        global _fp404
         _fp404 = Shared(
-                    Fingerprint404(http_resp.getURL()), exposed=('is_404',)
+                    Fingerprint404(url), exposed=('is_404',)
                     )
-    is404 = _fp404.is_404(http_resp)
-    return is404
+
+def is_404(http_resp):
+    return _fp404.is_404(http_resp)

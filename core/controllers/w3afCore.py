@@ -29,7 +29,6 @@ import time
 import traceback
 
 from core.controllers.coreHelpers.export import export
-from core.controllers.coreHelpers.fingerprint_404 import is_404
 from core.controllers.coreHelpers.progress import progress
 from core.controllers.misc.factory import factory
 from core.controllers.misc.get_local_ip import get_local_ip
@@ -44,6 +43,10 @@ from core.controllers.misc.temp_dir import (
                                         remove_temp_dir,
                                         TEMP_DIR
                                         )
+from core.controllers.multiprocess import (
+                                        MNGR_TYPE_GREP,
+                                        get_plugin_manager,
+                                        restart_manager)
 from core.controllers.targetSettings import targetSettings as targetSettings
 from core.controllers.threads.threadManager import threadManagerObj as tm
 from core.controllers.w3afException import (
@@ -58,6 +61,7 @@ from core.data.globaldata import globaldata
 from core.data.profile.profile import profile as profile
 from core.data.request.frFactory import createFuzzableRequests
 from core.data.url.xUrllib import xUrllib
+import core.controllers.coreHelpers.fingerprint_404 as fingerprint_404
 import core.controllers.miscSettings as miscSettings
 import core.controllers.outputManager as om
 import core.data.kb.config as cf
@@ -120,17 +124,15 @@ class w3afCore(object):
 
     def _zeroSelectedPlugins(self):
         '''
-        Init some internal variables; this method is called when the whole process starts, and when the user
-        loads a new profile.
+        Init some internal variables; this method is called when the whole
+        process starts, and when the user loads a new profile.
         '''
-        # A dict with plugin types as keys and a list of plugin names as values
-        self._strPlugins = {'audit': [], 'grep': [],
-                            'bruteforce': [], 'discovery': [],
-                            'evasion': [], 'mangle': [], 'output': []}
-
-        self._pluginsOptions = {'audit': {}, 'grep': {}, 'bruteforce': {},
-                                'discovery': {}, 'evasion': {}, 'mangle': {},
-                                'output': {}, 'attack': {}}
+        pluginnames = ['audit', 'grep', 'bruteforce',
+                       'discovery', 'evasion', 'mangle', 'output']
+        self._strPlugins = dict(((pn, []) for pn in pluginnames))
+        
+        pluginnames.append('attack')
+        self._pluginsOptions = dict(((pn, {}) for pn in pluginnames))
     
     def getHomePath( self ):
         '''
@@ -158,7 +160,7 @@ class w3afCore(object):
         self.target = targetSettings()
         
         # Init some values
-        # TODO: May be consuming a lot of memory
+        # TODO: Maybe consuming a lot of memory
         globaldata['url-queue'] = Queue.Queue()        
         self._isRunning = False
         self._paused = False
@@ -187,7 +189,7 @@ class w3afCore(object):
             allPlugins = [ os.path.splitext(f)[0] for f in fileList if os.path.splitext(f)[1] == '.py' ]
             allPlugins.remove ( '__init__' )
             
-            if len ( strReqPlugins ) != 1:
+            if len(strReqPlugins) != 1:
                 # [ 'all', '!sqli' ]
                 # I want to run all plugins except sqli
                 unwantedPlugins = [ x[1:] for x in strReqPlugins if x[0] =='!' ]
@@ -258,7 +260,7 @@ class w3afCore(object):
         orderedPluginList = []
         for plugin in requestedPluginsList:
             deps = plugin.getPluginDeps()
-            if len( deps ) != 0:
+            if deps:
                 # This plugin has dependencies, I should add the plugins in order
                 for plugin2 in requestedPluginsList:
                     if pluginType+'.'+plugin2.name in deps and plugin2 not in orderedPluginList:
@@ -293,7 +295,7 @@ class w3afCore(object):
 
         return orderedPluginList
     
-    def initPlugins( self ):
+    def initPlugins(self):
         '''
         The user interfaces should run this method *before* calling start(). 
         If they don't do it, an exception is raised.
@@ -301,24 +303,22 @@ class w3afCore(object):
         self._initialized = True
         
         # This is inited before all, to have a full logging support.
-        om.out.setOutputPlugins( self._strPlugins['output'] )
+        om.out.setOutputPlugins(self._strPlugins['output'])
         
         # First, create an instance of each requested plugin and add it to the plugin list
         # Plugins are added taking care of plugin dependencies
-        self._plugins['audit'] = self._rPlugFactory( self._strPlugins['audit'] , 'audit')
+        self._plugins['audit'] = self._rPlugFactory(self._strPlugins['audit'] , 'audit')
         
-        self._plugins['bruteforce'] = self._rPlugFactory( self._strPlugins['bruteforce'] , 'bruteforce')        
+        self._plugins['bruteforce'] = self._rPlugFactory(self._strPlugins['bruteforce'] , 'bruteforce')        
         
         # First, create an instance of each requested module and add it to the module list
-        self._plugins['discovery'] = self._rPlugFactory( self._strPlugins['discovery'] , 'discovery')
+        self._plugins['discovery'] = self._rPlugFactory(self._strPlugins['discovery'] , 'discovery')
         
-        self._plugins['grep'] = self._rPlugFactory( self._strPlugins['grep'] , 'grep')
-        self.uriOpener.setGrepPlugins( self._plugins['grep'] )
+        self._plugins['grep'] = self._rPlugFactory(self._strPlugins['grep'] , 'grep')
+        self.uriOpener.setGrepPlugins(self._plugins['grep'])
         
-        self._plugins['mangle'] = self._rPlugFactory( self._strPlugins['mangle'] , 'mangle')
-        self.uriOpener.settings.setManglePlugins( self._plugins['mangle'] )
-        
-
+        self._plugins['mangle'] = self._rPlugFactory(self._strPlugins['mangle'] , 'mangle')
+        self.uriOpener.settings.setManglePlugins(self._plugins['mangle'])
 
     def _updateURLsInKb(self, fuzzreqs):
         '''
@@ -508,22 +508,17 @@ class w3afCore(object):
 
                 for url in cf.cf.getData('targets'):
                     try:
+                        
+                        fingerprint_404.init_404(url, reset=True)
+                        
                         #
                         # GET the initial target URLs in order to save them
                         # in a list and use them as our bootstrap URLs
                         #
-                        response = self.uriOpener.GET(url, useCache=True, grepResult=False)
+                        response = self.uriOpener.GET(url, useCache=True)
+                        
                         self._fuzzableRequestList += filter(
                             get_curr_scope_pages, createFuzzableRequests(response))
-
-                        #
-                        # NOTE: I need to perform this test here in order to
-                        # avoid some weird thread locking that happens when
-                        # the webspider calls is_404, and because I want to
-                        # initialize the is_404 database in a controlled
-                        # try/except block.
-                        #
-                        is_404(response, reset=True)
 
                     except KeyboardInterrupt:
                         raise
@@ -539,7 +534,7 @@ class w3afCore(object):
                                      traceback.format_exc())
                 
                 # Load the target URLs to the KB
-                self._updateURLsInKb( self._fuzzableRequestList )
+                self._updateURLsInKb(self._fuzzableRequestList)
                 
                 self._fuzzableRequestList = self._discover_and_bruteforce()
                 
@@ -695,7 +690,8 @@ class w3afCore(object):
         
     def stop( self ):
         '''
-        This method is called by the user interface layer, when the user "clicks" on the stop button.
+        This method is called by the user interface layer, when the user
+        "clicks" on the stop button.
         @return: None. The stop method can take some seconds to return.
         '''
         om.out.debug('The user stopped the core.')
@@ -741,8 +737,13 @@ class w3afCore(object):
             tm.join(joinAll=True)
             tm.stopAllDaemons()
             
-            for plugin in self._plugins['grep']:
-                plugin.end()
+            grepmngr = get_plugin_manager(MNGR_TYPE_GREP)
+            grepmngr.work(action='end', timeout=20)
+            
+            # TODO: JAP - Oct 24, 2011. This really sucks!!! We really need
+            # to create plugin managers that handle the logic of each plugin
+            # type.
+            restart_manager(MNGR_TYPE_GREP)
             
             # Also, close the output manager.
             om.out.endOutputPlugins()
@@ -1095,8 +1096,10 @@ class w3afCore(object):
         '''
         Get the options for a plugin.
         
-        IMPORTANT NOTE: This method only returns the options for a plugin that was previously configured using setPluginOptions.
-        If you wan't to get the default options for a plugin, get a plugin instance and perform a plugin.getOptions()
+        IMPORTANT NOTE: This method only returns the options for a plugin
+        that was previously configured using setPluginOptions. If you
+        wan't to get the default options for a plugin, get a plugin
+        instance and perform a plugin.getOptions()
         
         @return: An optionList with the plugin options.
         '''
@@ -1133,9 +1136,15 @@ class w3afCore(object):
             and p != 'all':
                 unknown_plugins.append( p )
         
-        setMap = {'discovery':self._setDiscoveryPlugins, 'audit':self._setAuditPlugins, \
-        'grep':self._setGrepPlugins, 'evasion':self._setEvasionPlugins, 'output':self._setOutputPlugins,  \
-        'mangle': self._setManglePlugins, 'bruteforce': self._setBruteforcePlugins}
+        setMap = {
+            'discovery': self._setDiscoveryPlugins,
+            'audit': self._setAuditPlugins,
+            'grep': self._setGrepPlugins,
+            'evasion': self._setEvasionPlugins,
+            'output':self._setOutputPlugins,
+            'mangle': self._setManglePlugins,
+            'bruteforce': self._setBruteforcePlugins
+            }
         
         func = setMap[ pluginType ]
         func( pluginNames )
@@ -1242,18 +1251,14 @@ class w3afCore(object):
             raise w3afException('You must call the initPlugins method before calling start()')
         
         try:
-            assert cf.cf.getData('targets')  != [], 'No target URI configured.'
+            assert cf.cf.getData('targets'), 'No target URI configured.'
+            assert (
+                self._strPlugins['audit'] or
+                self._strPlugins['discovery'] or
+                self._strPlugins['grep']
+                ), 'No audit, grep or discovery plugins configured to run.'
         except AssertionError, ae:
-            raise w3afException( str(ae) )
-            
-        try:
-            cry = True
-            if len(self._strPlugins['audit']) == 0 and len(self._strPlugins['discovery']) == 0 \
-            and len(self._strPlugins['grep']) == 0:
-                cry = False
-            assert cry , 'No audit, grep or discovery plugins configured to run.'
-        except AssertionError, ae:
-            raise w3afException( str(ae) )
+            raise w3afException(str(ae))
     
     def getPluginList( self, pluginType ):
         '''

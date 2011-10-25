@@ -68,10 +68,10 @@ class directoryIndexing(baseGrepPlugin):
         @return: None
         '''
         url = response.getURL()
-        domain = url.getDomainPath()
+        domain_path = url.getDomainPath()
         
-        if not domain in self._already_visited and response.is_text_or_html():
-            self._already_visited.add(domain)
+        if not domain_path in self._already_visited and response.is_text_or_html():
+            self._already_visited.add(domain_path)
             # Work,
             html_string = response.getBody()
             for indexing_regex in self._compiled_regex_list:
