@@ -26,9 +26,9 @@ from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
 from core.data.kb.knowledgeBase import kb
 from core.data.options.option import option
 from core.data.options.optionList import optionList
+from core.data.parsers.dpCache import dp_cache
 import core.controllers.outputManager as om
 import core.data.kb.info as info
-import core.data.parsers.dpCache as dpCache
 
 
 class getMails(baseGrepPlugin):
@@ -71,7 +71,7 @@ class getMails(baseGrepPlugin):
         @return: None
         '''
         try:
-            dp = dpCache.dpc.getDocumentParserFor( response )
+            dp = dp_cache.getDocumentParserFor( response )
         except w3afException:
             msg = 'If I can\'t parse the document, I won\'t be able to find any emails.'
             msg += ' Ignoring the response for "' + response.getURL() + '".'

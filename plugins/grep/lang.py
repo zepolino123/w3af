@@ -137,6 +137,7 @@ class lang(baseGrepPlugin):
         if self._exec:
             # I never got executed !
             om.out.information('Could not determine the language of the site.')
+        print 'END END LANG'
     
     def setOptions( self, OptionList ):
         '''

@@ -161,7 +161,8 @@ class ajax(baseGrepPlugin):
                             inf.setPluginName(pname)
                             inf.setName('AJAX code')
                             inf.setURL(url)
-                            inf.setDesc('The URL: "%s" has an AJAX code.' % url)
+                            inf.setDesc('The URL: "%s" has an AJAX code.'
+                                        % url)
                             inf.setId(response.id)
                             inf.addToHighlight(res.group(0))
                             kb.append(pname, 'ajax', inf)

@@ -19,16 +19,14 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-from __future__ import with_statement
-
-from core.controllers.w3afException import w3afException
-import core.data.parsers.documentParser as documentParser
-from core.controllers.misc.lru import LRU
 
 import threading
 
+from core.controllers.misc.lru import LRU
+from core.controllers.multiprocess import Shared
+from core.data.parsers.documentParser import DocumentParser
 
-class dpCache:
+class DPCache(object):
     '''
     This class is a document parser cache.
     
@@ -39,36 +37,19 @@ class dpCache:
         self._LRULock = threading.RLock()
         
     def getDocumentParserFor(self, httpResponse):
-        res = None
-        
-        #   Before I used md5, but I realized that it was unnecessary. I experimented a little bit with
-        #   python's hash functions and this is what I got:
-        #
-        #   dz0@laptop:~/w3af/trunk$ python -m timeit -n 100000 -s 'import zlib; s="aaa"*1234' 'zlib.crc32(s)'
-        #   100000 loops, best of 3: 6.03 usec per loop
-        #   dz0@laptop:~/w3af/trunk$ python -m timeit -n 100000 -s 'import zlib; s="aaa"*1234' 'zlib.adler32(s)'
-        #   100000 loops, best of 3: 3.87 usec per loop
-        #   dz0@laptop:~/w3af/trunk$ python -m timeit -n 100000 -s 'import hashlib; s="aaa"*1234' 'hashlib.sha1(s).hexdigest()'
-        #   100000 loops, best of 3: 16.6 usec per loop
-        #   dz0@laptop:~/w3af/trunk$ python -m timeit -n 100000 -s 'import hashlib; s="aaa"*1234' 'hashlib.md5(s).hexdigest()'
-        #   100000 loops, best of 3: 12.9 usec per loop
-        #   dz0@laptop:~/w3af/trunk$ python -m timeit -n 100000 -s 'import hashlib; s="aaa"*1234' 'hash(s)'
-        #   100000 loops, best of 3: 0.117 usec per loop
-        #
-        #   At first I thought that the built-in hash wasn't good enough, as it could create collisions... but...
-        #   given that the LRU has only 30 positions, the real probability of a colission is too low.
-        #
-
+        # Before I used md5, but I realized that it was unnecessary.
+        # I experimented a little bit with python's hash functions
+        # At first I thought that the built-in hash wasn't good enough,
+        # as it could create collisions... but... given that the LRU has
+        # only 30 positions, the real probability of a collision is too low.
         hash_string = hash(httpResponse.body)
         
         with self._LRULock:
-            if hash_string in self._cache:
-                res = self._cache[ hash_string ]
-            else:
-                # Create a new instance of dp, add it to the cache
-                res = documentParser.documentParser(httpResponse)
-                self._cache[ hash_string ] = res
-            
-            return res
+            try:
+                dp = self._cache[hash_string]
+            except KeyError:
+                dp = DocumentParser(httpResponse)
+                self._cache[hash_string] = dp
+            return dp
     
-dpc = dpCache()
+dp_cache = Shared(DPCache())

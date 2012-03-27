@@ -29,9 +29,9 @@ from core.controllers.w3afException import w3afException
 from core.data.kb.knowledgeBase import kb
 from core.data.options.option import option
 from core.data.options.optionList import optionList
+from core.data.parsers.dpCache import dp_cache
 import core.controllers.outputManager as om
 import core.data.kb.info as info
-import core.data.parsers.dpCache as dpCache
 
 
 class findComments(baseGrepPlugin):
@@ -72,7 +72,7 @@ class findComments(baseGrepPlugin):
             if not is_404( response ) or self._search404:
                 
                 try:
-                    dp = dpCache.dpc.getDocumentParserFor( response )
+                    dp = dp_cache.getDocumentParserFor( response )
                 except w3afException:
                     return
 

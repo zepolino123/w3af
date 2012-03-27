@@ -26,8 +26,8 @@ from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
 from core.data.kb.knowledgeBase import kb
 from core.data.options.option import option
 from core.data.options.optionList import optionList
+from core.data.parsers.dpCache import dp_cache
 import core.data.kb.info as info
-import core.data.parsers.dpCache as dpCache
 
 
 class metaTags(baseGrepPlugin):
@@ -79,7 +79,7 @@ class metaTags(baseGrepPlugin):
             metaTags._already_inspected.add(uri)
             
             try:
-                dp = dpCache.dpc.getDocumentParserFor(response)
+                dp = dp_cache.getDocumentParserFor(response)
             except w3afException:
                 pass
             else:

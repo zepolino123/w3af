@@ -584,9 +584,6 @@ class xUrllib(object):
             req._Request__original = original_url
             # Then retry!
             return self._retry(req, e, useCache)
-        except KeyboardInterrupt:
-            # Correct control+c handling...
-            raise
         except sqlite3.Error, e:
             msg = 'A sqlite3 error was raised: "%s".' % e
             if 'disk' in str(e).lower():
@@ -666,8 +663,6 @@ class xUrllib(object):
         read = ''
         try:
             read = res.read()
-        except KeyboardInterrupt:
-            raise
         except Exception, e:
             om.out.error(str(e))
         return read
@@ -827,10 +822,13 @@ class xUrllib(object):
             try:
                 mngr.work(action='grep', args=(fuzz_req, resp), timeout=timeout)
             except KeyboardInterrupt:
-                mngr.terminate()
+                print '----------------Calling TERMINATE()!!!-------'
+                #mngr.terminate()
+                print "+++++++++++ TERMINATED +++++++++++"
                 raise
             except TerminatedWork:
-                pass
+                print 'finito...'
+                #pass
             except TimeLimitExpired:
                 msg = ('The grep plugins took more than %s seconds to run. '
                 'This is too much, please review its source code.' % timeout)

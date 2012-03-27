@@ -19,7 +19,6 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-from __future__ import absolute_import
 
 import pprint
 import StringIO
@@ -34,14 +33,12 @@ from . import dependencyCheck
 dependencyCheck.gtkui_dependency_check()
 
 # Now that I know that I have them, import them!
-import pygtk
 import gtk, gobject
-
 
 # This is just general info, to help people knowing their system
 print "Starting w3af, running on:"
 print "  Python version: "
-print "\n".join("    "+x for x in sys.version.split("\n"))
+print "\n".join("    " + x for x in sys.version.split("\n"))
 print "  GTK version: ", ".".join(str(x) for x in gtk.gtk_version)
 print "  PyGTK version: ", ".".join(str(x) for x in gtk.pygtk_version)
 print
@@ -76,7 +73,7 @@ import core.controllers.miscSettings
 from core.controllers.auto_update import VersionMgr, UIUpdater
 from core.controllers.w3afException import w3afException
 import core.data.kb.config as cf
-import core.controllers.outputManager as om
+from core.controllers.outputManager import out
 from . import scanrun, exploittab, helpers, profiles, craftedRequests, compare, exception_handler
 from . import export_request
 from . import entries, encdec, messages, logtab, pluginconfig, confpanel
@@ -333,7 +330,7 @@ class MainApp(object):
         self.w3af = wCore
         
         # This is inited before all, to have a full logging facility.
-        om.out.setOutputPlugins( ['gtkOutput'] )
+        out.setOutputPlugins( ['gtkOutput'] )
 
         # status bar
         splash.push(_("Building the status bar..."))
@@ -758,7 +755,7 @@ class MainApp(object):
         self.window.set_title(MAINTITLE)
         
         # This is inited before all, to have a full logging facility.
-        om.out.setOutputPlugins( ['gtkOutput'] )
+        out.setOutputPlugins( ['gtkOutput'] )
 
     def _scan_superviseStatus(self):
         '''Handles the waiting until core actually stopped.

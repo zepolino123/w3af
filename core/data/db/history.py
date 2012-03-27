@@ -17,7 +17,6 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-from __future__ import with_statement
 import os
 import time
 from shutil import rmtree
@@ -156,7 +155,8 @@ class HistoryItem(object):
                 item._loadFromRow(row, full)
                 result.append(item)
         except w3afException:
-            raise w3afException('You performed an invalid search. Please verify your syntax.')
+            raise w3afException('You performed an invalid search. Please '
+                                'verify your syntax.')
         return result
 
     def _loadFromRow(self, row, full=True):

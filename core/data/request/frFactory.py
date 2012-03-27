@@ -26,10 +26,10 @@ import json
 from core.controllers.w3afException import w3afException
 from core.data.dc.cookie import cookie as cookie
 from core.data.dc.queryString import queryString
+from core.data.parsers.dpCache import dp_cache
 from core.data.parsers.urlParser import url_object, parse_qs
 import core.controllers.outputManager as om
 import core.data.kb.config as cf
-import core.data.parsers.dpCache as dpCache
 import core.data.parsers.wsdlParser as wsdlParser
 import core.data.request.httpPostDataRequest as httpPostDataRequest
 import core.data.request.httpQsRequest as httpQsRequest
@@ -86,7 +86,7 @@ def createFuzzableRequests(httpResponse, request=None, add_self=True):
     # Try to find forms in the document
     form_list = []
     try:
-        dp = dpCache.dpc.getDocumentParserFor(httpResponse)
+        dp = dp_cache.getDocumentParserFor(httpResponse)
     except w3afException:
         # Failed to find a suitable parser for the document
         pass

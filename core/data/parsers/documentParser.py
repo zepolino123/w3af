@@ -35,7 +35,7 @@ import StringIO
 import re
 
 
-class documentParser:
+class DocumentParser(object):
     '''
     This class is a document parser.
     

@@ -38,7 +38,6 @@ import threading, Queue
 import core.controllers.outputManager as om
 import sys
 import traceback
-import time
 import types
 
 DEBUG = False
@@ -111,6 +110,8 @@ class WorkerThread(threading.Thread):
                              ' the request: %s' % (self, request.callable))
                 om.out.debug('Exception: %s' % e)
                 om.out.debug('Traceback: %s' % traceback.format_exc())
+                self.resultQueue.put((request, sys.exc_info()))
+            except KeyboardInterrupt:
                 self.resultQueue.put((request, sys.exc_info()))
 
         
@@ -250,8 +251,9 @@ class ThreadPoolImplementation(object):
                         if type(result) is tuple and len(result) == 3:
                             exc_type, exc_val, tb = result
                             if type(exc_type) == types.TypeType and \
-                                issubclass(exc_type, Exception):
+                                issubclass(exc_type, BaseException):
                                 # Raise here and handle it in the main thread
+                                print '%%%%%%%%%%%%%%%%%%%%%% KEYBOARDINTERRUPT <-- (threadpool.py)'
                                 raise exc_type, exc_val, tb
                     finally:
                         del self.workRequests[request.requestID]

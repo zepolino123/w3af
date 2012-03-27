@@ -6,22 +6,23 @@ import gettext
 # First of all, we need to change the working directory to the directory of w3af.
 currentDir = os.getcwd()
 scriptDir = os.path.dirname(sys.argv[0]) or '.'
-os.chdir( scriptDir )
+os.chdir(scriptDir)
 
 def backToCurrentDir():
-    os.chdir( currentDir )
+    os.chdir(currentDir)
 
 # Translation stuff
 gettext.install('w3af', 'locales/')
 
 # Now we can load all modules and stuff...
 from core.controllers.w3afException import w3afException
-import core.controllers.outputManager as om
+from core.controllers.outputManager import out
 
 try:
-    om.out.setOutputPlugins( ['console'] )
+    out.setOutputPlugins(['console'])
 except w3afException, w3:
-    print 'Something went wrong, w3af failed to init the output manager. Exception: ', str(w3)
+    print ('Something went wrong, w3af failed to init the output '
+           'manager. Exception: %s' % w3)
     sys.exit(-9)
 
 usage_doc = '''
@@ -53,7 +54,7 @@ For more info visit http://w3af.sourceforge.net/
 '''    
 
 def usage():
-    om.out.information(usage_doc)
+    out.information(usage_doc)
 
 def main():
     try:
@@ -62,14 +63,14 @@ def main():
     except getopt.GetoptError:
         # print help information and exit:
         usage()
-        return -3
+        return - 3
     profile = None
     doupdate = None
     for o, a in opts:
-        if o in ( "-e"  ):
+        if o in ("-e"):
             # easter egg
             import base64
-            om.out.information( base64.b64decode( 'R3JhY2lhcyBFdWdlIHBvciBiYW5jYXJtZSB0YW50YXMgaG9yYXMgZGUgZGVzYXJyb2xsbywgdGUgYW1vIGdvcmRhIQ==' ) )
+            out.information(base64.b64decode('R3JhY2lhcyBFdWdlIHBvciBiYW5jYXJtZSB0YW50YXMgaG9yYXMgZGUgZGVzYXJyb2xsbywgdGUgYW1vIGdvcmRhIQ=='))
         if o == "-s":
             scriptFile = a
         if o in ('-p', '--profile'):
@@ -88,8 +89,8 @@ def main():
     if sys.platform != "win32":
         display = os.getenv("DISPLAY")
         if not display:
-            om.out.error("The DISPLAY environment variable is not set! You can not use any graphical program without it...")
-            return -1
+            out.error("The DISPLAY environment variable is not set! You can not use any graphical program without it...")
+            return - 1
     import core.ui.gtkUi.main
     core.ui.gtkUi.main.main(profile, doupdate)
 
@@ -97,4 +98,3 @@ if __name__ == "__main__":
     errCode = main()
     backToCurrentDir()
     sys.exit(errCode)
-

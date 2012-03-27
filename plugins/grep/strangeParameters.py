@@ -26,9 +26,9 @@ from core.controllers.w3afException import w3afException
 from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
 from core.data.kb.knowledgeBase import kb
 from core.data.options.optionList import optionList
+from core.data.parsers.dpCache import dp_cache
 import core.data.kb.info as info
 import core.data.kb.vuln as vuln
-import core.data.parsers.dpCache as dpCache
 
 
 class strangeParameters(baseGrepPlugin):
@@ -53,7 +53,7 @@ class strangeParameters(baseGrepPlugin):
         @return: None, all results are saved in the kb.
         '''
         try:
-            dp = dpCache.dpc.getDocumentParserFor( response )
+            dp = dp_cache.getDocumentParserFor( response )
         except w3afException:
             pass
         else:

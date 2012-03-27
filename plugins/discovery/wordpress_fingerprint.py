@@ -19,27 +19,17 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
-import core.controllers.outputManager as om
-
-# Import options
 import re
 
-from core.data.options.option import option
-from core.data.options.optionList import optionList
-
 from core.controllers.basePlugin.baseDiscoveryPlugin import baseDiscoveryPlugin
-
-import core.data.kb.knowledgeBase as kb
-import core.data.kb.vuln as vuln
-import core.data.kb.info as info
-import core.data.constants.severity as severity
-
-from core.controllers.w3afException import w3afException, w3afRunOnce
 from core.controllers.coreHelpers.fingerprint_404 import is_404
+from core.controllers.w3afException import w3afRunOnce
+from core.data.options.optionList import optionList
+import core.controllers.outputManager as om
+import core.data.kb.info as info
+import core.data.kb.knowledgeBase as kb
 
 
-# Main class
 class wordpress_fingerprint(baseDiscoveryPlugin):
     '''
     Finds the version of a WordPress installation.

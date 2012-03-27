@@ -76,7 +76,10 @@ class swfParser(BaseParser):
         
         @parameter swf_body: SWF bytecode string
         '''
-        self._regex_url_parse(swf_body)
+        try:
+            self._regex_url_parse(swf_body)
+        except:
+            pass
     
     def getReferences(self):
         '''

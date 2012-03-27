@@ -34,16 +34,16 @@ from core.data.fuzzer.formFiller import smartFill
 from core.data.fuzzer.fuzzer import createRandAlpha
 from core.data.options.option import option
 from core.data.options.optionList import optionList
+from core.data.parsers.dpCache import dp_cache
 from core.data.request.httpPostDataRequest import httpPostDataRequest as \
     HttpPostDataRequest
 from core.data.request.variant_identification import are_variants
 import core.controllers.outputManager as om
 import core.data.dc.form as form
 import core.data.kb.config as cf
-import core.data.parsers.dpCache as dpCache
 
 IS_EQUAL_RATIO = 0.90
-MAX_VARIANTS = 5
+MAX_VARIANTS = 20
 
 
 class webSpider(baseDiscoveryPlugin):
@@ -121,84 +121,80 @@ class webSpider(baseDiscoveryPlugin):
             fuzzableRequest.setDc(to_send)
 
         self._fuzzableRequests = []
-        response = None
 
-        try:
-            response = self._sendMutant(fuzzableRequest, analyze=False)
-        except KeyboardInterrupt:
-            raise
-        else:
-            #
-            #   Simply ignore 401 responses, because they might bring problems
-            #   if I keep crawling them!
-            #
-            if response.getCode() == 401:
-                return []
-                
-            #
-            # Note: I WANT to follow links that are in the 404 page.
-            #
+        response = self._sendMutant(fuzzableRequest, analyze=False)
+
+        #
+        #   Simply ignore 401 responses, because they might bring problems
+        #   if I keep crawling them!
+        #
+        if response.getCode() == 401:
+            return []
             
-            # Modified when I added the pdfParser
-            # I had to add this x OR y stuff, just because I don't want 
-            # the SGML parser to analyze a image file, its useless and
-            # consumes CPU power.
-            if response.is_text_or_html() or response.is_pdf() or \
-                response.is_swf():
-                originalURL = response.getRedirURI()
-                try:
-                    doc_parser = dpCache.dpc.getDocumentParserFor(response)
-                except w3afException, w3:
-                    om.out.debug('Failed to find a suitable document parser. '
-                                 'Exception "%s"' % w3)
-                else:
-                    # Note:
-                    # - With parsed_refs I'm 100% that it's really 
-                    # something in the HTML that the developer intended to add.
-                    #
-                    # - The re_refs are the result of regular expressions,
-                    # which in some cases are just false positives.
-                    parsed_refs, re_refs = doc_parser.getReferences()
+        #
+        # Note: I WANT to follow links that are in the 404 page.
+        #
+        
+        # Modified when I added the pdfParser
+        # I had to add this x OR y stuff, just because I don't want 
+        # the SGML parser to analyze a image file, its useless and
+        # consumes CPU power.
+        if response.is_text_or_html() or response.is_pdf() or \
+            response.is_swf():
+            originalURL = response.getRedirURI()
+            try:
+                doc_parser = dp_cache.getDocumentParserFor(response)
+            except w3afException, w3:
+                om.out.debug('Failed to find a suitable document parser. '
+                             'Exception "%s"' % w3)
+            else:
+                # Note:
+                # - With parsed_refs I'm 100% that it's really 
+                # something in the HTML that the developer intended to add.
+                #
+                # - The re_refs are the result of regular expressions,
+                # which in some cases are just false positives.
+                parsed_refs, re_refs = doc_parser.getReferences()
+                
+                # I also want to analyze all directories, if the URL I just
+                # fetched is:
+                # http://localhost/a/b/c/f00.php I want to GET:
+                # http://localhost/a/b/c/
+                # http://localhost/a/b/
+                # http://localhost/a/
+                # http://localhost/
+                # And analyze the responses...
+                dirs = response.getURL().getDirectories()
+                seen = set()
+                only_re_refs = set(re_refs) - set(dirs + parsed_refs)
+                
+                for ref in itertools.chain(dirs, parsed_refs, re_refs):
                     
-                    # I also want to analyze all directories, if the URL I just
-                    # fetched is:
-                    # http://localhost/a/b/c/f00.php I want to GET:
-                    # http://localhost/a/b/c/
-                    # http://localhost/a/b/
-                    # http://localhost/a/
-                    # http://localhost/
-                    # And analyze the responses...
-                    dirs = response.getURL().getDirectories()
-                    seen = set()
-                    only_re_refs = set(re_refs) - set(dirs + parsed_refs)
+                    if ref in seen:
+                        continue
+                    seen.add(ref)
                     
-                    for ref in itertools.chain(dirs, parsed_refs, re_refs):
-                        
-                        if ref in seen:
-                            continue
-                        seen.add(ref)
-                        
-                        # I don't want w3af sending requests to 3rd parties!
-                        if ref.getDomain() != self._target_domain:
-                            continue
-                        
-                        # Filter the URL's according to the configured regexs
-                        urlstr = ref.url_string
-                        if not self._compiled_follow_re.match(urlstr) or \
-                            self._compiled_ignore_re.match(urlstr):
-                            continue
-                        
-                        # Work with the parsed references and report broken
-                        # links. Then work with the regex references and DO NOT
-                        # report broken links
-                        if self._need_more_variants(ref):
-                            self._already_crawled.append(ref)
-                            possibly_broken = ref in only_re_refs
-                            targs = (ref, fuzzableRequest, originalURL,
-                                     possibly_broken)
-                            self._tm.startFunction(
-                                    target=self._verify_reference,
-                                    args=targs, ownerObj=self)
+                    # I don't want w3af sending requests to 3rd parties!
+                    if ref.getDomain() != self._target_domain:
+                        continue
+                    
+                    # Filter the URL's according to the configured regexs
+                    urlstr = ref.url_string
+                    if not self._compiled_follow_re.match(urlstr) or \
+                        self._compiled_ignore_re.match(urlstr):
+                        continue
+                    
+                    # Work with the parsed references and report broken
+                    # links. Then work with the regex references and DO NOT
+                    # report broken links
+                    if self._need_more_variants(ref):
+                        self._already_crawled.append(ref)
+                        possibly_broken = ref in only_re_refs
+                        targs = (ref, fuzzableRequest, originalURL,
+                                 possibly_broken)
+                        self._tm.startFunction(
+                                target=self._verify_reference,
+                                args=targs, ownerObj=self)
             
         self._tm.join(self)
         
@@ -267,8 +263,6 @@ class webSpider(baseDiscoveryPlugin):
             try:
                 resp = self._url_opener.GET(reference, useCache=True, 
                                            headers=headers)
-            except KeyboardInterrupt:
-                raise
             except w3afMustStopOnUrlError:
                 pass
             else:

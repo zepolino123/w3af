@@ -40,7 +40,6 @@ class passwordProfiling(baseGrepPlugin):
         # thread safe, So i have to create an instance of HTMLParser for every
         # call to testResponse
         #self._htmlParser = htmlParser.HTMLParser()
-        kb.save(self.name, 'passwordProfiling', {})
         # names of plugins to run
         ### TODO: develop more plugins, there is a nice ( all python ) metadata reader named hachoir-metadata
         ### it will be usefull for doing A LOT of plugins
@@ -85,7 +84,7 @@ class passwordProfiling(baseGrepPlugin):
             data = self._run_plugins(response)
             
             with self._plugin_lock:
-                old_data = kb.getData( 'passwordProfiling', 'passwordProfiling' )
+                old_data = kb.getData('passwordProfiling', 'passwordProfiling', {})
                 
                 # "merge" both maps and update the repetitions
                 for d in data:
@@ -162,10 +161,11 @@ class passwordProfiling(baseGrepPlugin):
         '''
         def sortfunc(x_obj, y_obj):
             return cmp(y_obj[1], x_obj[1])
-            
-        items = kb.getData( 'passwordProfiling', 'passwordProfiling' ).items()
-        if len( items ) != 0:
         
+        print 'BEFORE==== %s' % (kb.all().keys(),)
+        
+        items = kb.getData('passwordProfiling', 'passwordProfiling', {}).items()
+        if items:
             items.sort(sortfunc)
             om.out.information('Password profiling TOP 100:')
             

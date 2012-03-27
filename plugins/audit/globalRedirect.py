@@ -20,22 +20,17 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
-import core.controllers.outputManager as om
+import re
 
-# options
-from core.data.options.option import option
+from core.controllers.basePlugin.baseAuditPlugin import baseAuditPlugin
+from core.controllers.w3afException import w3afException
+from core.data.fuzzer.fuzzer import createMutants
 from core.data.options.optionList import optionList
-
+from core.data.parsers.dpCache import dp_cache
+import core.controllers.outputManager as om
+import core.data.constants.severity as severity
 import core.data.kb.knowledgeBase as kb
 import core.data.kb.vuln as vuln
-import core.data.constants.severity as severity
-
-import core.data.parsers.dpCache as dpCache
-from core.data.fuzzer.fuzzer import createMutants
-from core.controllers.w3afException import w3afException
-from core.controllers.basePlugin.baseAuditPlugin import baseAuditPlugin
-
-import re
 
 
 class globalRedirect(baseAuditPlugin):
@@ -101,7 +96,7 @@ class globalRedirect(baseAuditPlugin):
         else:
             # Test for http-equiv redirects
             try:
-                dp = dpCache.dpc.getDocumentParserFor( response )
+                dp = dp_cache.getDocumentParserFor(response)
             except w3afException:
                 # Failed to find a suitable parser for the document
                 return False

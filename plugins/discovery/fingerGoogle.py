@@ -20,20 +20,16 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
-import core.controllers.outputManager as om
-
-# options
+from core.controllers.basePlugin.baseDiscoveryPlugin import baseDiscoveryPlugin
+from core.controllers.w3afException import w3afException, w3afRunOnce
 from core.data.options.option import option
 from core.data.options.optionList import optionList
-
-import core.data.kb.knowledgeBase as kb
+from core.data.parsers.dpCache import dp_cache
+from core.data.searchEngines.googleSearchEngine import \
+    googleSearchEngine as google
+import core.controllers.outputManager as om
 import core.data.kb.info as info
-
-from core.data.searchEngines.googleSearchEngine import googleSearchEngine as google
-from core.controllers.basePlugin.baseDiscoveryPlugin import baseDiscoveryPlugin
-from core.controllers.w3afException import w3afException
-import core.data.parsers.dpCache as dpCache
-from core.controllers.w3afException import w3afRunOnce
+import core.data.kb.knowledgeBase as kb
 
 
 class fingerGoogle(baseDiscoveryPlugin):
@@ -139,7 +135,7 @@ class fingerGoogle(baseDiscoveryPlugin):
         Parses the HTML and adds the mail addresses to the kb.
         '''
         try:
-            document_parser = dpCache.dpc.getDocumentParserFor( response )
+            document_parser = dp_cache.getDocumentParserFor( response )
         except w3afException:
             # Failed to find a suitable parser for the document
             pass

@@ -19,7 +19,6 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-from itertools import chain
 import copy
 import datetime
 import os
@@ -154,7 +153,7 @@ class w3afCore(object):
                 'output':[]
                 }
         
-        self._fuzzableRequestList  = []
+        self._fuzz_reqs  = []
         
         self._initialized = False
         self.target = targetSettings()
@@ -320,67 +319,64 @@ class w3afCore(object):
         self._plugins['mangle'] = self._rPlugFactory(self._strPlugins['mangle'] , 'mangle')
         self.uriOpener.settings.setManglePlugins(self._plugins['mangle'])
 
-    def _updateURLsInKb(self, fuzzreqs):
+    def _update_found_urls(self, fuzzreqs):
         '''
-        Creates an URL list in the kb
+        Update URL global container with new found URLs.
         '''
-        old_list = globaldata.get('url-list', [])
-        new_list = set(
-                    chain((fr.getURL() for fr in fuzzreqs), old_list)
-                    )
-        # gtkui's URL queue
+        urls = globaldata.get('url-list', [])
+        
+        # Gtk UI's URL queue
         url_queue = globaldata['url-queue']
-        for u in new_list:
-            url_queue.put(u)
-            
-        # Update the list of URLs that is used world wide
-        old_list += list(new_list)
+        for fr in fuzzreqs:
+            u = fr.getURL()
+            if u not in urls:
+                url_queue.put(u)
+                # Update the list of URLs that is used world wide
+                urls.append(u)
         
         # Update the list of URIs that is used world wide
-        uriList = globaldata.get('uri-list', [])
-        uriList.extend([fr.getURI() for fr in fuzzreqs])
-        globaldata['uri-list'] = list(set(uriList))
+        uris = globaldata.get('uri-list', [])
+        uris.extend(fr.getURI() for fr in fuzzreqs if fr.getURI() not in uris)
     
-    def _discover_and_bruteforce( self ):
+    def _discover_and_bruteforce(self):
         '''
         Discovery and bruteforce phases are related, so I have joined them
         here in this method.
         '''
         go = True
-        tmp_list = copy.deepcopy( self._fuzzableRequestList )
+        tmp_list = copy.deepcopy(self._fuzz_reqs)
         res = []
         discovered_fr_list = []
         
         self._time_limit_reported = False
         
         while go:
-            discovered_fr_list = self._discover( tmp_list )
-            successfully_bruteforced = self._bruteforce( discovered_fr_list )
+            discovered_fr_list = self._discover(tmp_list)
+            successfully_bruteforced = self._bruteforce(discovered_fr_list)
             if not successfully_bruteforced:
                 # Haven't found new credentials
                 go = False
                 for fr in discovered_fr_list:
                     if fr not in res:
-                        res.append( fr )
+                        res.append(fr)
             else:
                 tmp = []
-                tmp.extend( discovered_fr_list )
-                tmp.extend( successfully_bruteforced )
+                tmp.extend(discovered_fr_list)
+                tmp.extend(successfully_bruteforced)
                 for fr in tmp:
                     if fr not in res:
-                        res.append( fr )
+                        res.append(fr)
                 
                 # So in the next "while go:" loop I can do a discovery
                 # using the new credentials I found
                 tmp_list = successfully_bruteforced
                 
-                # Now I reconfigure the urllib to use the newly found credentials
+                # Now I reconfigure the urllib to use the newly
+                # found credentials
                 self._reconfigureUrllib()
         
-        self._updateURLsInKb( res )
-        
         return res
-    
+
     def _reconfigureUrllib( self ):
         '''
         Configure the main urllib with the newly found credentials.
@@ -502,50 +498,49 @@ class w3afCore(object):
                 ###### This is the main section ######
                 # Create the first fuzzableRequestList
 
-                # We only want to scan pages that in current scope
-                get_curr_scope_pages = lambda fr: \
-                    fr.getURL().getDomain() == url.getDomain()
+                # We only want to scan pages from current target
+                get_curr_target_pages = \
+                        lambda fr: fr.getURL().getDomain() == url.getDomain()
 
                 for url in cf.cf.getData('targets'):
                     try:
                         
                         fingerprint_404.init_404(url, reset=True)
                         
-                        #
                         # GET the initial target URLs in order to save them
                         # in a list and use them as our bootstrap URLs
-                        #
                         response = self.uriOpener.GET(url, useCache=True)
                         
-                        self._fuzzableRequestList += filter(
-                            get_curr_scope_pages, createFuzzableRequests(response))
+                        self._fuzz_reqs += filter(
+                                              get_curr_target_pages,
+                                              createFuzzableRequests(response)
+                                              )
 
-                    except KeyboardInterrupt:
-                        raise
                     except (w3afMustStopOnUrlError, w3afException, w3afMustStopException), w3:
                         om.out.error('The target URL: %s is unreachable.' % url)
                         om.out.error('Error description: %s' % w3)
                     except Exception, e:
                         om.out.error('The target URL: %s is unreachable '
-                                     'because of an unhandled exception.' % url)
+                                 'because of an unhandled exception.' % url)
                         om.out.error('Error description: "%s". See debug '
                                      'output for more information.' % e)
                         om.out.error('Traceback for this error: %s' % 
                                      traceback.format_exc())
                 
                 # Load the target URLs to the KB
-                self._updateURLsInKb(self._fuzzableRequestList)
+                self._update_found_urls(self._fuzz_reqs)
                 
-                self._fuzzableRequestList = self._discover_and_bruteforce()
+                self._fuzz_reqs = self._discover_and_bruteforce()
+                
+                self._update_found_urls(self._fuzz_reqs)
                 
                 # Export all fuzzableRequests as CSV
                 # if this option is set in the miscSettings
                 if cf.cf.getData('exportFuzzableRequests') != '':
-                    self.export.exportFuzzableRequestList(self._fuzzableRequestList)
+                    self.export.exportFuzzableRequestList(self._fuzz_reqs)
                     
-                if not self._fuzzableRequestList:
-                    pass
-                    #om.out.information('No URLs found by discovery.')
+                if not self._fuzz_reqs:
+                    om.out.information('No URLs found by discovery.')
                 else:
                     # del() all the discovery and bruteforce plugins
                     # this is a performance enhancement that will free memory
@@ -557,15 +552,14 @@ class w3afCore(object):
                     # Sort URLs and 
                     # Save the list of uniques to the kb; this will avoid
                     # some extra loops in some plugins that use this knowledge
-                    urls = sorted(set(globaldata.get('url-list', [])[:]))
+                    urls = sorted(set(globaldata.get('url-list', [])))
                     globaldata['url-list'] = urls
         
                     
-                    # Filter out the fuzzable requests that aren't important (and will be ignored
-                    # by audit plugins anyway...)
+                    # Filter out the fuzzable requests that aren't important
+                    # (and will be ignored by audit plugins anyway...)
                     msg = ('Found %s URLs and %s different points of '
-                           'injection.' % 
-                           (len(urls), len(self._fuzzableRequestList)))
+                           'injection.' % (len(urls), len(self._fuzz_reqs)))
                     om.out.information(msg)
                     
                     # print the URLs
@@ -573,68 +567,9 @@ class w3afCore(object):
                     for u in urls:
                         om.out.information( '- ' + u)
                     
-                    #
-                    #   What I want to do here, is filter the repeated fuzzable requests.
-                    #   For example, if the spidering process found:
-                    #       - http://host.tld/?id=3739286
-                    #       - http://host.tld/?id=3739285
-                    #       - http://host.tld/?id=3739282
-                    #       - http://host.tld/?id=3739212
-                    #
-                    #   I don't want to have all these different fuzzable requests. The reason is that
-                    #   audit plugins will try to send the payload to each parameter, thus generating
-                    #   the following requests:
-                    #       - http://host.tld/?id=payload1
-                    #       - http://host.tld/?id=payload1
-                    #       - http://host.tld/?id=payload1
-                    #       - http://host.tld/?id=payload1
-                    #
-                    #   w3af has a cache, but its still a waste of time to send those requests.
-                    #
-                    #   Now lets analyze this with more than one parameter. Spidered URIs:
-                    #       - http://host.tld/?id=3739286&action=create
-                    #       - http://host.tld/?id=3739285&action=create
-                    #       - http://host.tld/?id=3739282&action=remove
-                    #       - http://host.tld/?id=3739212&action=remove
-                    #
-                    #   Generated requests:
-                    #       - http://host.tld/?id=payload1&action=create
-                    #       - http://host.tld/?id=3739286&action=payload1
-                    #       - http://host.tld/?id=payload1&action=create
-                    #       - http://host.tld/?id=3739285&action=payload1
-                    #       - http://host.tld/?id=payload1&action=remove
-                    #       - http://host.tld/?id=3739282&action=payload1
-                    #       - http://host.tld/?id=payload1&action=remove
-                    #       - http://host.tld/?id=3739212&action=payload1
-                    #
-                    #   In cases like this one, I'm sending these repeated requests:
-                    #       - http://host.tld/?id=payload1&action=create
-                    #       - http://host.tld/?id=payload1&action=create
-                    #       - http://host.tld/?id=payload1&action=remove
-                    #       - http://host.tld/?id=payload1&action=remove
-                    #   But there is not much I can do about it... (except from having a nice cache)
-                    #
-                    #   TODO: Is the previous statement completely true?
-                    #
-                    '''filtered_fuzzable_requests = []
-                    for fr_original in self._fuzzableRequestList:
-                        
-                        different_from_all = True
-                        
-                        for fr_filtered in filtered_fuzzable_requests:
-                            if fr_filtered.is_variant_of( fr_original ):
-                                different_from_all = False
-                                break
-                        
-                        if different_from_all:
-                            filtered_fuzzable_requests.append( fr_original )
-                    
-                    self._fuzzableRequestList = filtered_fuzzable_requests
-                    '''
-                    
-                    #   Now I simply print the list that I have after the filter.
+                    # Now I simply print the list that I have after the filter.
                     tmp_fr_list = []
-                    for fuzzRequest in self._fuzzableRequestList:
+                    for fuzzRequest in self._fuzz_reqs:
                         tmp_fr_list.append( '- ' + str(fuzzRequest) )
                     tmp_fr_list.sort()
 
@@ -738,6 +673,7 @@ class w3afCore(object):
             tm.stopAllDaemons()
             
             grepmngr = get_plugin_manager(MNGR_TYPE_GREP)
+            print 'ENDING PLUGINS'
             grepmngr.work(action='end', timeout=20)
             
             # TODO: JAP - Oct 24, 2011. This really sucks!!! We really need
@@ -747,7 +683,7 @@ class w3afCore(object):
             
             # Also, close the output manager.
             om.out.endOutputPlugins()
-        except Exception:
+        except:
             if not ignore_err:
                 raise
         finally:
@@ -764,7 +700,7 @@ class w3afCore(object):
         '''
         return self._isRunning
     
-    def _discover( self, toWalk ):
+    def _discover(self, toWalk):
         # Init some internal variables
         self._alreadyWalked = toWalk
         self._urls = []
@@ -772,8 +708,10 @@ class w3afCore(object):
         
         result = []
         try:
-            result = self._discoverWorker( toWalk )
+            print '>>>>>>>>> DISCOVER <<<<<<<<<'
+            result = self._discoverWorker(toWalk)
         except KeyboardInterrupt:
+            print '.......KeyboardInterrupt.....'
             om.out.information('The user interrupted the discovery phase, '
                                'continuing with audit.')
             result = self._alreadyWalked
@@ -783,7 +721,7 @@ class w3afCore(object):
         
         return result
     
-    def _endDiscovery( self ):
+    def _endDiscovery(self):
         '''
         Let the discovery plugins know that they won't be used anymore.
         '''
@@ -804,14 +742,14 @@ class w3afCore(object):
         return diff / 60
     
     def _discoverWorker(self, toWalk):
-        om.out.debug('Called _discoverWorker()' )
+        om.out.debug('Called _discoverWorker()')
         
-        while len( toWalk ):
+        while toWalk:
             
             # Progress stuff, do this inside the while loop, because the toWalk variable changes
             # in each loop
             amount_of_tests = len(self._plugins['discovery']) * len(toWalk)
-            self.progress.set_total_amount( amount_of_tests )
+            self.progress.set_total_amount(amount_of_tests)
             
             plugins_to_remove_list = []
             fuzzableRequestList = []
@@ -840,29 +778,31 @@ class w3afCore(object):
                         break
                         
                     else:
-                        self._setRunningPlugin( plugin.name )
-                        self._setCurrentFuzzableRequest( fr )
+                        self._setRunningPlugin(plugin.name)
+                        self._setCurrentFuzzableRequest(fr)
                         try:
                             # Perform the actual work
-                            pluginResult = plugin.discover_wrapper( fr )
-                        except w3afException,e:
-                            om.out.error( str(e) )
-                            tm.join( plugin )
-                        except w3afRunOnce, rO:
-                            # Some plugins are ment to be run only once
-                            # that is implemented by raising a w3afRunOnce exception
-                            plugins_to_remove_list.append( plugin )
-                            tm.join( plugin )
+                            pluginResult = plugin.discover_wrapper(fr)
+                        except w3afException, e:
+                            om.out.error(str(e))
+                            tm.join(plugin)
+                        except w3afRunOnce:
+                            # Some plugins are meant to be run only once
+                            # that is implemented by raising a w3afRunOnce
+                            # exception
+                            plugins_to_remove_list.append(plugin)
+                            tm.join(plugin)
                         else:
-                            tm.join( plugin )
+                            tm.join(plugin)
                         
-                            # We don't trust plugins, i'll only work if this is a list
-                            # or something else that is iterable
-                            if hasattr(pluginResult,'__iter__'):
-                                for i in pluginResult:
-                                    fuzzableRequestList.append( (i, plugin.name) )
+                            # We don't trust plugins, i'll only work if this
+                            # is a list or something else that is iterable
+                            if hasattr(pluginResult, '__iter__'):
+                                fuzzableRequestList.extend(
+                                   (ele, plugin.name) for ele in pluginResult
+                                   )
                                     
-                        om.out.debug('Ending plugin: ' + plugin.name )
+                        om.out.debug('Ending plugin: ' + plugin.name)
                     
                     # We finished one loop, inc!
                     self.progress.inc()
@@ -876,27 +816,28 @@ class w3afCore(object):
             newFR = []
             tmp_sort = []
             for iFr, pluginWhoFoundIt in fuzzableRequestList:
-                # I dont care about fragments ( http://a.com/foo.php#frag ) and I dont really trust plugins
+                # I dont care about fragments ( http://a.com/foo.php#frag )
+                # and I dont really trust plugins
                 # so i'll remove fragments here
-                iFr.setURL( iFr.getURL().removeFragment() )
+                iFr.setURL(iFr.getURL().removeFragment())
                 
-                if iFr not in self._alreadyWalked and iFr.getURL().baseUrl() in cf.cf.getData('baseURLs'):
+                if iFr not in self._alreadyWalked and \
+                    iFr.getURL().baseUrl() in cf.cf.getData('baseURLs'):
                     # Found a new fuzzable request
-                    newFR.append( iFr )
-                    self._alreadyWalked.append( iFr )
+                    newFR.append(iFr)
+                    self._alreadyWalked.append(iFr)
                     if iFr.getURL() not in self._urls:
                         tmp_sort.append(iFr.getURL())
-                        self._urls.append( iFr.getURL() )
+                        self._urls.append(iFr.getURL())
             
             #   Print the new URLs in a sorted manner.
             tmp_sort.sort()
             for u in tmp_sort:
-                pass
-#                om.out.information('New URL found by %s plugin: %s' %
-#                                            (pluginWhoFoundIt, unicode(u)))
+                om.out.information('New URL found by %s plugin: %s' % 
+                                            (pluginWhoFoundIt, unicode(u)))
                 
             # Update the list / queue that lives in the KB
-            self._updateURLsInKb( newFR )
+            self._update_found_urls(newFR)
 
             
             ##
@@ -919,14 +860,14 @@ class w3afCore(object):
                 if plugin_to_remove in self._plugins['discovery']:
                     
                     # Remove it from the plugin list, and run the end() method
-                    self._plugins['discovery'].remove( plugin_to_remove )
+                    self._plugins['discovery'].remove(plugin_to_remove)
                     om.out.debug('The discovery plugin: ' + plugin_to_remove.name + ' wont be runned anymore.')      
                     try:
                         plugin_to_remove.end()
                     except Exception, e:
-                        msg = 'The plugin "'+ plugin_to_remove.name + '" raised an exception'
+                        msg = 'The plugin "' + plugin_to_remove.name + '" raised an exception'
                         msg += ' in the end() method: ' + str(e)
-                        om.out.error( msg )
+                        om.out.error(msg)
                     
                     # Don't waste memory on plugins that won't be run
                     del(plugin_to_remove)
@@ -995,7 +936,7 @@ class w3afCore(object):
         
         # For progress reporting
         self._set_phase('audit')
-        amount_of_tests = len(self._plugins['audit']) * len(self._fuzzableRequestList)
+        amount_of_tests = len(self._plugins['audit']) * len(self._fuzz_reqs)
         self.progress.set_total_amount( amount_of_tests )
         
         # This two for loops do all the audit magic [KISS]
@@ -1004,7 +945,7 @@ class w3afCore(object):
             # For status
             self._setRunningPlugin( plugin.name )
 
-            for fr in self._fuzzableRequestList:
+            for fr in self._fuzz_reqs:
                 # Sends each fuzzable request to the plugin
                 try:
                     self._setCurrentFuzzableRequest( fr )

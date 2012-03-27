@@ -55,10 +55,14 @@ def handle_crash(type, value, tb, plugins=''):
         om.out.console(_('Bye!'))
         sys.exit(0)
         return
-        
-    exception = traceback.format_exception(type, value, tb)
-    exception = "".join(exception)
-    print exception
+    try:
+        exception = traceback.format_exception(type, value, tb)
+        exception = "".join(exception)
+        print exception
+    except Exception, ex:
+        print ';;;;;;;;;;;;;;;;;;;;;;;;;;;;;; %s %s %s %s' % (ex, type, value, tb)
+        raise
+    
 
     # save the info to a file
     filename = tempfile.gettempdir() + os.path.sep + "w3af_crash-" + createRandAlNum(5) + ".txt"

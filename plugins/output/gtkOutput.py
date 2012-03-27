@@ -21,7 +21,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 '''
 
 # Only to be used with care.
-import Queue
+from multiprocessing import Queue
 import os
 from errno import EEXIST
 
@@ -57,7 +57,7 @@ class gtkOutput(baseOutputPlugin):
             self._db = globaldata['gtkoutput-db']
             self.queue = globaldata['gtkoutput-queue']
         else:
-            self.queue = Queue.Queue()
+            self.queue = Queue()
             globaldata['gtkoutput-queue'] = self.queue
             # Create DB and add tables
             sessionName = cf.cf.getData('sessionName')

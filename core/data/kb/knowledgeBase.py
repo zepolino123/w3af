@@ -38,6 +38,9 @@ class KnowledgeBase(object):
     def __init__(self):
         self._kb = {}
         self._kb_lock = Lock()
+    
+    def all(self):
+        return self._kb
 
     def save(self, pluginname, variableName, value):
         '''
@@ -54,7 +57,7 @@ class KnowledgeBase(object):
             vals = self._kb.setdefault(name, {}).setdefault(variableName, [])
             vals.append(value)
         
-    def getData(self, pluginname, variableName=None):
+    def getData(self, pluginname, variableName=None, default=None):
         '''
         @parameter pluginname: The plugin that saved the data to the
             kb.info Typically the name of the plugin.
@@ -66,26 +69,13 @@ class KnowledgeBase(object):
             is returned.
         @return: Returns the data that was saved by another plugin.
         '''        
-        res = []
+        if default is None:
+            default = []
         
-#        with self._kb_lock:
-#            if variableName is None:
-#                res = self._kb.get(pluginname, [])
-#            else:
-#                res = self._kb.get(pluginname, {}).get(variableName, [])
-#                if len(res) == 1:
-#                    res = res[0]
-#            return res
-            
-        if pluginname not in self._kb.keys():
-            res = []
+        if variableName is None:
+            res = self._kb.get(pluginname, default)
         else:
-            if variableName is None:
-                res = self._kb[pluginname]
-            elif variableName not in self._kb[pluginname].keys():
-                res = []
-            else:
-                res = self._kb[pluginname][variableName]
+            res = self._kb.get(pluginname, {}).get(variableName, default)
         return res
 
     def getAllEntriesOfClass(self, klass):

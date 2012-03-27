@@ -20,21 +20,19 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
-import core.controllers.outputManager as om
-
-# options
+from core.controllers.basePlugin.baseDiscoveryPlugin import baseDiscoveryPlugin
+from core.controllers.w3afException import (
+                                        w3afException,
+                                        w3afMustStopOnUrlError,
+                                        w3afRunOnce
+                                        )
 from core.data.options.option import option
 from core.data.options.optionList import optionList
-
-from core.controllers.basePlugin.baseDiscoveryPlugin import baseDiscoveryPlugin
-from core.controllers.w3afException import w3afException, w3afMustStopOnUrlError
-from core.controllers.w3afException import w3afRunOnce
-
-import core.data.kb.knowledgeBase as kb
-import core.data.kb.info as info
-
+from core.data.parsers.dpCache import dp_cache
 from core.data.searchEngines.bing import bing as bing
-import core.data.parsers.dpCache as dpCache
+import core.controllers.outputManager as om
+import core.data.kb.info as info
+import core.data.kb.knowledgeBase as kb
 
 
 class fingerBing(baseDiscoveryPlugin):
@@ -102,7 +100,7 @@ class fingerBing(baseDiscoveryPlugin):
             
             # I have the response object!
             try:
-                document_parser = dpCache.dpc.getDocumentParserFor(response)
+                document_parser = dp_cache.getDocumentParserFor(response)
             except w3afException:
                 # Failed to find a suitable parser for the document
                 pass

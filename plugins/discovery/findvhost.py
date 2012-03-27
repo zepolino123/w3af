@@ -20,26 +20,20 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
+import socket
 
 from core.controllers.basePlugin.baseDiscoveryPlugin import baseDiscoveryPlugin
-import core.data.parsers.dpCache as dpCache
 from core.controllers.misc.levenshtein import relative_distance_lt
-from core.data.fuzzer.fuzzer import createRandAlNum
 from core.controllers.w3afException import w3afException
-
-import core.data.kb.knowledgeBase as kb
-import core.data.kb.info as info
-import core.data.kb.vuln as vuln
-import core.data.constants.severity as severity
-
 from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
-
-import socket
+from core.data.fuzzer.fuzzer import createRandAlNum
+from core.data.options.optionList import optionList
+from core.data.parsers.dpCache import dp_cache
+import core.controllers.outputManager as om
+import core.data.constants.severity as severity
+import core.data.kb.info as info
+import core.data.kb.knowledgeBase as kb
+import core.data.kb.vuln as vuln
 
 
 class findvhost(baseDiscoveryPlugin):
@@ -117,7 +111,7 @@ class findvhost(baseDiscoveryPlugin):
         base_resp_body = base_response.getBody()
         
         try:
-            dp = dpCache.dpc.getDocumentParserFor(original_response)
+            dp = dp_cache.getDocumentParserFor(original_response)
         except w3afException:
             # Failed to find a suitable parser for the document
             return []

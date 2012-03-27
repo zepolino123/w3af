@@ -24,7 +24,7 @@ import inspect
 
 from pymock import PyMockTestCase, method
 
-from ..outputManager import outputManager
+from ..outputManager import OutputManager
 
 
 class TestOutputManager(PyMockTestCase):
@@ -34,7 +34,7 @@ class TestOutputManager(PyMockTestCase):
 
     def setUp(self):
         PyMockTestCase.setUp(self)
-        self.om = outputManager()
+        self.om = OutputManager()
 
     def test_output_plugins_actions(self):
         '''Call all actions on output plugins'''

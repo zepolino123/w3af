@@ -28,7 +28,7 @@ from core.data.constants.encodings import UTF8
 import core.data.constants.severity as severity
 
 
-class outputManager:
+class OutputManager(object):
     '''
     This class manages output. 
     It has a list of output plugins and sends the events to every plugin on that list.
@@ -128,9 +128,9 @@ class outputManager:
         self._outputPlugins = outputPlugins
         
         for pluginName in self._outputPlugins:
-            out._addOutputPlugin(pluginName)  
+            self._addOutputPlugin(pluginName)  
         
-        out.debug('Exiting setOutputPlugins()')
+        self.debug('Exiting setOutputPlugins()')
     
     def getOutputPlugins(self):
         return self._outputPlugins
@@ -168,15 +168,15 @@ class outputManager:
             for oPlugin in self._outputPluginList:
                 getattr(oPlugin, actionname)(message, *params)
     
-    def _addOutputPlugin(self, OutputPluginName):
+    def _addOutputPlugin(self, pname):
         '''
-        Takes a string with the OutputPluginName, creates the object and
-        adds it to the OutputPluginName
+        Takes a string with the pname, creates the object and
+        adds it to the output plugins list
         
-        @parameter OutputPluginName: The name of the plugin to add to the list.
+        @parameter pname: The name of the plugin to add to the list.
         @return: No value is returned.
         '''
-        if OutputPluginName == 'all':
+        if pname == 'all':
             fileList = os.listdir(os.path.join('plugins', 'output'))    
             strReqPlugins = [os.path.splitext(f)[0] for f in fileList
                                             if os.path.splitext(f)[1] == '.py']
@@ -192,11 +192,11 @@ class outputManager:
                 self._outputPluginList.append(plugin)
         
         else:
-            plugin = factory('plugins.output.' + OutputPluginName)
-            if OutputPluginName in self._pluginsOptions.keys():
-                plugin.setOptions(self._pluginsOptions[OutputPluginName])
+            plugin = factory('plugins.output.' + pname)
+            if pname in self._pluginsOptions.keys():
+                plugin.setOptions(self._pluginsOptions[pname])
 
                 # Append the plugin to the list
             self._outputPluginList.append(plugin)    
-        
-out = outputManager()
+
+out = OutputManager()

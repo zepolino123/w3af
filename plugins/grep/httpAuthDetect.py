@@ -30,7 +30,7 @@ import core.controllers.outputManager as om
 import core.data.constants.severity as severity
 import core.data.kb.info as info
 import core.data.kb.vuln as vuln
-import core.data.parsers.dpCache as dpCache
+from core.data.parsers.dpCache import dp_cache
 
 
 class httpAuthDetect(baseGrepPlugin):
@@ -188,7 +188,7 @@ class httpAuthDetect(baseGrepPlugin):
         #
         url_list = []
         try:
-            documentParser = dpCache.dpc.getDocumentParserFor(response)
+            documentParser = dp_cache.getDocumentParserFor(response)
         except w3afException, w3:
             msg = 'Failed to find a suitable document parser. ' \
             'Exception: ' + str(w3)

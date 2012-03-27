@@ -19,26 +19,19 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
+import re
 
 from core.controllers.basePlugin.baseDiscoveryPlugin import baseDiscoveryPlugin
-
-from core.controllers.misc.is_private_site import is_private_site
-from core.data.request.httpQsRequest import httpQsRequest
-from core.controllers.w3afException import w3afException
-from core.data.parsers.dpCache import dpc as dpc
-from core.data.parsers.urlParser import url_object
-import core.data.kb.knowledgeBase as kb
-
-from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
 from core.controllers.coreHelpers.fingerprint_404 import is_404
-
-import re
+from core.controllers.misc.is_private_site import is_private_site
+from core.controllers.w3afException import w3afException
+from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
+from core.data.options.option import option
+from core.data.options.optionList import optionList
+from core.data.parsers.dpCache import dp_cache
+from core.data.parsers.urlParser import url_object
+from core.data.request.httpQsRequest import httpQsRequest
+import core.controllers.outputManager as om
 
 
 class archiveDotOrg(baseDiscoveryPlugin):
@@ -152,7 +145,7 @@ class archiveDotOrg(baseDiscoveryPlugin):
                 else:
                     # Get the references
                     try:
-                        document_parser = dpc.getDocumentParserFor( http_response )
+                        document_parser = dp_cache.getDocumentParserFor( http_response )
                     except w3afException:
                         # Failed to find a suitable document parser
                         pass

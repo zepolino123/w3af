@@ -25,19 +25,49 @@ __all__ = ['Shared']
 
 class Shared(object):
     
+    class _Manager(BaseManager):
+            def is_active(self):
+                return self._process.is_alive()
+    
     def __init__(self, shared, exposed=()):
-        class _Manager(BaseManager):
-            pass
-        self.name = name = str(id(self))
-        _shared = shared if callable(shared) else lambda: shared
-        _Manager.register(name, _shared, exposed=exposed)
-        _mngr = _Manager()
-        _mngr.start()
-        self.getproxy = getattr(_mngr, name)
+        self._shared = shared if callable(shared) else lambda: shared
+        self._name = str(id(self))
+        self._Manager.register(self._name, self._shared, exposed=exposed)
+        self._start_manager()
+    
+    def _start_manager(self):
+        try:
+            mngr = self._Manager()
+            mngr.start()
+        except:
+            mngr = None
+        self._mngr = mngr
+        print ':::::::::::::::: THE STARTED MANAGER: %r' % mngr
+    
+    def is_active(self):
+        try:
+            return self._mngr.is_active()
+        except AttributeError:
+            return True
     
     def __getattr__(self, name):
-        return getattr(self.getproxy(), name)
+        def wrap(*args, **kwargs):
+            try:
+                return getattr(self._getproxy(), name)(*args, **kwargs)
+            except (IOError, EOFError):
+                return getattr(self._shared(), name)(*args, **kwargs)
+        return wrap
     
     def __call__(self, *args):
-        return self.getproxy(*args)
+        return self._getproxy(*args)
     
+    def _getproxy(self):
+        proxy = None
+        if self._mngr:
+            try:
+                proxy = getattr(self._mngr, self._name)()
+            except (IOError, EOFError):
+                pass
+        if proxy is None:
+            proxy = self._shared()
+        return proxy

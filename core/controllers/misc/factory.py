@@ -35,7 +35,7 @@ def factory(moduleName, *args):
     with the same name.
     
     Example :
-    >> f00 = factory( 'plugins.discovery.googleSpider' )
+    >> f00 = factory('plugins.discovery.googleSpider')
     >> print f00
     <googleSpider.googleSpider instance at 0xb7a1f28c>
     
@@ -44,25 +44,26 @@ def factory(moduleName, *args):
     '''
     try:
         __import__(moduleName)
-    except ImportError,  ie:
-        raise w3afException('There was an error while importing '+ moduleName + ': "' + str(ie) + '".')
+    except ImportError, ie:
+        raise w3afException('There was an error while importing %s: "%s".'
+                            % (moduleName, ie))
     except Exception, e:
-        raise w3afException('Error while loading plugin "'+ moduleName + '". Exception: ' + str(e) )
+        raise w3afException('Error while loading plugin "%s". '
+                            'Exception: %s' % (moduleName, e))
     else:
-        
         className = moduleName.split('.')[-1]
-        
         try:
             aModule = sys.modules[moduleName]
-            aClass = getattr(aModule , className)
+            aClass = getattr(aModule, className)
         except:
-            raise w3afException('The requested plugin ("'+ moduleName + '") doesn\'t have a correct format.')
+            raise w3afException('The requested plugin ("%s") doesn\'t have '
+                                'a correct format.' % moduleName)
         else:
             try:
                 inst = aClass(*args)
             except Exception, e:
                 msg = 'Failed to get an instance of "' + className
                 msg += '". Original exception: "' + str(e) + '".'
-                msg += 'Traceback for this error: ' + str( traceback.format_exc() )
+                msg += 'Traceback for this error: ' + str(traceback.format_exc())
                 raise w3afException(msg)
             return inst
