@@ -351,6 +351,24 @@ class w3afCore(object):
             if not plugin.is_logged():
                 plugin.login()
 
+    def _filter_requests(self, requests):
+        '''
+        Filter requests because we don't need to fuzz "same" URLs like:
+                
+        - http://host.tld/?id=3739286
+        - http://host.tld/?id=3739285
+        '''
+        filtered_requests = []
+        for request in requests:
+            unique = True
+            for filtered_request in filtered_requests:
+                if filtered_request.is_variant_of(request):
+                    unique = False
+                    break
+            if unique:
+                filtered_requests.append(request)
+        return filtered_requests
+
     def _discover_and_bruteforce( self ):
         '''
         Discovery and bruteforce phases are related, so I have joined them
@@ -364,8 +382,10 @@ class w3afCore(object):
         self._time_limit_reported = False
         
         while go:
-            discovered_fr_list = self._discover( tmp_list )
-            successfully_bruteforced = self._bruteforce( discovered_fr_list )
+            discovered_fr_list = self._filter_requests(self._discover(tmp_list))
+            successfully_bruteforced = self._filter_requests(
+                    self._bruteforce(discovered_fr_list)
+                    )
             if not successfully_bruteforced:
                 # Haven't found new credentials
                 go = False
@@ -633,7 +653,8 @@ class w3afCore(object):
                     #
                     #   TODO: Is the previous statement completely true?
                     #
-                    '''filtered_fuzzable_requests = []
+                    '''
+                    filtered_fuzzable_requests = []
                     for fr_original in self._fuzzableRequestList:
                         
                         different_from_all = True
@@ -648,7 +669,6 @@ class w3afCore(object):
                     
                     self._fuzzableRequestList = filtered_fuzzable_requests
                     '''
-                    
                     # Now I simply print the list that I have after the filter.
                     tmp_fr_list = []
                     for fuzzRequest in self._fuzzableRequestList:
