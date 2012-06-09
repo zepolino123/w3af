@@ -59,7 +59,7 @@ class TestWebSpider(PluginTest):
              'd%20f/index.html', '2.html', 'a%20b.html',
              'a.gif', 'd%20f/', '1.html'
              )
-        urls = self.kb.getData('urls', 'urlList')
+        urls = self.kb.getData('urls', 'url_objects')
         self.assertEquals(
                 set(str(u) for u in urls),
                 set((self.follow_links_url + end) for end in expected_urls)
@@ -68,16 +68,18 @@ class TestWebSpider(PluginTest):
     def test_spider_urls_with_strange_charsets(self):
         cfg = self._run_configs['cfg1']
         self._scan(self.encoding_url + 'index.html', cfg['plugins'])
-        urls = self.kb.getData('urls', 'urlList')
+        urls = self.kb.getData('urls', 'url_objects')
         expected = (
             u'', u'index.html',
             # Japanese
             u'euc-jp/', u'euc-jp/jap1.php', u'euc-jp/jap2.php',
             # UTF8
             u'utf-8/', u'utf-8/vúlnerable.php', u'utf-8/é.html', u'utf-8/改.php',
+            # Russian
+            u'utf-8/russian.html',
             # Hebrew
             u'windows-1255/', u'windows-1255/heb1.php', u'windows-1255/heb2.php'
-        )
+        ) 
         self.assertEquals(
             sorted([(self.encoding_url + u) for u in expected]),
             sorted([u.url_string for u in urls])
@@ -86,5 +88,5 @@ class TestWebSpider(PluginTest):
     def test_spider_relative_urls_found_with_regex(self):
         cfg = self._run_configs['cfg2']
         self._scan(cfg['target'], cfg['plugins'])
-        urls = self.kb.getData('urls', 'urlList')
+        urls = self.kb.getData('urls', 'url_objects')
         1+1

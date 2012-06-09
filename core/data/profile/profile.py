@@ -24,10 +24,11 @@ import ConfigParser
 import os
 import shutil
 
-from core.controllers.misc.factory import *
+from core.controllers.coreHelpers.target import w3af_core_target
+from core.controllers.misc.factory import factory
 from core.controllers.misc.homeDir import get_home_dir
-from core.controllers.w3afException import w3afException
 from core.data.constants.encodings import UTF8
+from core.controllers.w3afException import w3afException
 
 
 class profile:
@@ -58,8 +59,13 @@ class profile:
             with codecs.open(profname, "rb", UTF8) as fp:
                 try:
                     self._config.readfp(fp)
-                except Exception:
-                    raise w3afException('Unknown format in profile: %s' % profname)
+                except ConfigParser.Error, cpe:
+                    msg = 'ConfigParser error in profile: "%s". Exception: "%s"'
+                    raise w3afException( msg % (profname, str(cpe)))
+                except Exception, e:
+                    msg = 'Unknown error in profile: "%s". Exception: "%s"'
+                    raise w3afException( msg % (profname, str(e)))
+
         
         # Save the profname variable
         self._profile_file_name = profname
@@ -214,7 +220,8 @@ class profile:
                             value = self._config.get(section, option)
                         except KeyError,k:
                             # We should never get here...
-                            raise w3afException('The option "' + option + '" is unknown for the "'+ pluginName + '" plugin.')
+                            msg = 'The option "%s" is unknown for the "%s" plugin.'
+                            raise w3afException( msg % (option, pluginName) )
                         else:
                             optionsMap[option].setValue(value)
 
@@ -333,7 +340,7 @@ class profile:
         @return: The profile target with the options (targetOS, targetFramework, etc.)
         '''
         # Get the plugin defaults with their types
-        targetInstance = factory('core.controllers.targetSettings')
+        targetInstance = w3af_core_target()
         options = targetInstance.getOptions()
 
         for section in self._config.sections():

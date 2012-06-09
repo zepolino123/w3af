@@ -19,7 +19,7 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
+import re
 
 import core.controllers.outputManager as om
 from core.controllers.w3afException import w3afException
@@ -35,9 +35,6 @@ import core.data.kb.info as info
 import core.data.kb.vuln as vuln
 import core.data.constants.severity as severity
 import core.data.parsers.dpCache as dpCache
-
-import re
-
 
 class httpAuthDetect(baseGrepPlugin):
     '''
@@ -135,15 +132,16 @@ class httpAuthDetect(baseGrepPlugin):
         >>> len(kb.kb.getData('httpAuthDetect', 'userPassUri'))
         0
         '''
-        already_reported = [i.getURL().getDomainPath() for i in \
-                            kb.kb.getData('httpAuthDetect', 'auth')]
-        
         # If I have a 401 code, and this URL wasn't already reported...
-        if response.getCode() == 401 and \
-        response.getURL().getDomainPath() not in already_reported:
+        if response.getCode() == 401:
             
-            # Perform all the work in this method
-            self._analyze_401(response)
+            # Doing this after the other if in order to be faster.
+            already_reported = [i.getURL().getDomainPath() for i in \
+                                kb.kb.getData('httpAuthDetect', 'auth')]
+            if response.getURL().getDomainPath() not in already_reported:
+            
+                # Perform all the work in this method
+                self._analyze_401(response)
             
         else:
             
@@ -159,23 +157,22 @@ class httpAuthDetect(baseGrepPlugin):
         #
         #   Analyze the HTTP URL
         #
-        if '@' in response.getURI():
-
-            if self._auth_uri_regex.match( response.getURI().url_string ):
-                # An authentication URI was found!
-                v = vuln.vuln()
-                v.setPluginName(self.getName())
-                v.setURL(response.getURL())
-                v.setId(response.id)
-                desc = 'The resource: "%s" has a user and password in ' \
-                'the URI.' % response.getURI()
-                v.setDesc(desc)
-                v.setSeverity(severity.HIGH)
-                v.setName('Basic HTTP credentials')
-                v.addToHighlight( response.getURI().url_string )
-                
-                kb.kb.append(self, 'userPassUri', v)
-                om.out.vulnerability(v.getDesc(), severity=v.getSeverity())
+        if ('@' in response.getURI() and 
+               self._auth_uri_regex.match(response.getURI().url_string)):
+            # An authentication URI was found!
+            v = vuln.vuln()
+            v.setPluginName(self.getName())
+            v.setURL(response.getURL())
+            v.setId(response.id)
+            desc = 'The resource: "%s" has a user and password in ' \
+            'the URI.' % response.getURI()
+            v.setDesc(desc)
+            v.setSeverity(severity.HIGH)
+            v.setName('Basic HTTP credentials')
+            v.addToHighlight( response.getURI().url_string )
+            
+            kb.kb.append(self, 'userPassUri', v)
+            om.out.vulnerability(v.getDesc(), severity=v.getSeverity())
 
 
         #
@@ -195,7 +192,8 @@ class httpAuthDetect(baseGrepPlugin):
 
         for url in url_list:
                 
-            if self._auth_uri_regex.match(url.url_string):
+            if ('@' in url.url_string and
+                    self._auth_uri_regex.match(url.url_string)):
                 v = vuln.vuln()
                 v.setPluginName(self.getName())
                 v.setURL(response.getURL())
@@ -277,6 +275,6 @@ class httpAuthDetect(baseGrepPlugin):
         @return: A DETAILED description of the plugin functions and features.
         '''
         return '''
-        This plugin greps every page and finds responses that indicate that the resource requires
-        authentication.
+        This plugin greps every page and finds responses that indicate that the
+        resource requires authentication.
         '''

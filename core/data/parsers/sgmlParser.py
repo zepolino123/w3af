@@ -43,10 +43,10 @@ class SGMLParser(BaseParser):
     TAGS_WITH_URLS = (
         'go', 'a', 'anchor', 'img', 'link', 'script', 'iframe', 'object',
         'embed', 'area', 'frame', 'applet', 'input', 'base', 'div', 'layer',
-        'form', 'ilayer', 'bgsound'
+        'form', 'ilayer', 'bgsound', 'html', 'audio', 'video'
         )
     
-    URL_ATTRS = ('href', 'src', 'data', 'action')
+    URL_ATTRS = ('href', 'src', 'data', 'action', 'manifest')
 
     # I don't want to inject into Apache's directory indexing parameters
     APACHE_INDEXING = ("?C=N;O=A", "?C=M;O=A", "?C=S;O=A", "?C=D;O=D",
@@ -173,8 +173,11 @@ class SGMLParser(BaseParser):
                 url = unicode(self._baseUrl.urlJoin(url_path))
                 url = url_object(url, encoding=self._encoding)
             except ValueError:
-                # Just ignore it
-                pass
+                # Just ignore it, this happens in many cases but one
+                # of the most noticeable is "d:url.html", where the 
+                # developer uses a colon in the URL.
+                msg = 'Ignoring URL "%s" as it generated an invalid URL.'
+                om.out.debug( msg % url_path)
             else:
                 url.normalizeURL()
                 # Save url

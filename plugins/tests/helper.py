@@ -24,6 +24,7 @@ import os
 import unittest
 
 from core.controllers.w3afCore import w3afCore
+from core.controllers.w3afException import w3afException
 from core.controllers.misc.homeDir import W3AF_LOCAL_PATH
 from core.data.options.option import option as Option
 from core.data.options.comboOption import comboOption as ComboOption
@@ -32,11 +33,16 @@ import core.data.kb.knowledgeBase as kb
 
 os.chdir(W3AF_LOCAL_PATH)
 
+
 class PluginTest(unittest.TestCase):
     
     runconfig = {}
     kb = kb.kb
     
+    def setUp(self):
+        self.kb.cleanup()        
+        self.w3afcore = w3afCore()
+        
     def _scan(self, target, plugins):
         '''
         Setup env and start scan. Typically called from children's
@@ -63,32 +69,32 @@ class PluginTest(unittest.TestCase):
                       )
             opts.add(opt)
             return opts
-            
-        self.w3afcore = w3afCore()
+        
         # Set target(s)
         if isinstance(target, basestring):
             target = (target,)
         self.w3afcore.target.setOptions(_targetoptions(*target))
         # Enable plugins to be tested
         for ptype, plugincfgs in plugins.items():
-            self.w3afcore.setPlugins([p.name for p in plugincfgs], ptype)
+            self.w3afcore.plugins.setPlugins([p.name for p in plugincfgs], ptype)
             for pcfg in plugincfgs:
-                self.w3afcore.setPluginOptions(ptype, pcfg.name, pcfg.options)
+                plugin_instance = self.w3afcore.plugins.getPluginInstance(pcfg.name, ptype)
+                default_option_list = plugin_instance.getOptions()
+                unit_test_options = pcfg.options
+                for option in default_option_list:
+                    if option.getName() not in unit_test_options:
+                        unit_test_options.add(option) 
+                    
+                self.w3afcore.plugins.setPluginOptions(ptype, pcfg.name, unit_test_options)
+                
         # Verify env and start the scan
-        self.w3afcore.initPlugins()
+        self.w3afcore.plugins.init_plugins()
         self.w3afcore.verifyEnvironment()
         self.w3afcore.start()
     
     def tearDown(self):
         self.w3afcore.quit()
         self.kb.cleanup()
-
-
-class OptionDict(dict):
-    def __missing__(self, key):
-        opt = Option(key, u'', '', Option.STRING)
-        self[key] = opt
-        return opt
 
 
 class PluginConfig(object):
@@ -100,9 +106,9 @@ class PluginConfig(object):
     
     def __init__(self, name, *opts):
         self._name = name
-        self._options = OptionDict()
+        self._options = OptionList()
         for optname, optval, optty in opts:
-            self._options[optname] = Option(optname, optval, '', optty)
+            self._options.append( Option(optname, optval, '', optty) )
     
     @property
     def name(self):

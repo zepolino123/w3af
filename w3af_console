@@ -15,8 +15,10 @@ def backToCurrentDir():
 gettext.install('w3af', 'locales/')
 
 # Now we can load all modules and stuff...
-from core.controllers.w3afException import w3afException
 import core.controllers.outputManager as om
+from core.controllers.profiling.cpu_usage import dump_cpu_usage
+from core.controllers.misc.get_w3af_version import get_w3af_version
+from core.controllers.w3afException import w3afException
 
 try:
     om.out.setOutputPlugins( ['console'] )
@@ -70,10 +72,9 @@ def usage():
 
 def main():
     try:
-        long_options = ['script=', 'help', 'test-all', 'no-update',
-                        'force-update', 'profile=', 'revision=',
-                        'profile-run']
-        opts, args = getopt.getopt(sys.argv[1:], "ehts:nfpP:r:", long_options)
+        long_options = ['script=', 'help', 'version', 'test-all', 'no-update',
+                        'force-update', 'profile=', 'revision=', 'profile-run']
+        opts, args = getopt.getopt(sys.argv[1:], "ehvts:nfpP:r:", long_options)
     except getopt.GetoptError, e:
         # print help information and exit:
         usage()
@@ -105,6 +106,9 @@ def main():
             profile = a
         if o in ('-h', '--help'):
             usage()
+            return 0
+        if o in ('-v', '--version'):
+            print get_w3af_version()
             return 0
         if o in ('-f', '--force-update'):
             doupdate = True
@@ -152,4 +156,6 @@ def main():
 if __name__ == "__main__":
     errCode = main()
     backToCurrentDir()
+    dump_cpu_usage()
     sys.exit(errCode)
+    

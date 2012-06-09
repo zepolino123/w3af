@@ -57,19 +57,8 @@ else:
 if sys.platform == "win32":
     gtk.rc_add_default_file('%USERPROFILE%/.gtkrc-2.0')
 
-# splash!
-from core.ui.gtkUi.splash import Splash
-splash = Splash()
 
-try:
-    import sqlite3
-except ImportError:
-    # TODO: Why am I checking this here and not in the dependencyCheck?
-    msg = 'You have to install the sqlite3 database module to be able to run the GTK user'
-    msg += ' interface. On debian based distributions you should install: python-pysqlite2'
-    print msg
-    sys.exit( 1 )
-
+import sqlite3
 import threading, shelve, os
 from core.controllers.w3afCore import wCore
 import core.controllers.miscSettings
@@ -81,6 +70,7 @@ from . import scanrun, exploittab, helpers, profiles, craftedRequests, compare, 
 from . import export_request
 from . import entries, encdec, messages, logtab, pluginconfig, confpanel
 from . import wizard, guardian, proxywin
+from core.ui.gtkUi.splash import Splash
 
 from core.controllers.misc.homeDir import get_home_dir
 from core.controllers.misc.get_w3af_version import get_w3af_version
@@ -306,6 +296,10 @@ class MainApp(object):
     '''
 
     def __init__(self, profile, do_upd):
+        # First of all, create the nice splash screen so we can show something
+        # to the user while all the hard work is done on the background
+        splash = Splash()
+        
         # Create a new window
         self.window = gtk.Window(gtk.WINDOW_TOPLEVEL)
         self.window.set_icon_from_file(W3AF_ICON)
@@ -608,12 +602,12 @@ class MainApp(object):
         @return: True if all went ok
         '''
         # Clear everything
-        for ptype in self.w3af.getPluginTypes():
-            self.w3af.setPlugins([], ptype)
+        for ptype in self.w3af.plugins.getPluginTypes():
+            self.w3af.plugins.setPlugins([], ptype)
         
         # save the activated plugins
         for ptype,plugins in self.pcbody.getActivatedPlugins():
-            self.w3af.setPlugins(plugins, ptype)
+            self.w3af.plugins.setPlugins(plugins, ptype)
 
         # save the URL, the rest of the options are saved in the "Advanced" dialog
         options = self.w3af.target.getOptions()
@@ -639,12 +633,15 @@ class MainApp(object):
 
         @param widget: the widget that generated the signal.
         '''
+        # This is inited before all, to have a full logging facility.
+        om.out.setOutputPlugins( ['gtkOutput'] )
+
         if not self.saveStateToCore():
             return
         
         # Verify that everything is ready to run
         try:
-            helpers.coreWrap(self.w3af.initPlugins)
+            helpers.coreWrap(self.w3af.plugins.init_plugins)
             helpers.coreWrap(self.w3af.verifyEnvironment)
         except w3afException:
             return
@@ -662,8 +659,8 @@ class MainApp(object):
                     # Return a pretty-printed string from the plugins dicts
                     import copy
                     from itertools import chain
-                    plugs_opts = copy.deepcopy(self.w3af._pluginsOptions)
-                    plugs = self.w3af._strPlugins
+                    plugs_opts = copy.deepcopy(self.w3af.plugins.getAllPluginOptions())
+                    plugs = self.w3af.plugins.getAllEnabledPlugins()
 
                     for ptype, plist in plugs.iteritems():
                         for p in plist:
@@ -764,7 +761,7 @@ class MainApp(object):
         self.scanShould = "start"
         self.window.set_title(MAINTITLE)
         
-        # This is inited before all, to have a full logging facility.
+        # This is done here in order to keep the logging facility.
         om.out.setOutputPlugins( ['gtkOutput'] )
 
     def _scan_superviseStatus(self):
@@ -772,7 +769,7 @@ class MainApp(object):
 
         @return: True to be called again
         '''
-        if self.w3af.isRunning():
+        if self.w3af.status.is_running():
             return True
 
         if self.paused:

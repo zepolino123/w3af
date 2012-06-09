@@ -25,10 +25,11 @@ import re
 
 from core.controllers.basePlugin.baseDiscoveryPlugin import baseDiscoveryPlugin
 from core.controllers.coreHelpers.fingerprint_404 import is_404
-from core.controllers.w3afException import w3afException, \
-    w3afMustStopOnUrlError
+from core.controllers.w3afException import w3afException, w3afMustStopOnUrlError
+from core.controllers.misc.itertools_toolset import unique_justseen
 from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
 from core.data.db.temp_shelve import temp_shelve as temp_shelve
+from core.data.db.disk_set import disk_set
 from core.data.fuzzer.formFiller import smartFill
 from core.data.options.option import option
 from core.data.options.optionList import optionList
@@ -40,7 +41,7 @@ import core.data.kb.config as cf
 import core.data.parsers.dpCache as dpCache
 
 IS_EQUAL_RATIO = 0.90
-MAX_VARIANTS = 40
+MAX_VARIANTS = 5
 
 
 class webSpider(baseDiscoveryPlugin):
@@ -56,8 +57,8 @@ class webSpider(baseDiscoveryPlugin):
         # Internal variables
         self._compiled_ignore_re = None
         self._compiled_follow_re = None
-        self._brokenLinks = []
-        self._fuzzable_reqs = set()
+        self._broken_links = disk_set()
+        self._fuzzable_reqs = disk_set()
         self._first_run = True
         self._known_variants = variant_db()
         self._already_filled_form = scalable_bloomfilter()
@@ -83,45 +84,36 @@ class webSpider(baseDiscoveryPlugin):
             # the "onlyForward" feature
             self._first_run = False
             self._target_urls = [i.getDomainPath() for i in cf.cf.getData('targets')]
-            self._target_domain = cf.cf.getData('targets')[0].getDomain()
-        
-        # If its a form, then smartFill the Dc.
-        if isinstance(fuzzable_req, HttpPostDataRequest):
             
-            # TODO: !!!!!!
-            if fuzzable_req.getURL() in self._already_filled_form:
+            #    The following line triggered lots of bugs when the "stop" button
+            #    was pressed and the core did this: "cf.cf.save('targets', [])"
+            #self._target_domain = cf.cf.getData('targets')[0].getDomain()
+            #    Changing it to something awful but bug-free.
+            targets = cf.cf.getData('targets')
+            if not targets:
                 return []
-            
-            self._already_filled_form.add(fuzzable_req.getURL())
-            
-            to_send = fuzzable_req.getDc().copy()
-            
-            for param_name in to_send:
-                
-                # I do not want to mess with the "static" fields
-                if isinstance(to_send, form.Form):
-                    if to_send.getType(param_name) in ('checkbox', 'file',
-                                                       'radio', 'select'):
-                        continue
-                
-                # Set all the other fields, except from the ones that have a
-                # value set (example: hidden fields like __VIEWSTATE).
-                for elem_index in xrange(len(to_send[param_name])):
-                    
-                    # Should I ignore it because it already has a value?
-                    if to_send[param_name][elem_index] != '':
-                        continue
-                    
-                    # SmartFill it!
-                    to_send[param_name][elem_index] = smartFill(param_name)
-                    
-            fuzzable_req.setDc(to_send)
+            else:
+                self._target_domain = targets[0].getDomain()
 
+        # Clear the previously found fuzzable requests,
         self._fuzzable_reqs.clear()
 
+        #
+        # If it is a form, then smartFill the parameters to send something that
+        # makes sense and will allow us to cover more code.
+        #
+        if isinstance(fuzzable_req, HttpPostDataRequest):
+            
+            if fuzzable_req.getURL() in self._already_filled_form:
+                return []
+
+            fuzzable_req = self._fill_form(fuzzable_req)            
+
+        # Send the HTTP request,
         resp = self._sendMutant(fuzzable_req, analyze=False,
                                 follow_redir=False)
-        
+
+        # Nothing to do here...        
         if resp.getCode() == 401:
             return []
 
@@ -132,6 +124,12 @@ class webSpider(baseDiscoveryPlugin):
                                              )
         self._fuzzable_reqs.update(fuzz_req_list)
 
+        self._extract_links_and_verify(resp, fuzzable_req)
+        
+        return self._fuzzable_reqs
+
+
+    def _extract_links_and_verify(self, resp, fuzzable_req):
         #
         # Note: I WANT to follow links that are in the 404 page.
         #
@@ -166,14 +164,10 @@ class webSpider(baseDiscoveryPlugin):
                 # http://localhost/
                 # And analyze the responses...
                 dirs = resp.getURL().getDirectories()
-                seen = set()
                 only_re_refs = set(re_refs) - set(dirs + parsed_refs)
                 
-                for ref in itertools.chain(dirs, parsed_refs, re_refs):
-                    
-                    if ref in seen:
-                        continue
-                    seen.add(ref)
+                for ref in unique_justseen(
+                               sorted( itertools.chain(dirs, parsed_refs, re_refs) )):
                     
                     # I don't want w3af sending requests to 3rd parties!
                     if ref.getDomain() != self._target_domain:
@@ -196,8 +190,37 @@ class webSpider(baseDiscoveryPlugin):
                         self._run_async(meth=self._verify_reference, args=args)
                 self._join()
         
-        return list(self._fuzzable_reqs)
-    
+
+    def _fill_form(self, fuzzable_req):
+        '''
+        Fill the HTTP request form that is passed as fuzzable_req.
+        @return: A filled form
+        '''
+        self._already_filled_form.add(fuzzable_req.getURL())
+        
+        to_send = fuzzable_req.getDc().copy()
+        
+        for param_name in to_send:
+            
+            # I do not want to mess with the "static" fields
+            if isinstance(to_send, form.Form):
+                if to_send.getType(param_name) in ('checkbox', 'file',
+                                                   'radio', 'select'):
+                    continue
+            
+            # Set all the other fields, except from the ones that have a
+            # value set (example: hidden fields like __VIEWSTATE).
+            for elem_index in xrange(len(to_send[param_name])):
+                
+                # TODO: Should I ignore it because it already has a value?
+                if to_send[param_name][elem_index] != '':
+                    continue
+                
+                # SmartFill it!
+                to_send[param_name][elem_index] = smartFill(param_name)
+                
+        fuzzable_req.setDc(to_send)
+        return fuzzable_req 
     
     def _need_more_variants(self, new_reference):
         '''
@@ -233,10 +256,8 @@ class webSpider(baseDiscoveryPlugin):
         This method GET's every new link and parses it in order to get
         new links and forms.
         '''
-        fuzz_req_list = []
         is_forward = self._is_forward(reference)
         if not self._only_forward or is_forward:
-            resp = None
             #
             # Remember that this "breaks" the useCache=True in most cases!
             #     headers = { 'Referer': originalURL }
@@ -255,6 +276,7 @@ class webSpider(baseDiscoveryPlugin):
             except w3afMustStopOnUrlError:
                 pass
             else:
+                fuzz_req_list = []
                 # Note: I WANT to follow links that are in the 404 page, but
                 # if the page I fetched is a 404 then it should be ignored.
                 if is_404(resp):
@@ -264,7 +286,7 @@ class webSpider(baseDiscoveryPlugin):
                                      request=original_request, add_self=False)
                     if not possibly_broken:
                         t = (resp.getURL(), original_request.getURI())
-                        self._brokenLinks.append(t)
+                        self._broken_links.add(t)
                 else:
                     om.out.debug('Adding relative reference "%s" '
                                  'to the result.' % reference)
@@ -280,15 +302,13 @@ class webSpider(baseDiscoveryPlugin):
         '''
         Called when the process ends, prints out the list of broken links.
         '''
-        if len(self._brokenLinks):
-            reported = []
+        if len(self._broken_links):
+            
             om.out.information('The following is a list of broken links that '
                                'were found by the webSpider plugin:')
-            for broken, where in self._brokenLinks:
-                if (broken, where) not in reported:
-                    reported.append((broken, where))
-                    om.out.information('- %s [ referenced from: %s ]' %
-                                       (broken, where))
+            for broken, where in unique_justseen(self._broken_links.ordered_iter()):
+                om.out.information('- %s [ referenced from: %s ]' %
+                                   (broken, where))
     
     def _is_forward(self, reference):
         '''
@@ -427,7 +447,10 @@ class variant_db(object):
         that they can be compared very simply using string match.
 
         >>> from core.data.parsers.urlParser import url_object
+        >>> from core.controllers.misc.temp_dir import create_temp_dir
+        >>> _ = create_temp_dir()
         >>> URL = url_object
+        
         >>> vdb = variant_db()
         
         >>> vdb._clean_reference(URL('http://w3af.org/'))
@@ -447,7 +470,7 @@ class variant_db(object):
         if reference.hasQueryString():
             
             res += '?'
-            qs = reference.querystring
+            qs = reference.querystring.copy()
             
             for key in qs:
                 value_list = qs[key]
