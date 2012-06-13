@@ -58,6 +58,7 @@ class miscSettings(configurable):
             cf.cf.save('fuzzURLParts', False )
             cf.cf.save('fuzzFCExt', 'txt' )
             cf.cf.save('fuzzFormComboValues', 'tmb')
+            cf.cf.save('fuzzRepeatedParameters', 'tmb')
             cf.cf.save('autoDependencies', True )
             cf.cf.save('maxDiscoveryTime', 120 )
             cf.cf.save('maxThreads', 15 )
@@ -124,7 +125,12 @@ class miscSettings(configurable):
         h14 += ' values), t (top values), b (bottom values)'
         o14 = option('fuzzFormComboValues', cf.cf.getData('fuzzFormComboValues'), d14, 'string',
                             help=h14, tabid='Fuzzer parameters')
-
+        d17 = 'Indicates what repeated parameters values w3af plugins will use: all, tb, tmb, t, b'
+        h17 = 'Indicates what repeated parameters values,  w3af plugins will'
+        h17 += ' use: all (All values), tb (only top and bottom values), tmb (top, middle and bottom'
+        h17 += ' values), t (top values), b (bottom values)'
+        o17 = option('fuzzRepeatedParameters', cf.cf.getData('fuzzRepeatedParameters'), d17, 'string',
+                            help=h17, tabid='Fuzzer parameters')
         ######## Core parameters ########
         d6 = 'Automatic dependency enabling for plugins'
         h6 = 'If autoDependencies is enabled, and pluginA depends on pluginB that wasn\'t enabled,'
@@ -181,6 +187,7 @@ class miscSettings(configurable):
         ol.add(o14)
         ol.add(o15)
         ol.add(o16)
+        ol.add(o17)
         return ol
     
     def getDesc( self ):
@@ -200,6 +207,7 @@ class miscSettings(configurable):
         cf.cf.save('fuzzURLParts', optionsMap['fuzzURLParts'].getValue() )
         cf.cf.save('fuzzFCExt', optionsMap['fuzzFCExt'].getValue() )
         cf.cf.save('fuzzFormComboValues', optionsMap['fuzzFormComboValues'].getValue() )
+        cf.cf.save('fuzzRepeatedParameters', optionsMap['fuzzRepeatedParameters'].getValue() )
         cf.cf.save('autoDependencies', optionsMap['autoDependencies'].getValue() )
         cf.cf.save('maxDiscoveryTime', optionsMap['maxDiscoveryTime'].getValue() )
         

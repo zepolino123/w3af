@@ -1,0 +1,23 @@
+plugins
+audit xss
+output console
+output config console
+set verbose False
+back
+output textFile
+output config textFile
+set fileName output.txt
+set httpFileName http-output.txt
+back
+back
+
+misc-settings
+set fuzzRepeatedParameters tmb
+back
+
+target
+set target http://moth/w3af/audit/repeated_params/qs_repeat.php?a=1&a=2&a=3&a=4
+back
+start
+assert len( kb.kb.getData('xss', 'xss') ) == 3
+exit
