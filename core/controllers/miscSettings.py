@@ -126,9 +126,11 @@ class miscSettings(configurable):
         o14 = option('fuzzFormComboValues', cf.cf.getData('fuzzFormComboValues'), d14, 'string',
                             help=h14, tabid='Fuzzer parameters')
         d17 = 'Indicates what repeated parameters values w3af plugins will use: all, tb, tmb, t, b'
-        h17 = 'Indicates what repeated parameters values,  w3af plugins will'
-        h17 += ' use: all (All values), tb (only top and bottom values), tmb (top, middle and bottom'
+        h17 = 'Indicates what repeated parameters values w3af plugins will use for fuzzing:'
+        h17 += ' all (all values), tb (only top and bottom values), tmb (top, middle and bottom'
         h17 += ' values), t (top values), b (bottom values)'
+        h17 += 'For example, in case of http://example.com/test.php?a=1&a=2&a=3&a=4&a=5 '
+        h17 += 'and fuzzRepeatedParameters=tmb w3af will use first, middle and last items for fuzzing'
         o17 = option('fuzzRepeatedParameters', cf.cf.getData('fuzzRepeatedParameters'), d17, 'string',
                             help=h17, tabid='Fuzzer parameters')
         ######## Core parameters ########
