@@ -308,6 +308,9 @@ class FuzzableRequest(RequestMixIn, DiskItem):
             om.out.error(error_str)
             raise w3afException(error_str)
 
+    def get_domain(self):
+        return self._url.get_domain()
+
     def get_url(self):
         return self._url
 

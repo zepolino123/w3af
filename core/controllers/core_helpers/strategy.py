@@ -220,8 +220,7 @@ class w3af_core_strategy(object):
                     # don't want to do anything with this data
                     fmt = '%s is returning objects of class %s instead of FuzzableRequest.'
                     msg = fmt % (url_producer, type(fuzzable_request_inst))
-                    assert isinstance(
-                        fuzzable_request_inst, FuzzableRequest), msg
+                    assert isinstance(fuzzable_request_inst, FuzzableRequest), msg
 
                     for url_consumer in output:
                         url_consumer.in_queue_put(fuzzable_request_inst)

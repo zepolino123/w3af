@@ -61,6 +61,7 @@ class crawl_infrastructure(BaseConsumer):
         self._disabled_plugins = set()
         self._running = True
         self._report_max_time = True
+        self._target_domains = None
 
     def run(self):
         '''
@@ -161,7 +162,8 @@ class crawl_infrastructure(BaseConsumer):
                 # The plugin has finished and now we need to analyze which of
                 # the returned fuzzable_request_list are new and should be put in the
                 # input_queue again.
-                if self._is_new_fuzzable_request(plugin, fuzzable_request):
+                if self._in_target_domain(fuzzable_request) and \
+                self._is_new_fuzzable_request(plugin, fuzzable_request):
 
                     # Update the list / set that lives in the KB
                     kb.kb.add_fuzzable_request(fuzzable_request)
@@ -278,6 +280,18 @@ class crawl_infrastructure(BaseConsumer):
 
                 break
 
+    def _in_target_domain(self, fuzzable_request):
+        '''
+        :return: Is the fuzzable request domain in the configured targets?
+        '''
+        if self._target_domains is None:
+            self._target_domains = cf.cf.get('target_domains')
+            
+        if fuzzable_request.get_domain() in self._target_domains:
+            return True
+        
+        return False
+
     def _is_new_fuzzable_request(self, plugin, fuzzable_request):
         '''
         :param plugin: The plugin that found these fuzzable requests
@@ -286,17 +300,11 @@ class crawl_infrastructure(BaseConsumer):
 
         :return: True if @FuzzableRequest is new (never seen before).
         '''
-        base_urls_cf = cf.cf.get('baseURLs')
-
         fr_uri = fuzzable_request.get_uri()
         # No need to care about fragments
         # (http://a.com/foo.php#frag). Remove them
         fuzzable_request.set_uri(fr_uri.remove_fragment())
 
-        # Is the "new" fuzzable request domain in the configured targets?
-        if fr_uri.base_url() not in base_urls_cf:
-            return False
-        
         if fr_uri in self._already_seen_urls:
             return False
         
